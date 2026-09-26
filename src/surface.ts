@@ -84,15 +84,15 @@ export class ConnectedSurface {
             float glint=sin(poolLocal.x*13.+time*.55+seed*6.28);
             if(pool<-.045&&poolLocal.y<-.045&&glint>.82)c=vec3(.639,.871,.843);
             if(hot&&coal<.025){
-              // A sand-colored halo and warm amber facets: no dark outline.
+              // The ember itself carries the contrast: terracotta body,
+              // amber lit face, and a small gold fissure. No dark perimeter.
               c=vec3(217.,180.,125.)/255.;
-              if(coal<0.)c=vec3(230.,163.,95.)/255.;
-              if(coal<-.025&&emberLocal.x+emberLocal.y*.6>.0)c=vec3(.973,.549,.212);
-              // Thin gold fissures and a lit upper face, softly breathing at
-              // different phases per cluster rather than blinking together.
+              if(coal<0.)c=vec3(.733,.282,.176);
+              if(coal<-.014&&emberLocal.x+emberLocal.y*.6>-.025)c=vec3(.973,.549,.212);
+              if(coal<-.045&&emberLocal.x+emberLocal.y*.6>.04)c=vec3(230.,163.,95.)/255.;
               float heat=.5+.5*sin(time*1.2+emberSeed*6.28);
               float fissure=abs(emberLocal.x*.7+emberLocal.y+.018*sin(emberLocal.x*32.));
-              if(coal<-.018&&(fissure<.012+heat*.009||emberLocal.y<-.075))c=vec3(255.,210.,139.)/255.;
+              if(coal<-.025&&(fissure<.010+heat*.008||emberLocal.y<-.085))c=vec3(255.,210.,139.)/255.;
             }
             gl_FragColor=vec4(pow((c+.055)/1.055,vec3(2.4)),1.);
             #include <colorspace_fragment>
