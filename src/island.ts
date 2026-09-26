@@ -30,35 +30,6 @@ export function sandTexture(units = 16) {
     }
   });
 }
-export function waterTexture(lava = false) {
-  const size = 8 * PIXELS_PER_UNIT;
-  return pixelTexture(size, ctx => {
-    const rng=random(lava ? 122 : 314);
-    ctx.fillStyle=lava ? '#bd3e14' : '#168fb4';ctx.fillRect(0,0,size,size);
-    // Periodic cellular caustics: seamless, nearest-filtered, not a photo.
-    const cells=8, step=size/cells;
-    const points=Array.from({length:cells*cells},(_,i)=>[(i%cells+.2+rng()*.6)*step,(Math.floor(i/cells)+.2+rng()*.6)*step]);
-    const data=ctx.getImageData(0,0,size,size);
-    for(let y=0;y<size;y++)for(let x=0;x<size;x++) {
-      let first=Infinity,second=Infinity;
-      const frequency=Math.PI*2/size;
-      const wx=(x+(lava?0:5)*Math.sin(y*frequency*3)+size)%size;
-      const wy=(y+(lava?0:4)*Math.sin(x*frequency*4)+size)%size;
-      const gx=Math.floor(wx/step),gy=Math.floor(wy/step);
-      for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++) {
-        const ix=(gx+ox+cells)%cells,iy=(gy+oy+cells)%cells;
-        const p=points[iy*cells+ix];let dx=Math.abs(wx-p[0]),dy=Math.abs(wy-p[1]);dx=Math.min(dx,size-dx);dy=Math.min(dy,size-dy);
-        const d=dx*dx+dy*dy;if(d<first){second=first;first=d;}else if(d<second)second=d;
-      }
-      const edge=Math.sqrt(second)-Math.sqrt(first);
-      const shimmer=Math.sin(x*.035+y*.03)*.5+.5;
-      const palette=lava ? [[145,42,20],[190,54,17],[229,79,15],[255,153,31],[255,213,94]] : [[24,129,182],[27,136,186],[32,144,190],[48,155,196],[84,178,210]];
-      const index=edge<.6 ? 4 : edge<1.5 ? 3 : edge<3 ? 2 : shimmer>.55 ? 1 : 0;
-      const c=palette[index],i=(y*size+x)*4;data.data[i]=c[0];data.data[i+1]=c[1];data.data[i+2]=c[2];data.data[i+3]=255;
-    }
-    ctx.putImageData(data,0,0);
-  });
-}
 const coast = (angle: number) => {
   const c=Math.cos(angle),s=Math.sin(angle);
   const radius=9.25/Math.max(Math.abs(c),Math.abs(s));
@@ -99,12 +70,32 @@ function palm(x:number,z:number,scale:number,rotation:number) {
 }
 export function createIsland() {
   const group=new T.Group();group.name='island-scenery';
-  const oceanMap=waterTexture();oceanMap.repeat.set(16,16);
-  const ocean=new T.Mesh(new T.PlaneGeometry(128,128),new T.MeshBasicMaterial({map:oceanMap,color:'#ffffff'}));ocean.rotation.x=-Math.PI/2;ocean.position.y=-.8;group.add(ocean);
+  const oceanMaterial=new T.ShaderMaterial({
+    uniforms:{time:{value:0}},
+    vertexShader:'varying vec2 world;void main(){vec4 p=modelMatrix*vec4(position,1.);world=p.xz;gl_Position=projectionMatrix*viewMatrix*p;}',
+    fragmentShader:`precision highp float;varying vec2 world;uniform float time;
+    float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    void main(){vec2 p=floor(world*32.)/32.;
+      float wave=sin(p.x*.9+p.y*1.4+time*.3)+sin(p.y*2.2-p.x*.4-time*.25);
+      vec3 c=wave>1.25?vec3(.18,.60,.75):vec3(.14,.54,.70);
+      float ripple=sin(p.y*10.+sin(p.x*2.+time*.3)*1.4-time*.65);
+      if(ripple>.975&&hash(vec2(floor(p.x*2.),floor(p.y*4.)))>.72)c=vec3(.23,.59,.72);
+      vec2 q=mod(p+vec2(time*.025,0.),2.);float spark=step(q.y,.03125)*step(q.x,.25);
+      if(spark>.5&&hash(floor(p/2.))>.87)c=vec3(.58,.83,.83);
+      gl_FragColor=vec4(pow(c,vec3(2.2)),1.);
+      #include <colorspace_fragment>
+    }`,
+  });
+  const ocean=new T.Mesh(new T.PlaneGeometry(128,128),oceanMaterial);ocean.rotation.x=-Math.PI/2;ocean.position.y=-.8;group.add(ocean);
+  group.userData.animate=(time:number)=>{oceanMaterial.uniforms.time.value=time;};
   // Shallow water, then wet sand, then the dry beach; irregular polygonal shores.
   group.add(shoreBand(1.07,1.34,-.70,-.77,'#35a9bc','#36aebf'));
   group.add(shoreBand(1.015,1.14,-.49,-.69,'#77c5bc','#82cac0'));
-  group.add(shoreBand(.995,1.025,-.40,-.47,'#d9eee0','#bce4d5'));
+  const surf=shoreBand(.995,1.025,-.40,-.47,'#d9eee0','#bce4d5');group.add(surf);
+  group.userData.animate=(time:number)=>{
+    oceanMaterial.uniforms.time.value=time;
+    const pulse=1+Math.round(Math.sin(time*.75)*3)/1000;surf.scale.set(pulse,1,pulse);
+  };
   group.add(shoreBand(.965,1.0,-.18,-.39,'#d8c18c','#c9b885'));
   group.add(shoreBand(.90,.967,-.08,-.17,'#ead099','#e4c58c'));
   // Pixel-sized foam flecks break up the shoreline without covering the grid.

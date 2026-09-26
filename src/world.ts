@@ -2,13 +2,23 @@ import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
 import { SIZE, footprint, type Piece } from './game';
 import { createTile, disposeGroup } from './tiles';
-import { createIsland } from './island';
+import { createIsland, rock } from './island';
+import { ConnectedSurface } from './surface';
+import { Effects } from './effects';
+import { PixelRenderer } from './pixel-renderer';
 
 export class World {
   readonly scene = new THREE.Scene();
   // Same lens and fixed viewing angle as Diggy Splash.
   readonly camera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
-  readonly renderer = new THREE.WebGLRenderer({ antialias: true });
+  readonly renderer = new THREE.WebGLRenderer({ antialias: false });
+  private readonly surface = new ConnectedSurface();
+  private readonly effects = new Effects();
+  private readonly pixels = new PixelRenderer();
+  private frame = 0;
+  private previousTime = 0;
+  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  private island: THREE.Group;
   private preview: THREE.Group | null = null;
   private previewKey = "";
   private readonly raycaster = new THREE.Raycaster();
@@ -17,6 +27,8 @@ export class World {
   constructor(private readonly host: HTMLElement) {
     this.scene.background = new THREE.Color('#168eac');
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.scene.add(new THREE.HemisphereLight('#fff6da', '#538b94', 1.45));
     const sun = new THREE.DirectionalLight('#fff3d6', 1.65);
@@ -24,14 +36,30 @@ export class World {
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 60 });
     sun.shadow.normalBias = .035; sun.shadow.bias = -.0001;
-    this.scene.add(sun, createIsland());
+    this.island = createIsland();
+    this.scene.add(sun, this.island, this.surface.mesh, this.effects.group);
     this.scene.add(createMap());
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     host.append(this.renderer.domElement);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(host);
     this.resize();
+    this.frame = requestAnimationFrame(this.animate);
   }
+
+  private animate = (ms: number) => {
+    this.frame = requestAnimationFrame(this.animate);
+    if (document.hidden || ms-this.previousTime < 1000/30) return;
+    const dt=Math.min((ms-this.previousTime)/1000,.05);this.previousTime=ms;
+    const time=this.reducedMotion.matches?0:ms/1000;
+    this.surface.update(time);
+    if (!this.reducedMotion.matches) {
+      this.effects.update(dt);
+      const update=this.island.userData.animate as ((time:number)=>void)|undefined;
+      update?.(time);
+    }
+    this.render();
+  };
 
   cellAt(clientX: number, clientY: number): number | null {
     const rect = this.host.getBoundingClientRect();
@@ -59,15 +87,22 @@ export class World {
   }
 
   addStone(cell: number) {
-    const mesh = createTile('stone');
-    mesh.position.x = gridWorld(cell % SIZE);
-    mesh.position.z = gridWorld(Math.floor(cell / SIZE));
-    this.scene.add(mesh);
+    this.surface.set(cell,'stone');
+    const group=new THREE.Group();group.position.set(gridWorld(cell%8),.07,gridWorld(Math.floor(cell/8)));
+    for(const [x,z,size] of [[-.25,.1,.64],[.40,.25,.35],[.1,-.4,.36]]) {
+      const boulder=rock('#bca471',cell+Math.round(size*100));boulder.scale.set(size,size*.85,size);boulder.position.set(x,size*.35,z);group.add(boulder);
+    }
+    this.scene.add(group);
+    this.renderer.shadowMap.needsUpdate = true;
+    if(!this.reducedMotion.matches)this.effects.burst(cell,'stone');
     this.render();
   }
 
   addPiece(cell: number, piece: Piece) {
-    this.scene.add(this.pieceMesh(cell, piece));
+    for(const [x,y] of footprint(piece,cell)) {
+      const index=y*8+x;this.surface.set(index,piece.tile);
+      if(!this.reducedMotion.matches)this.effects.burst(index,piece.tile);
+    }
     this.render();
   }
 
@@ -84,12 +119,12 @@ export class World {
     this.render();
   }
 
-  private render() { this.renderer.render(this.scene, this.camera); }
+  private render() { this.pixels.render(this.renderer, this.scene, this.camera); }
 
   private resize() {
     const { width, height } = this.host.getBoundingClientRect();
     if (!width || !height) return;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(1);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.zoom = 1;
@@ -128,10 +163,17 @@ export class World {
       (1 - 24 / height) / Math.max(...points.map(p => Math.abs(p.y))),
     );
     this.camera.updateProjectionMatrix();
-    this.renderer.render(this.scene, this.camera);
+    const left=new THREE.Vector3(-8,0,0).project(this.camera);
+    const right=new THREE.Vector3(8,0,0).project(this.camera);
+    this.pixels.resize(width,height,(right.x-left.x)*width/2);
+    this.render();
   }
 
   dispose() {
+    cancelAnimationFrame(this.frame);
+    this.pixels.dispose();
+    this.effects.dispose();
+    this.surface.texture.dispose();
     this.observer.disconnect();
     this.scene.traverse(object => {
       if (object instanceof THREE.Mesh) object.geometry.dispose();

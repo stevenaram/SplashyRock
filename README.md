@@ -34,4 +34,10 @@ An empty cell sharing an edge with at least one water tile and one lava tile bec
 
 The original camera, grid coordinates, framing, and responsive tray layout are preserved. A procedural sandy island sits under the grid, surrounded by a polygonal beach, wet sand, foam, turquoise shallows, and blue ocean. Palms, shells, and beach rocks are decorative and stay outside the playable footprint. Placed pieces use textured water, glowing-colored lava fissures, and faceted stone clusters.
 
-`src/island.ts` generates the low-poly scenery and pixel textures at 32 texels per world unit, using nearest filtering and deterministic seeds. No external image assets or additional dependencies are required. The scene renders on demand rather than running a continuous animation loop.
+`src/island.ts` generates the low-poly scenery and pixel textures at 32 texels per world unit, using nearest filtering and deterministic seeds. No external image assets or additional dependencies are required. A capped 30 fps animation loop drives water, lava, shoreline motion, ripples, splashes, and steam; it pauses while the page is hidden and respects reduced-motion preferences. Static shadows are refreshed only when needed.
+
+## Connected pixel surfaces
+
+Water and lava connect across same-element cell boundaries, including pieces placed in separate turns. A single world-aligned surface shader removes internal borders and animates continuous pools at 32 texels per world unit. Lava and water remain distinct; their shared empty neighbors still turn to stone after 500 ms.
+
+The entire Three.js scene is rendered through a nearest-neighbor pixel pass calibrated to 512 logical pixels across the 16-unit board (capped at the screen's resolution), then mapped to a fixed 34-color palette. This applies to geometry, lighting, shadows, particles, and textures. Placement adds short pixel splashes and ripples; stone formation adds a small steam puff. No effects appear in the placement forecast.
