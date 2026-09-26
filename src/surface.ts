@@ -46,11 +46,27 @@ export class ConnectedSurface {
                 coal=min(coal,max(d.x,d.y*.85)+min(d.x,d.y)*.28);
               }
             }
-            if(!wet&&coal>.105)discard;
-            vec3 base=vec3(196.,182.,142.)/255.;
-            vec3 highlight=vec3(206.,192.,154.)/255.;
-            vec3 c=noise(p*1.8)>.72?highlight:base;
-            if(hash(floor(p*32.))>.997)c=highlight;
+            // Small irregular depressions hold shallow water, leaving the
+            // original beach visible everywhere between the tidepools.
+            float pool=10.;
+            if(wet){
+              for(int i=0;i<3;i++){
+                float n=float(i);
+                vec2 center=i==0?vec2(.48,.48):i==1?vec2(1.43,.72):vec2(.83,1.48);
+                center+=(vec2(hash(cell+n+4.),hash(cell+n+19.))-.5)*.22;
+                vec2 d=f-center;
+                float radius=.19+hash(cell+n+37.)*.06;
+                float basin=length(d*vec2(.85,1.2))-radius+(noise(p*9.)-.5)*.045;
+                pool=min(pool,basin);
+              }
+            }
+            if(pool>.035&&coal>.105)discard;
+            vec3 c=vec3(196.,182.,142.)/255.; // damp sand at the lip
+            if(pool<0.)c=vec3(.447,.788,.812);
+            if(pool<-.055)c=vec3(.290,.682,.784);
+            // Restrained reflected light, with a slowly moving pixel glint.
+            float glint=sin(p.y*23.+sin(p.x*8.)+time*.65);
+            if(pool<-.025&&glint>.94)c=vec3(.639,.871,.843);
             if(hot&&coal<.105){
               c=vec3(.40,.325,.278); // charcoal nestled into the sand
               if(coal<.067)c=vec3(.733,.282,.176);
