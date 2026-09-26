@@ -17,8 +17,35 @@ export class Game {
   lastClear: Element | null = null;
   boardRevision = 0;
   pendingStoneLines: number[] = [];
+  score = 0;
+  over = false;
+  readonly versions: number[] = Array(64).fill(0);
   constructor(private readonly random: () => number = Math.random) {
     this.inventory = this.deal();
+  }
+  private write(cell: number, tile: Tile | null) {
+    if (this.board[cell] !== tile) { this.board[cell] = tile; this.versions[cell]++; }
+  }
+  neighbors(cell: number): number[] {
+    const x=cell%SIZE,y=Math.floor(cell/SIZE);
+    return [[x-1,y],[x+1,y],[x,y-1],[x,y+1]].filter(([x,y])=>x>=0&&x<SIZE&&y>=0&&y<SIZE).map(([x,y])=>y*SIZE+x);
+  }
+  clearCells(cells: readonly number[]): number[] {
+    const removed: number[]=[];
+    for(const cell of new Set(cells)) if(this.board[cell]!==null){this.write(cell,null);removed.push(cell);}
+    this.score+=removed.length*10;
+    return removed;
+  }
+  hasLegalMove(): boolean {
+    return this.inventory.some(piece=>piece!==null&&this.board.some((_,cell)=>this.canPlace(piece,cell)));
+  }
+  finishIfBlocked(pending: boolean): boolean {
+    if(!pending&&!this.hasLegalMove())this.over=true;
+    return this.over;
+  }
+  restart() {
+    this.board.fill(null);this.versions.fill(0);this.boardRevision++;this.lastClear=null;
+    this.pendingStoneLines=[];this.score=0;this.over=false;this.inventory=this.deal();
   }
   private deal(): Piece[] {
     const majority: Element = this.random() < .5 ? 'water' : 'lava';
@@ -35,7 +62,8 @@ export class Game {
     if (!full) return;
     const opposite = element === 'water' ? 'lava' : 'water';
     // Preserve old stone and petrify the opposite element from one snapshot.
-    for (let cell = 0; cell < this.board.length; cell++) this.board[cell] = this.board[cell] === opposite || this.board[cell] === 'stone' ? 'stone' : null;
+    for (let cell = 0; cell < this.board.length; cell++) this.write(cell, this.board[cell] === opposite || this.board[cell] === 'stone' ? 'stone' : null);
+    this.score += 100;
     this.lastClear = element;
     this.boardRevision++;
     this.clearStoneLines();
@@ -52,7 +80,7 @@ export class Game {
   }
   removeStoneCells(cells: readonly number[]): number[] {
     const removed: number[] = [];
-    for (const cell of cells) if (this.board[cell] === 'stone') { this.board[cell] = null; removed.push(cell); }
+    for (const cell of cells) if (this.board[cell] === 'stone') { this.write(cell, null); removed.push(cell); }
     this.pendingStoneLines = this.pendingStoneLines.filter(cell => this.board[cell] === 'stone');
     return removed;
   }
@@ -80,7 +108,8 @@ export class Game {
   formStone(cell: number): boolean {
     this.pendingStoneLines = [];
     if (!this.canFormStone(cell)) return false;
-    this.board[cell] = 'stone';
+    this.write(cell, 'stone');
+    this.score += 20;
     this.clearStoneLines();
     return true;
   }
@@ -88,8 +117,9 @@ export class Game {
     this.lastClear = null;
     this.pendingStoneLines = [];
     const piece = this.inventory[slot];
-    if (!piece || !this.canPlace(piece, anchor)) return false;
-    for (const [x, y] of footprint(piece, anchor)) this.board[y * SIZE + x] = piece.tile;
+    if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
+    for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
+    this.score += piece.shape.cells.length;
     this.clearCompletedLines(piece.tile);
     this.inventory[slot] = null;
     if (this.inventory.every(item => item === null)) this.inventory = this.deal();

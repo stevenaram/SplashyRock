@@ -96,6 +96,7 @@ export class World {
     for(const [x,z,size] of [[-.25,.1,.64],[.40,.25,.35],[.1,-.4,.36]]) {
       const boulder=rock('#bca471',cell+Math.round(size*100));boulder.scale.set(size,size*.85,size);boulder.position.set(x,size*.35,z);group.add(boulder);
     }
+    group.userData.cell=cell;
     this.stones.add(group);
     if(animate&&!this.reducedMotion.matches){group.scale.y=.05;this.arrivals.push({group,age:0});}
     this.renderer.shadowMap.needsUpdate = true;
@@ -103,7 +104,7 @@ export class World {
     if(animate)this.render();
   }
 
-  syncBoard(board: readonly (Tile | null)[]) {
+  syncBoard(board: readonly (Tile | null)[], animate = true) {
     const before=[...this.surface.board];
     for (const group of [...this.stones.children]) disposeGroup(group as THREE.Group);
     this.arrivals=[];
@@ -112,14 +113,27 @@ export class World {
       this.surface.set(cell, tile);
       if (tile === 'stone') {
         this.addStone(cell, false);
-        if(before[cell]!=='stone'&&!this.reducedMotion.matches){
+        if(animate&&before[cell]!=='stone'&&!this.reducedMotion.matches){
           const group=this.stones.children[this.stones.children.length-1] as THREE.Group;
           group.scale.y=.05;this.arrivals.push({group,age:0});this.effects.burst(cell,'stone');
         }
       }
-      if(before[cell] && tile===null && !this.reducedMotion.matches) this.effects.dissolve(cell,before[cell]!);
+      if(animate && before[cell] && tile===null && !this.reducedMotion.matches) this.effects.dissolve(cell,before[cell]!);
     });
     this.renderer.shadowMap.needsUpdate = true;
+    this.render();
+  }
+
+  sandSweep(board: readonly (Tile | null)[], cells: readonly number[], origin: number, phase: 'stone'|'neighbors') {
+    for(const cell of cells){
+      this.surface.set(cell,null);
+      for(const group of [...this.stones.children]){
+        if(group.userData.cell===cell){this.arrivals=this.arrivals.filter(a=>a.group!==group);disposeGroup(group as THREE.Group);}
+      }
+      if(!this.reducedMotion.matches)this.effects.sand(cell);
+    }
+    if(phase==='stone'&&!this.reducedMotion.matches)this.effects.sandWave(origin);
+    this.renderer.shadowMap.needsUpdate=true;
     this.render();
   }
 

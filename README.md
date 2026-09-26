@@ -28,7 +28,7 @@ The pointer anchors the center cell of the shape's bounding box; the full footpr
 
 ## Stone reaction
 
-An empty cell sharing an edge with at least one water tile and one lava tile becomes stone 500 ms after the qualifying placement. Diagonal neighbors do not count. This neighboring-cell reaction does not replace occupied cells. A cell filled during the delay remains its placed element. Stone uses the supplied swatch color `#F8D9C1` for its outline with a darker brown fill (`#89715E`) and a cluster of low-poly boulders, blocks future placement, and is never dealt in the tray. Placement previews show only the held piece, with no forecast of stone reactions. `src/reactions.ts` owns the delayed callbacks and cancels them on disposal.
+An empty cell sharing an edge with at least one water tile and one lava tile becomes stone 500 ms after the qualifying placement. Diagonal neighbors do not count. This neighboring-cell reaction does not replace occupied cells. A cell filled during the delay remains its placed element. Before its sand sweep, stone uses the supplied swatch color `#F8D9C1` for its outline with a darker brown fill (`#89715E`) and a cluster of low-poly boulders, blocks future placement, and is never dealt in the tray. Placement previews show only the held piece, with no forecast of stone reactions. `src/reactions.ts` owns the delayed callbacks and cancels them on disposal.
 
 ## Island art
 
@@ -42,10 +42,19 @@ Water and lava connect across same-element cell boundaries, including pieces pla
 
 The entire Three.js scene is rendered through a nearest-neighbor pixel pass calibrated to 512 logical pixels across the 16-unit board (capped at the screen's resolution), then mapped to a fixed 34-color palette. This applies to geometry, lighting, shadows, particles, and textures. Placement adds short pixel splashes and ripples; stone formation adds a small steam puff. No effects appear in the placement forecast.
 
-## Line transitions
+## Line transitions and sand sweeps
 
-Completing a full water row or column instantly returns water to sand and converts all lava to stone. A full lava row or column does the reverse. Existing stone carries over in both cases; remaining inventory slots are preserved.
+Completing a full water row or column instantly returns water to sand and converts all lava to stone. A full lava row or column does the reverse. Existing stone carries over until its own sand sweep; remaining inventory slots are preserved.
 
-A completed stone row or column stays visible and occupied for 500 ms, then only that line clears to sand. This also applies to lines formed by a water/lava conversion. Multiple complete lines are detected together. Reset transitions dissolve removed surfaces, new rocks rise with a steam puff, and stone-line removal uses a short dissolve effect. Delayed neighboring reactions from the previous board are canceled.
+Every newly created stone, including stones produced by line conversions, holds for 500 ms, then is covered in sand and cleared. A short directional sand wave reaches its horizontal and vertical neighbors 280 ms later and clears any occupied cells there. Diagonal cells are untouched. The individual stone sweeps replace the earlier stone-line-only removal behavior. Overlapping waves award clearing points only once per occupied cell. Pending neighboring-stone reactions from a previous board conversion are canceled; already-started sand waves continue.
 
-Placement previews sit on the grid plane, with exact two-unit cell bounds. They never forecast stone creation or line resets.
+Placement previews sit on the grid plane with exact two-unit cell bounds. They never forecast stone creation or line resets.
+
+## Score and runs
+
+- One point per square placed.
+- Twenty points per stone formed by neighboring water/lava.
+- Ten points per occupied square returned to sand by a stone sweep.
+- One hundred bonus points for a water/lava line-triggered board reset.
+
+A run ends only when none of the remaining inventory pieces can legally fit anywhere, after pending reactions and both stages of sand sweeps have finished. The result panel shows final score, locally saved best score, and Play Again. Restart cancels all timers, clears the board and effects, resets the score, and deals a fresh mixed tray. Reduced-motion preferences suppress the animation without changing timing or rules.

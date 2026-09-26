@@ -1,0 +1,42 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { Game } from '../src/game';
+import { SandSweeps, STONE_BURY_MS, NEIGHBOR_SWEEP_MS } from '../src/reactions';
+import { SHAPES } from '../src/shapes';
+const single=SHAPES.find(s=>s.id==='single')!;
+
+test('stone clears before its orthogonal neighbors; diagonals survive and scoring counts actual clears',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const game=new Game();
+ game.board[27]='stone';for(const cell of [19,26,28,35,18])game.board[cell]='water';
+ const phases:string[]=[];const sweeps=new SandSweeps(game,(_,__,phase)=>phases.push(phase),()=>{});
+ sweeps.schedule();sweeps.schedule();assert.equal(sweeps.busy,true);
+ t.mock.timers.tick(STONE_BURY_MS-1);assert.equal(game.board[27],'stone');
+ t.mock.timers.tick(1);assert.equal(game.board[27],null);assert.equal(game.board[26],'water');assert.equal(game.score,10);assert.equal(sweeps.busy,true);
+ t.mock.timers.tick(NEIGHBOR_SWEEP_MS-1);assert.equal(game.board[26],'water');
+ t.mock.timers.tick(1);for(const cell of [19,26,28,35])assert.equal(game.board[cell],null);
+ assert.equal(game.board[18],'water');assert.equal(game.score,50);assert.deepEqual(phases,['stone','neighbors']);assert.equal(sweeps.busy,false);sweeps.dispose();
+});
+test('edge sweeps do not wrap rows and overlapping sweeps never double-score',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const game=new Game();game.board[7]='stone';game.board[15]='stone';game.board[8]='lava';game.board[6]='water';game.board[14]='water';
+ const sweeps=new SandSweeps(game,()=>{},()=>{});sweeps.schedule();t.mock.timers.tick(500);t.mock.timers.tick(280);
+ assert.equal(game.board[8],'lava');assert.equal(game.score,40);sweeps.dispose();
+});
+test('a blocked board is not game over while a sweep can make room',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const game=new Game();game.board.fill('water');game.board[27]='stone';game.inventory=[{tile:'water',shape:single},null,null];
+ const sweeps=new SandSweeps(game,()=>{},()=>{});sweeps.schedule();assert.equal(game.hasLegalMove(),false);assert.equal(game.finishIfBlocked(sweeps.busy),false);
+ t.mock.timers.tick(500);t.mock.timers.tick(280);assert.equal(game.hasLegalMove(),true);assert.equal(game.finishIfBlocked(sweeps.busy),false);sweeps.dispose();
+});
+test('no legal inventory placement ends the run; one remaining playable piece keeps it alive',()=>{
+ const game=new Game();game.board.fill('water');game.inventory=[{tile:'lava',shape:single},null,null];assert.equal(game.finishIfBlocked(false),true);assert.equal(game.place(0,0),false);
+ game.restart();game.board.fill('lava');game.board[0]=null;game.inventory=[{tile:'water',shape:SHAPES.find(s=>s.id==='cross')!},{tile:'lava',shape:single},null];assert.equal(game.hasLegalMove(),true);assert.equal(game.finishIfBlocked(false),false);
+});
+test('restart cancels old timers, clears score and board, and deals a mixed tray',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const game=new Game();game.board[27]='stone';game.score=120;
+ const sweeps=new SandSweeps(game,()=>assert.fail('stale effect'),()=>{});sweeps.schedule();sweeps.dispose();game.restart();t.mock.timers.tick(2000);
+ assert.equal(game.score,0);assert.equal(game.over,false);assert.ok(game.board.every(v=>v===null));assert.equal(new Set(game.inventory.map(p=>p!.tile)).size,2);
+});
+test('placement, stone creation and reset award deterministic points',()=>{
+ const game=new Game();game.inventory[0]={tile:'water',shape:single};game.place(0,26);assert.equal(game.score,1);
+ game.board[28]='lava';game.formStone(27);assert.equal(game.score,21);
+ game.clearCells([27,27]);assert.equal(game.score,31);
+});

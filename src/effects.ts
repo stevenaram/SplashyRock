@@ -7,6 +7,9 @@ export class Effects {
   readonly group=new T.Group();
   private particles:Particle[]=[];
   private fades:{mesh:T.Mesh;age:number;stone:boolean}[]=[];
+  private sands:{mesh:T.Mesh;age:number}[]=[];
+  private waves:{meshes:T.Mesh[];age:number}[]=[];
+  private readonly sandMaterial=new T.MeshBasicMaterial({color:'#e4cc98',transparent:true,opacity:.95,depthWrite:false});
   private readonly tileGeometry=new T.PlaneGeometry(1.96,1.96);
   private ripples:{mesh:T.Mesh;age:number}[]=[];
   private readonly ring=new T.RingGeometry(.36,.39,24);
@@ -16,6 +19,20 @@ export class Effects {
     lava:new T.MeshBasicMaterial({color:'#ffbd5b'}),
     stone:new T.MeshBasicMaterial({color:'#e3e4c9'}),
   };
+  sand(cell:number){
+    const mesh=new T.Mesh(this.tileGeometry,this.sandMaterial);mesh.rotation.x=-Math.PI/2;mesh.position.set(gridWorld(cell%8),.105,gridWorld(Math.floor(cell/8)));this.group.add(mesh);this.sands.push({mesh,age:0});
+    for(let i=0;i<6;i++){
+      const angle=i*2.399+cell,m=new T.Mesh(this.geometry,this.sandMaterial);m.scale.setScalar(.0625+(i%2)*.03125);m.position.copy(mesh.position);this.group.add(m);
+      this.particles.push({mesh:m,vx:Math.cos(angle)*.65,vy:.6+i*.08,vz:Math.sin(angle)*.65,age:0,life:.4,steam:false});
+    }
+  }
+  sandWave(cell:number){
+    const meshes:T.Mesh[]=[];
+    for(const [dx,dz] of [[-1,0],[1,0],[0,-1],[0,1]]){
+      const m=new T.Mesh(this.tileGeometry,this.sandMaterial);m.rotation.x=-Math.PI/2;m.userData={dx,dz,x:gridWorld(cell%8),z:gridWorld(Math.floor(cell/8))};m.scale.set(dx===0?.85:.06,dx===0?.06:.85,1);this.group.add(m);meshes.push(m);
+    }
+    this.waves.push({meshes,age:0});
+  }
   dissolve(cell:number,tile:Tile) {
     const material=new T.MeshBasicMaterial({color:tile==='water'?'#72c9cf':tile==='lava'?'#ffb957':'#d4d1b6',transparent:true,opacity:.6,depthWrite:false});
     const mesh=new T.Mesh(this.tileGeometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.set(gridWorld(cell%8),.10,gridWorld(Math.floor(cell/8)));this.group.add(mesh);this.fades.push({mesh,age:0,stone:tile==='stone'});
@@ -34,6 +51,8 @@ export class Effects {
     }
   }
   update(dt:number){
+    this.sands=this.sands.filter(s=>{s.age+=dt;if(s.age>.38){s.mesh.removeFromParent();return false;}s.mesh.scale.setScalar(Math.min(1,.2+s.age*7));s.mesh.position.y=.105-s.age*.26;return true;});
+    this.waves=this.waves.filter(w=>{w.age+=dt;if(w.age>.28){w.meshes.forEach(m=>m.removeFromParent());return false;}for(const m of w.meshes){const {dx,dz,x,z}=m.userData;const distance=.3+w.age/.28*1.7;m.position.set(x+dx*distance,.12,z+dz*distance);}return true;});
     this.fades=this.fades.filter(f=>{f.age+=dt;if(f.age>.32){f.mesh.removeFromParent();(f.mesh.material as T.Material).dispose();return false;}f.mesh.scale.setScalar(1-f.age*2.5);(f.mesh.material as T.MeshBasicMaterial).opacity=.6*(1-f.age/.32);return true;});
     this.ripples=this.ripples.filter(r=>{r.age+=dt;if(r.age>.6){r.mesh.removeFromParent();return false;}r.mesh.scale.setScalar(.5+r.age*2.5);return true;});
     this.particles=this.particles.filter(p=>{
@@ -45,6 +64,6 @@ export class Effects {
       return true;
     });
   }
-  clear(){this.fades.forEach(f=>(f.mesh.material as T.Material).dispose());this.fades=[];this.particles=[];this.ripples=[];this.group.clear();}
-  dispose(){this.clear();this.tileGeometry.dispose();this.ring.dispose();this.ripples=[];this.geometry.dispose();Object.values(this.materials).forEach(m=>m.dispose());this.particles=[];this.group.clear();}
+  clear(){this.sands=[];this.waves=[];this.fades.forEach(f=>(f.mesh.material as T.Material).dispose());this.fades=[];this.particles=[];this.ripples=[];this.group.clear();}
+  dispose(){this.clear();this.sandMaterial.dispose();this.tileGeometry.dispose();this.ring.dispose();this.ripples=[];this.geometry.dispose();Object.values(this.materials).forEach(m=>m.dispose());this.particles=[];this.group.clear();}
 }
