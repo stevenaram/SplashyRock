@@ -42,36 +42,41 @@ export class ConnectedSurface {
               for(int i=0;i<3;i++){
                 float n=float(i);
                 vec2 center=vec2(.3)+vec2(hash(cell+vec2(n*7.1,13.)),hash(cell+vec2(29.,n*9.3)))*1.4;
-                vec2 d=abs(f-center);
-                coal=min(coal,max(d.x,d.y*.85)+min(d.x,d.y)*.28);
+                vec2 d=f-center;
+                float size=.82+hash(cell+n+51.)*.36;
+                coal=min(coal,length(d*vec2(1.,1.25))/size);
               }
             }
             // Small irregular depressions hold shallow water, leaving the
             // original beach visible everywhere between the tidepools.
-            float pool=10.;
+            float pool=10.;vec2 poolLocal=vec2(0.);
             if(wet){
-              for(int i=0;i<3;i++){
+              for(int i=0;i<2;i++){
                 float n=float(i);
-                vec2 center=i==0?vec2(.48,.48):i==1?vec2(1.43,.72):vec2(.83,1.48);
-                center+=(vec2(hash(cell+n+4.),hash(cell+n+19.))-.5)*.22;
+                vec2 center=i==0?vec2(.56,.61):vec2(1.39,1.37);
+                center+=(vec2(hash(cell+n+4.),hash(cell+n+19.))-.5)*.24;
                 vec2 d=f-center;
-                float radius=.19+hash(cell+n+37.)*.06;
-                float basin=length(d*vec2(.85,1.2))-radius+(noise(p*9.)-.5)*.045;
-                pool=min(pool,basin);
+                float angle=hash(cell+n+71.)*6.28;
+                d=mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*d;
+                float radius=(i==0?.25:.18)+hash(cell+n+37.)*.035;
+                // Broad, asymmetric basins rather than matching oval dots.
+                float basin=length(d*vec2(.83,1.22))-radius+sin(d.x*11.+seed*4.)*.024;
+                if(basin<pool){pool=basin;poolLocal=d;}
               }
             }
-            if(pool>.035&&coal>.105)discard;
-            vec3 c=vec3(196.,182.,142.)/255.; // damp sand at the lip
-            if(pool<0.)c=vec3(.447,.788,.812);
-            if(pool<-.055)c=vec3(.290,.682,.784);
-            // Restrained reflected light, with a slowly moving pixel glint.
-            float glint=sin(p.y*23.+sin(p.x*8.)+time*.65);
-            if(pool<-.025&&glint>.94)c=vec3(.639,.871,.843);
-            if(hot&&coal<.105){
-              c=vec3(.40,.325,.278); // charcoal nestled into the sand
-              if(coal<.067)c=vec3(.733,.282,.176);
-              if(coal<.042)c=vec3(.973,.549,.212);
-              if(coal<.023&&sin(time*1.35+seed*6.28)>-.25)c=vec3(1.,.725,.341);
+            if(pool>.028&&coal>.11)discard;
+            vec3 c=vec3(185.,197.,170.)/255.;
+            if(pool<-.015)c=vec3(141.,189.,184.)/255.;
+            if(pool<-.095)c=vec3(110.,172.,178.)/255.;
+            // A single soft reflection on one side leaves the pool readable
+            // as a shallow depression, without a bright ring around every edge.
+            float glint=sin(poolLocal.x*13.+time*.55+seed*6.28);
+            if(pool<-.045&&poolLocal.y<-.045&&glint>.82)c=vec3(.639,.871,.843);
+            if(hot&&coal<.11){
+              // Warm sand -> amber -> gold, with no charcoal/black outline.
+              c=vec3(217.,180.,125.)/255.;
+              if(coal<.077)c=vec3(230.,163.,95.)/255.;
+              if(coal<.037+sin(time*1.1+seed*6.28)*.006)c=vec3(255.,210.,139.)/255.;
             }
             gl_FragColor=vec4(pow((c+.055)/1.055,vec3(2.4)),1.);
             #include <colorspace_fragment>
