@@ -134,11 +134,12 @@ export class World {
 
   sandSweep(board: readonly (Tile | null)[], cells: readonly number[], origin: number, phase: 'stone'|'neighbors') {
     for(const cell of cells){
+      const previous=this.surface.board[cell];
       this.surface.set(cell,null);
       for(const group of [...this.stones.children]){
         if(group.userData.cell===cell){this.arrivals=this.arrivals.filter(a=>a.group!==group);if(this.reducedMotion.matches)disposeGroup(group as THREE.Group);else{this.scene.attach(group);this.departures.push({group:group as THREE.Group,age:0});}}
       }
-      if(!this.reducedMotion.matches)this.effects.sand(cell);
+      if(!this.reducedMotion.matches){if(previous==='water'||previous==='lava')this.effects.evaporate(cell,previous);else this.effects.sand(cell);}
     }
     if(phase==='stone'&&!this.reducedMotion.matches)this.effects.sandWave(origin);
     this.renderer.shadowMap.needsUpdate=true;
@@ -147,7 +148,7 @@ export class World {
 
   addPiece(cell: number, piece: Piece) {
     for(const [x,y] of footprint(piece,cell)) {
-      const index=y*8+x;this.surface.set(index,piece.tile);
+      const index=y*8+x;this.effects.cancelEvaporation(index);this.surface.set(index,piece.tile);
       if(!this.reducedMotion.matches)this.effects.burst(index,piece.tile);
     }
     this.render();

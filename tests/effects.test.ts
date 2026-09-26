@@ -18,3 +18,14 @@ test('sand waves remain within the board at corners',()=>{
  for(const mesh of effects.group.children){assert.ok(mesh.position.x>=-7);assert.ok(mesh.position.z>=-7);}
  effects.dispose();
 });
+
+test('evaporation batches steam, caps overlays, and cleans up after large cascades',()=>{
+ const effects=new Effects();
+ for(let i=0;i<64;i++)effects.evaporate(i,i%2?'water':'lava');
+ assert.ok(effects.group.children.length<=17);
+ for(let i=0;i<60;i++)effects.update(1/30);
+ assert.equal(effects.group.children.length,0);
+ effects.evaporate(27,'water');effects.clear();assert.equal(effects.group.children.length,0);
+ effects.evaporate(28,'lava');for(let i=0;i<60;i++)effects.update(1/30);
+ assert.equal(effects.group.children.length,0);effects.dispose();
+});

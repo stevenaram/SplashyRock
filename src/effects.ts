@@ -6,6 +6,31 @@ type Particle={mesh:T.Mesh;vx:number;vy:number;vz:number;age:number;life:number;
 export class Effects {
   readonly group=new T.Group();
   private particles:Particle[]=[];
+  private readonly vaporGeometry=new T.IcosahedronGeometry(1,0);
+  private readonly vaporMaterial=new T.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.62,depthWrite:false});
+  private readonly vapor=new T.InstancedMesh(this.vaporGeometry,this.vaporMaterial,96);
+  private readonly vaporSlots=Array.from({length:96},()=>({age:2,life:0,x:0,z:0,size:0,phase:0}));
+  private readonly transform=new T.Object3D();
+  private readonly vaporColor=new T.Color();
+  private evaporations:{mesh:T.Mesh<T.PlaneGeometry,T.ShaderMaterial>;age:number;cell:number}[]=[];
+  constructor(){this.transform.scale.setScalar(0);this.transform.updateMatrix();for(let i=0;i<96;i++)this.vapor.setMatrixAt(i,this.transform.matrix);this.vapor.frustumCulled=false;this.vapor.instanceMatrix.setUsage(T.DynamicDrawUsage);}
+  evaporate(cell:number,tile:'water'|'lava'){
+    const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
+    // One shared instanced draw for all plumes, with a hard 96-puff ceiling.
+    for(let i=0;i<5;i++){
+      const slot=this.vaporSlots.find(s=>s.age>=s.life);if(!slot)break;
+      const angle=i*2.399+cell;
+      Object.assign(slot,{age:-i*.025,life:.72+(i%3)*.08,x:x+Math.cos(angle)*.48,z:z+Math.sin(angle)*.48,size:.18+(i%3)*.045,phase:angle});
+    }
+    if(!this.vapor.parent)this.group.add(this.vapor);
+    // The last skin of liquid breaks into pixel-sized holes as steam rises.
+    // Bound ground overlays too, even for unusually large cascade fixtures.
+    if(this.evaporations.length>=16)return;
+    const material=new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{progress:{value:0},tint:{value:new T.Color(tile==='water'?'#4aaec8':'#e5632c')}},
+      vertexShader:'varying vec2 v;void main(){v=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+      fragmentShader:'varying vec2 v;uniform float progress;uniform vec3 tint;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}void main(){vec2 p=floor(v*64.);float edge=min(min(v.x,v.y),min(1.-v.x,1.-v.y));float dissolve=hash(floor(p/3.))*.55+edge*.9;if(dissolve<progress)discard;vec3 c=mix(tint,vec3(.75,.78,.64),progress*.65);gl_FragColor=vec4(c,(1.-progress)*.85);\n#include <colorspace_fragment>\n}'});
+    const mesh=new T.Mesh(this.tileGeometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.set(x,.11,z);this.group.add(mesh);this.evaporations.push({mesh,age:0,cell});
+  }
   private fades:{mesh:T.Mesh;age:number;stone:boolean}[]=[];
   private sands:{mesh:T.Mesh;age:number}[]=[];
   private waves:{meshes:T.Mesh[];age:number}[]=[];
@@ -19,6 +44,9 @@ export class Effects {
     lava:new T.MeshBasicMaterial({color:'#ffbd5b'}),
     stone:new T.MeshBasicMaterial({color:'#e3e4c9'}),
   };
+  cancelEvaporation(cell:number){
+    this.evaporations=this.evaporations.filter(e=>{if(e.cell!==cell)return true;e.mesh.removeFromParent();e.mesh.material.dispose();return false;});
+  }
   sand(cell:number){
     const mesh=new T.Mesh(this.tileGeometry,this.sandMaterial.clone());mesh.rotation.x=-Math.PI/2;mesh.position.set(gridWorld(cell%8),.105,gridWorld(Math.floor(cell/8)));this.group.add(mesh);this.sands.push({mesh,age:0});
     for(let i=0;i<6;i++){
@@ -52,6 +80,20 @@ export class Effects {
     }
   }
   update(dt:number){
+    let active=0;
+    if(this.vapor.parent)this.vaporSlots.forEach((s,i)=>{
+      s.age+=dt;
+      if(s.age>=0&&s.age<s.life){
+        active++;const t=s.age/s.life,fade=Math.min(1,t*9)*Math.min(1,(1-t)*3);
+        const size=s.size*(.7+t*1.8)*fade;
+        this.transform.position.set(s.x+Math.sin(t*3+s.phase)*t*.24,.14+t*1.35,s.z+Math.cos(t*2+s.phase)*t*.18);
+        this.transform.scale.set(size,size*(1.1+t*.4),size);this.transform.rotation.set(t*.3,s.phase,0);
+        this.vaporColor.set(i%3===0?'#d4eee0':i%3===1?'#d4d1b6':'#f0dfb1');this.vapor.setColorAt(i,this.vaporColor);
+      }else{if(s.age<0)active++;this.transform.scale.setScalar(0);}
+      this.transform.updateMatrix();this.vapor.setMatrixAt(i,this.transform.matrix);
+    });
+    if(this.vapor.parent){this.vapor.instanceMatrix.needsUpdate=true;if(this.vapor.instanceColor)this.vapor.instanceColor.needsUpdate=true;if(!active)this.vapor.removeFromParent();}
+    this.evaporations=this.evaporations.filter(e=>{e.age+=dt;const t=Math.min(1,e.age/.42);e.mesh.material.uniforms.progress.value=t;if(t===1){e.mesh.removeFromParent();e.mesh.material.dispose();return false;}return true;});
     this.sands=this.sands.filter(s=>{s.age+=dt;const t=Math.min(1,s.age/.38);if(t===1){s.mesh.removeFromParent();(s.mesh.material as T.Material).dispose();return false;}const ease=1-Math.pow(1-t,3);s.mesh.scale.setScalar(.65+.35*ease);(s.mesh.material as T.MeshBasicMaterial).opacity=.7*Math.sin(Math.PI*t);return true;});
     this.waves=this.waves.filter(w=>{w.age+=dt;const t=Math.min(1,w.age/.28);if(t===1){w.meshes.forEach(m=>{m.removeFromParent();(m.material as T.Material).dispose();});return false;}for(const m of w.meshes){const {dx,dz,x,z}=m.userData;const distance=.3+Math.sin(t*Math.PI/2)*1.7;m.position.set(x+dx*distance,.12,z+dz*distance);(m.material as T.MeshBasicMaterial).opacity=.55*Math.sin(Math.PI*t);}return true;});
     this.fades=this.fades.filter(f=>{f.age+=dt;const t=Math.min(1,f.age/.32);if(t===1){f.mesh.removeFromParent();(f.mesh.material as T.Material).dispose();return false;}f.mesh.scale.setScalar(1-.12*t);(f.mesh.material as T.MeshBasicMaterial).opacity=.6*(1-t)*(1-t);return true;});
@@ -65,6 +107,6 @@ export class Effects {
       return true;
     });
   }
-  clear(){this.sands.forEach(s=>(s.mesh.material as T.Material).dispose());this.waves.forEach(w=>w.meshes.forEach(m=>(m.material as T.Material).dispose()));this.ripples.forEach(r=>(r.mesh.material as T.Material).dispose());this.sands=[];this.waves=[];this.fades.forEach(f=>(f.mesh.material as T.Material).dispose());this.fades=[];this.particles=[];this.ripples=[];this.group.clear();}
-  dispose(){this.clear();this.sandMaterial.dispose();this.tileGeometry.dispose();this.ring.dispose();this.ripples=[];this.geometry.dispose();Object.values(this.materials).forEach(m=>m.dispose());this.particles=[];this.group.clear();}
+  clear(){this.transform.scale.setScalar(0);this.transform.updateMatrix();for(let i=0;i<96;i++)this.vapor.setMatrixAt(i,this.transform.matrix);this.vapor.instanceMatrix.needsUpdate=true;this.vaporSlots.forEach(s=>{s.age=2;s.life=0;});this.evaporations.forEach(e=>e.mesh.material.dispose());this.evaporations=[];this.sands.forEach(s=>(s.mesh.material as T.Material).dispose());this.waves.forEach(w=>w.meshes.forEach(m=>(m.material as T.Material).dispose()));this.ripples.forEach(r=>(r.mesh.material as T.Material).dispose());this.sands=[];this.waves=[];this.fades.forEach(f=>(f.mesh.material as T.Material).dispose());this.fades=[];this.particles=[];this.ripples=[];this.group.clear();}
+  dispose(){this.clear();this.vapor.dispose();this.vaporGeometry.dispose();this.vaporMaterial.dispose();this.sandMaterial.dispose();this.tileGeometry.dispose();this.ring.dispose();this.ripples=[];this.geometry.dispose();Object.values(this.materials).forEach(m=>m.dispose());this.particles=[];this.group.clear();}
 }
