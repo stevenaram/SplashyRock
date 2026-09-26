@@ -68,7 +68,7 @@ export class ConnectedSurface {
             }
             // Small irregular depressions hold shallow water, leaving the
             // original beach visible everywhere between the tidepools.
-            float pool=10.,poolArrival=0.;vec2 poolLocal=vec2(0.);
+            float pool=10.;vec2 poolLocal=vec2(0.);
             if(wet){
               for(int i=0;i<2;i++){
                 float n=float(i);
@@ -82,26 +82,17 @@ export class ConnectedSurface {
                 // Broad, asymmetric basins rather than matching oval dots.
                 float basin=length(d*vec2(.83,1.22))-radius+sin(d.x*11.+seed*4.)*.024*arrival;
                 if(arrival<.02)basin=10.;
-                if(basin<pool){pool=basin;poolLocal=d;poolArrival=arrival;}
+                if(basin<pool){pool=basin;poolLocal=d;}
               }
             }
-            float bank=.17*poolArrival+(noise(p*12.)-.5)*.04*poolArrival;
-            if(pool>bank&&coalHalo>.025)discard;
-            // Warm damp sand banks seat the pools in the beach, as in the
-            // reference. Their stepped rims are highlights, not dark outlines.
-            vec3 c=vec3(210.,185.,130.)/255.;
-            if(pool<bank*.7)c=vec3(188.,164.,113.)/255.;
-            if(pool<.008)c=vec3(114.,201.,207.)/255.;
-            if(pool<-.038)c=vec3(74.,174.,200.)/255.;
-            if(pool<-.11)c=vec3(45.,154.,192.)/255.;
-            if(pool<-.16)c=vec3(38.,117.,139.)/255.;
-            // Broken ivory rim and a tiny four-point reflection, each animated
-            // slowly and independently rather than flashing the whole pool.
-            if(abs(pool+.012)<.017&&(poolLocal.y<-.045||poolLocal.x>.13))c=vec3(163.,222.,215.)/255.;
-            vec2 star=abs(poolLocal-vec2(-.065,.025));
-            float sparkle=.037+.014*sin(time*.9+seed*6.28);
-            if(pool<-.035&&min(star.x,star.y)<.019&&max(star.x,star.y)<sparkle)c=vec3(212.,238.,224.)/255.;
-            if(pool>.035&&pool<.060&&poolLocal.x>.14&&abs(poolLocal.y)<.09)c=vec3(163.,222.,215.)/255.;
+            if(pool>.028&&coalHalo>.025)discard;
+            vec3 c=vec3(185.,197.,170.)/255.;
+            if(pool<-.015)c=vec3(141.,189.,184.)/255.;
+            if(pool<-.095)c=vec3(110.,172.,178.)/255.;
+            // A single soft reflection on one side leaves the pool readable
+            // as a shallow depression, without a bright ring around every edge.
+            float glint=sin(poolLocal.x*13.+time*.55+seed*6.28);
+            if(pool<-.045&&poolLocal.y<-.045&&glint>.82)c=vec3(.639,.871,.843);
             if(hot&&coalHalo<.025){
               // A small ochre heat bed grounds the brighter, raised-looking
               // ember facets without outlining them in black.
