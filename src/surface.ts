@@ -45,7 +45,7 @@ export class ConnectedSurface {
             if(dune>.965&&noise(p*2.)>.55)c=light;
             vec2 grainCell=floor(p*vec2(12.,32.));
             if(hash(grainCell)>.996)c=light;
-            gl_FragColor=vec4(pow(c,vec3(2.2)),1.);
+            gl_FragColor=vec4(pow((c+.055)/1.055,vec3(2.4)),1.);
             #include <colorspace_fragment>
             return;
           }
