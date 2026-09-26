@@ -65,6 +65,11 @@ export class World {
     this.render();
   };
 
+  cellScreen(cell:number) {
+    const point=new THREE.Vector3(gridWorld(cell%SIZE),.6,gridWorld(Math.floor(cell/SIZE))).project(this.camera);
+    return {x:(point.x+1)*this.host.clientWidth/2,y:(1-point.y)*this.host.clientHeight/2};
+  }
+
   cellAt(clientX: number, clientY: number): number | null {
     const rect = this.host.getBoundingClientRect();
     if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
