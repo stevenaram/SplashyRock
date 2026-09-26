@@ -113,7 +113,6 @@ export class World {
 
   syncBoard(board: readonly (Tile | null)[], animate = true) {
     const before=[...this.surface.board];
-    if(!animate)this.surface.resetInfluences();
     for (const group of [...this.stones.children]) disposeGroup(group as THREE.Group);
     this.arrivals=[];this.departures.forEach(a=>disposeGroup(a.group));this.departures=[];
     this.effects.clear();
@@ -128,6 +127,7 @@ export class World {
       }
       if(animate && before[cell] && tile===null && !this.reducedMotion.matches) this.effects.dissolve(cell,before[cell]!);
     });
+    if(!animate)this.surface.resetInfluences();
     this.renderer.shadowMap.needsUpdate = true;
     this.render();
   }
@@ -141,6 +141,7 @@ export class World {
       }
       if(!this.reducedMotion.matches){if(previous==='water'||previous==='lava')this.effects.evaporate(cell,previous);else this.effects.sand(cell);}
     }
+    if(phase==='neighbors')this.surface.finishBurial(origin);
     if(phase==='stone'&&!this.reducedMotion.matches)this.effects.sandWave(origin);
     this.renderer.shadowMap.needsUpdate=true;
     this.render();

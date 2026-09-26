@@ -13,6 +13,7 @@ export class ConnectedSurface {
   readonly board: (Tile|null)[] = Array(64).fill(null);
   private readonly data = new Uint8Array(8*8*4);
   readonly texture = new T.DataTexture(this.data,8,8,T.RGBAFormat);
+  private readonly burying=new Set<number>();
   private previousTime: number | null = null;
   private readonly targets=new Uint8Array(128);
   private readonly progress=new Float32Array(128);
@@ -135,9 +136,20 @@ export class ConnectedSurface {
     });
     this.mesh=new T.Mesh(new T.PlaneGeometry(16,16),this.material);this.mesh.rotation.x=-Math.PI/2;this.mesh.position.y=.065;
   }
-  set(cell:number,tile:Tile|null){this.board[cell]=tile;this.data[cell*4]=elementCode(tile);this.data[cell*4+3]=255;this.texture.needsUpdate=true;}
+  set(cell:number,tile:Tile|null){
+    if(this.board[cell]==='stone'&&tile===null)this.burying.add(cell);
+    if(tile!==null){
+      this.burying.delete(cell);
+      for(let element=0;element<2;element++){
+        const i=cell*2+element;this.targets[i]=0;this.progress[i]=0;this.starts[i]=0;this.ages[i]=0;
+        this.data[cell*4+element+1]=0;
+      }
+    }
+    this.board[cell]=tile;this.data[cell*4]=elementCode(tile);this.data[cell*4+3]=255;this.texture.needsUpdate=true;
+  }
+  finishBurial(cell:number){this.burying.delete(cell);}
   resetInfluences(){
-    this.targets.fill(0);this.progress.fill(0);this.starts.fill(0);this.ages.fill(0);this.previousTime=null;
+    this.burying.clear();this.targets.fill(0);this.progress.fill(0);this.starts.fill(0);this.ages.fill(0);this.previousTime=null;
     for(let cell=0;cell<64;cell++){this.data[cell*4+1]=0;this.data[cell*4+2]=0;}
     this.texture.needsUpdate=true;
   }
@@ -150,7 +162,7 @@ export class ConnectedSurface {
       const neighbors=[x>0?cell-1:-1,x<7?cell+1:-1,y>0?cell-8:-1,y<7?cell+8:-1];
       for(let element=0;element<2;element++){
         const index=cell*2+element;
-        const desired=this.board[cell]===null&&neighbors.some(n=>n>=0&&this.board[n]===(element===0?'water':'lava'))?1:0;
+        const desired=this.board[cell]===null&&!this.burying.has(cell)&&neighbors.some(n=>n>=0&&this.board[n]===(element===0?'water':'lava'))?1:0;
         if(desired!==this.targets[index]){
           this.targets[index]=desired;this.starts[index]=this.progress[index];
           // A small spatial stagger leads into, rather than delaying, stone's 500ms reaction.

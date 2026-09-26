@@ -41,3 +41,17 @@ test('reduced motion snaps influences and occupied cells cannot retain them',()=
  surface.set(27,'stone');surface.update(.01);assert.equal(data[27*4+1],0);
  surface.texture.dispose();surface.mesh.geometry.dispose();surface.material.dispose();
 });
+
+test('stone removes decorations immediately and burial does not regrow them before the neighbor sweep',()=>{
+ const s=new ConnectedSurface(),data=s.texture.image.data;
+ s.set(26,'water');s.set(28,'lava');s.update(0,true);
+ assert.equal(data[109],255);assert.equal(data[110],255);
+ s.set(27,'stone');assert.equal(data[109],0);assert.equal(data[110],0);
+ s.set(27,null);
+ for(let t=.05;t<.4;t+=.05)s.update(t);
+ assert.equal(data[109],0);assert.equal(data[110],0);
+ s.set(26,null);s.set(28,null);s.finishBurial(27);s.update(.45,true);
+ assert.equal(data[109],0);assert.equal(data[110],0);
+ s.set(26,'water');s.update(.5,true);assert.equal(data[109],255);
+ s.texture.dispose();s.mesh.geometry.dispose();s.material.dispose();
+});
