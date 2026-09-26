@@ -17,6 +17,7 @@ export class World {
   private readonly effects = new Effects();
   private readonly pixels = new PixelRenderer();
   private arrivals: {group: THREE.Group;age:number}[] = [];
+  private departures: {group:THREE.Group;age:number}[]=[];
   private frame = 0;
   private previousTime = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -57,8 +58,9 @@ export class World {
     this.surface.update(ms/1000,this.reducedMotion.matches);
     if (!this.reducedMotion.matches) {
       this.effects.update(dt);
-      if(this.arrivals.length)this.renderer.shadowMap.needsUpdate=true;
-      this.arrivals=this.arrivals.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.24);a.group.scale.y=1-Math.pow(1-t,3);return t<1;});
+      if(this.arrivals.length||this.departures.length)this.renderer.shadowMap.needsUpdate=true;
+      this.arrivals=this.arrivals.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.32);const rise=1-Math.pow(1-t,3);const settle=Math.sin(t*Math.PI)*.12;a.group.scale.set(1-settle*.25,rise+settle,1-settle*.25);return t<1;});
+      this.departures=this.departures.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.24);a.group.position.y=.07-t*t*.5;a.group.scale.setScalar(1-t*t*.55);if(t===1){disposeGroup(a.group);return false;}return true;});
       const update=this.island.userData.animate as ((time:number)=>void)|undefined;
       update?.(time);
     }
@@ -113,7 +115,7 @@ export class World {
     const before=[...this.surface.board];
     if(!animate)this.surface.resetInfluences();
     for (const group of [...this.stones.children]) disposeGroup(group as THREE.Group);
-    this.arrivals=[];
+    this.arrivals=[];this.departures.forEach(a=>disposeGroup(a.group));this.departures=[];
     this.effects.clear();
     board.forEach((tile, cell) => {
       this.surface.set(cell, tile);
@@ -134,7 +136,7 @@ export class World {
     for(const cell of cells){
       this.surface.set(cell,null);
       for(const group of [...this.stones.children]){
-        if(group.userData.cell===cell){this.arrivals=this.arrivals.filter(a=>a.group!==group);disposeGroup(group as THREE.Group);}
+        if(group.userData.cell===cell){this.arrivals=this.arrivals.filter(a=>a.group!==group);if(this.reducedMotion.matches)disposeGroup(group as THREE.Group);else{this.scene.attach(group);this.departures.push({group:group as THREE.Group,age:0});}}
       }
       if(!this.reducedMotion.matches)this.effects.sand(cell);
     }

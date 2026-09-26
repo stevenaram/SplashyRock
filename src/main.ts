@@ -27,7 +27,7 @@ try { best=Math.max(0,Number(localStorage.getItem('splashy-rock-best'))||0); } c
 let endTimer:ReturnType<typeof setTimeout>|undefined;
 function updateScore(){
   const gain=game.score-shownScore;scoreLabel.textContent=game.score.toLocaleString();
-  if(gain>0){gainLabel.textContent=`+${gain}`;gainLabel.getAnimations().forEach(a=>a.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-14px)'}],{duration:750,fill:'forwards'});}
+  if(gain>0){gainLabel.textContent=`+${gain}`;gainLabel.getAnimations().forEach(a=>a.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-14px)'}],{duration:750,fill:'forwards',easing:'cubic-bezier(.2,.7,.3,1)'});}
   shownScore=game.score;
 }
 function settled(){
@@ -59,6 +59,8 @@ const events = new AbortController();
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;
+let trayMarkup="";
+let trayPieces:(Piece|null)[]=[];
 const refreshPreview = () => {
   const piece = selected === null ? null : game.inventory[selected];
   if (piece && target !== null) world.showPreview(target, piece, game.canPlace(piece, target));
@@ -85,9 +87,17 @@ again.addEventListener('click',()=>{
 
 
 function renderTray() {
-  tray.innerHTML = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
+  const markup = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
     data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
     ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece) : ''}</button>`).join('');
+  const fresh=game.inventory.map((piece,i)=>!!piece&&piece!==trayPieces[i]);
+  if(markup===trayMarkup&&!fresh.some(Boolean))return;
+  trayMarkup=markup;tray.innerHTML=markup;trayPieces=[...game.inventory];
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+    tray.querySelectorAll<HTMLElement>('.slot').forEach((slot,i)=>{
+      if(fresh[i])slot.animate([{opacity:0,transform:'translateY(14px) scale(.88)'},{opacity:1,transform:'translateY(-2px) scale(1.025)',offset:.72},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:320,delay:i*55,easing:'cubic-bezier(.2,.7,.3,1)',fill:'backwards'});
+    });
+  }
 }
 function clearPreview() {
   target = null;
