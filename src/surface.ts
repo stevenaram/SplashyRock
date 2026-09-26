@@ -35,16 +35,35 @@ export class ConnectedSurface {
             if(!wet&&!hot)discard;
             // Preserve the map's fine grid while covering the entire interior.
             if(min(min(f.x,2.-f.x),min(f.y,2.-f.y))<.03125)discard;
-            vec3 base=wet?vec3(.710,.710,.588):vec3(.831,.678,.490);
-            vec3 light=wet?vec3(.749,.753,.639):vec3(.875,.733,.549);
-            if(wet&&hot){base=vec3(.808,.745,.620);light=vec3(.863,.804,.675);}
-            // Broad, quiet sand ripples with a few short pixel grains, instead
-            // of busy cracks, foam, or glowing edges competing with pieces.
-            float dune=sin(p.y*9.+noise(p*.8)*3.+(wet?sin(time*.45)*.08:0.));
-            vec3 c=base;
-            if(dune>.965&&noise(p*2.)>.55)c=light;
-            vec2 grainCell=floor(p*vec2(12.,32.));
-            if(hash(grainCell)>.996)c=light;
+            // Distance to the actual source edges makes the sand explain its
+            // neighbors. Multiple sources merge naturally without extra noise.
+            float wd=10.,hd=10.;
+            if(left==1.)wd=min(wd,f.x);if(right==1.)wd=min(wd,2.-f.x);if(up==1.)wd=min(wd,f.y);if(down==1.)wd=min(wd,2.-f.y);
+            if(left==2.)hd=min(hd,f.x);if(right==2.)hd=min(hd,2.-f.x);if(up==2.)hd=min(hd,f.y);if(down==2.)hd=min(hd,2.-f.y);
+            vec3 damp=vec3(.710,.710,.588),dampLight=vec3(.749,.753,.639);
+            vec3 warm=vec3(.831,.678,.490),warmLight=vec3(.875,.733,.549);
+            vec3 mineral=vec3(.808,.745,.620),mineralLight=vec3(.863,.804,.675);
+            float bend=(noise(p*1.6)-.5)*.14;
+            float distanceToSource=min(wd,hd);
+            bool waterSide=wd<hd;
+            vec3 base=waterSide?damp:warm,light=waterSide?dampLight:warmLight;
+            // Two restrained color steps keep the far edge tinted, with a
+            // slightly deeper tone where moisture or heat enters the tile.
+            vec3 c=distanceToSource+bend<.65?base:light;
+            // Short contour traces follow the source edge, including corners.
+            // Wet traces breathe slowly; heat traces remain calm and still.
+            float drift=waterSide?sin(time*.65)*.025:0.;
+            float contour=abs(mod(distanceToSource+bend+drift+.08,.72)-.36);
+            if(contour<.018&&noise(p*2.5)>.63)c=distanceToSource<.65?light:base;
+            if(wet&&hot){
+              // A quiet mineral seam follows the meeting of both fields. Its
+              // shape identifies the exact empty cell that can become stone.
+              float meeting=abs(wd-hd+bend);
+              if(meeting<.22)c=mineral;
+              if(meeting<.045)c=mineralLight;
+              vec2 center=abs(f-1.);
+              if(center.x+center.y<.12)c=mineralLight;
+            }
             gl_FragColor=vec4(pow((c+.055)/1.055,vec3(2.4)),1.);
             #include <colorspace_fragment>
             return;
