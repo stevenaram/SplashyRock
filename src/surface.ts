@@ -35,42 +35,17 @@ export class ConnectedSurface {
             if(!wet&&!hot)discard;
             // Preserve the map's fine grid while covering the entire interior.
             if(min(min(f.x,2.-f.x),min(f.y,2.-f.y))<.03125)discard;
-            // Directional shoreline profiles. Each shared source edge sends a
-            // rounded wash into the cell; adjacent sources join into coves.
-            float wd=10.,hd=10.;
-            float tide=sin(time*.65)*.035;
-            float waveX=sin(p.x*3.6+sin(p.x*1.3))*.12+sin(p.x*7.2)*.035;
-            float waveY=sin(p.y*3.6+sin(p.y*1.3))*.12+sin(p.y*7.2)*.035;
-            if(left==1.)wd=min(wd,f.x+waveY+tide);if(right==1.)wd=min(wd,2.-f.x-waveY+tide);if(up==1.)wd=min(wd,f.y+waveX+tide);if(down==1.)wd=min(wd,2.-f.y-waveX+tide);
-            if(left==2.)hd=min(hd,f.x+waveY*.7);if(right==2.)hd=min(hd,2.-f.x-waveY*.7);if(up==2.)hd=min(hd,f.y+waveX*.7);if(down==2.)hd=min(hd,2.-f.y-waveX*.7);
-            vec3 damp=vec3(.682,.737,.667),dampLight=vec3(.765,.773,.635);
-            vec3 warm=vec3(.800,.690,.510),warmLight=vec3(.867,.753,.569);
-            vec3 mineral=vec3(.780,.737,.627),mineralLight=vec3(.859,.816,.690);
-            // The far side stays lightly conditioned sand. The shallow wash
-            // curves out of its source instead of running in arbitrary stripes.
-            vec3 c=wet?dampLight:warmLight;
-            if(wet&&hot)c=mineralLight;
-            if(wd<1.45)c=dampLight;
-            if(hd<1.45)c=warmLight;
-            if(wd<.8&&wd<hd)c=damp;
-            if(hd<.8&&hd<wd)c=warm;
-            // A narrow translucent-looking water lip and softly scalloped foam
-            // make the source direction readable even at phone scale.
-            if(wd<.24&&wd<hd)c=vec3(.45,.79,.81);
-            if(wd>.20&&wd<.27&&wd<hd)c=vec3(.64,.87,.84);
-            // Lava singes only its immediate rim; the rest stays sandy and free.
-            if(hd<.12&&hd<wd)c=vec3(.64,.54,.38);
-            if(hd<.055&&hd<wd)c=vec3(.88,.68,.38);
-            // Broad mineral clouds soften mixed influence without a diagonal
-            // divider, arrow, or drawn symbol across the playable square.
-            if(wet&&hot&&wd>.35&&hd>.35){
-              float mineralCloud=noise(p*2.2);
-              if(abs(wd-hd)<.6+mineralCloud*.35)c=mineral;
-              if(abs(wd-hd)<.22&&mineralCloud>.55)c=mineralLight;
-            }
-            // Very sparse paired sand grains, anchored to world pixels.
-            vec2 grain=floor(p*16.);
-            if(hash(grain)>.997&&min(wd,hd)>.4)c=wet&&hot?mineralLight:wet?dampLight:warmLight;
+            // Only the presence of an element matters, never its direction.
+            // These are sand material variants, not shores or miniature pools.
+            vec3 base=wet?vec3(196.,182.,142.)/255.:vec3(213.,177.,126.)/255.;
+            vec3 highlight=wet?vec3(206.,192.,154.)/255.:vec3(222.,188.,139.)/255.;
+            if(wet&&hot){base=vec3(203.,187.,151.)/255.;highlight=vec3(213.,198.,163.)/255.;}
+            // Quiet sand mottling and occasional grains retain the beach's
+            // texture, with no border, foam, seam, or source-facing pattern.
+            float mottle=noise(p*1.8);
+            vec3 c=mottle>.72?highlight:base;
+            vec2 grain=floor(p*32.);
+            if(hash(grain)>.997)c=highlight;
             gl_FragColor=vec4(pow((c+.055)/1.055,vec3(2.4)),1.);
             #include <colorspace_fragment>
             return;
