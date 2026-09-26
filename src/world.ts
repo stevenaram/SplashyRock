@@ -1,11 +1,16 @@
 import * as THREE from 'three';
-import { BOARD_EXTENT, createMap } from './map';
+import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
+import { SIZE, type Tile } from './game';
+import { createTile, disposeGroup } from './tiles';
 
 export class World {
   readonly scene = new THREE.Scene();
   // Same lens and fixed viewing angle as Diggy Splash.
   readonly camera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
   readonly renderer = new THREE.WebGLRenderer({ antialias: true });
+  private preview: THREE.Group | null = null;
+  private previewKey = "";
+  private readonly raycaster = new THREE.Raycaster();
   private readonly observer: ResizeObserver;
 
   constructor(private readonly host: HTMLElement) {
@@ -17,6 +22,45 @@ export class World {
     this.observer.observe(host);
     this.resize();
   }
+
+  cellAt(clientX: number, clientY: number): number | null {
+    const rect = this.host.getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+    this.raycaster.setFromCamera(new THREE.Vector2(
+      (clientX - rect.left) / rect.width * 2 - 1,
+      1 - (clientY - rect.top) / rect.height * 2,
+    ), this.camera);
+    const point = this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    if (!point) return null;
+    const column = Math.floor((point.x + BOARD_EXTENT / 2) / TILE_SIZE);
+    const row = Math.floor((point.z + BOARD_EXTENT / 2) / TILE_SIZE);
+    return column >= 0 && column < SIZE && row >= 0 && row < SIZE ? row * SIZE + column : null;
+  }
+
+  addTile(cell: number, tile: Tile) {
+    const mesh = createTile(tile);
+    mesh.position.x = gridWorld(cell % SIZE);
+    mesh.position.z = gridWorld(Math.floor(cell / SIZE));
+    this.scene.add(mesh);
+    this.render();
+  }
+
+  showPreview(cell: number | null, tile: Tile, valid = true) {
+    const key = cell === null ? '' : `${cell}-${tile}-${valid}`;
+    if (key === this.previewKey) return;
+    if (this.preview) disposeGroup(this.preview);
+    this.preview = null;
+    this.previewKey = key;
+    if (cell !== null) {
+      this.preview = createTile(tile, true, valid);
+      this.preview.position.x = gridWorld(cell % SIZE);
+      this.preview.position.z = gridWorld(Math.floor(cell / SIZE));
+      this.scene.add(this.preview);
+    }
+    this.render();
+  }
+
+  private render() { this.renderer.render(this.scene, this.camera); }
 
   private resize() {
     const { width, height } = this.host.getBoundingClientRect();
@@ -56,8 +100,8 @@ export class World {
     }
     const points = corners.map(point => point.clone().project(this.camera));
     this.camera.zoom = Math.min(
-      0.95 / Math.max(...points.map(p => Math.abs(p.x))),
-      0.80 / Math.max(...points.map(p => Math.abs(p.y))),
+      (1 - 24 / width) / Math.max(...points.map(p => Math.abs(p.x))),
+      (1 - 24 / height) / Math.max(...points.map(p => Math.abs(p.y))),
     );
     this.camera.updateProjectionMatrix();
     this.renderer.render(this.scene, this.camera);

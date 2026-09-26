@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 // Diggy Splash's grid dimensions, kept separate for future game systems.
-export const SIZE = 8;
+import { SIZE } from './game';
+export { SIZE } from './game';
 export const TILE_SIZE = 2;
 export const BOARD_EXTENT = SIZE * TILE_SIZE;
 export const gridWorld = (coordinate: number) =>
