@@ -6,18 +6,30 @@ import { StoneReactions, SandSweeps } from './reactions';
 
 const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
-host.innerHTML = `<section id="board" aria-label="Eight by eight board"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div></section>
+host.innerHTML = `<section id="board" aria-label="Eight by eight board"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="combo" hidden></span><span id="score-gain" aria-hidden="true"></span></div></section>
   <nav id="tray" aria-label="Available tiles"></nav>
   <div id="ghost" aria-hidden="true" hidden></div>
   <p id="status" role="status" class="sr-only"></p>
-  <dialog id="game-over" aria-labelledby="end-title"><div class="end-emblem" aria-hidden="true">✦</div><h1 id="end-title">Run complete</h1><p class="end-reason">No pieces fit</p><p class="end-score-label">FINAL SCORE</p><strong id="final-score">0</strong><p class="best-score">BEST <span id="best-score">0</span></p><button id="play-again" type="button">Play again <span aria-hidden="true">↗</span></button></dialog>`;
+  <aside id="game-over" hidden aria-labelledby="end-title"><div><h1 id="end-title">No more moves</h1><p><span id="final-score">0</span> points · Best <span id="best-score">0</span></p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↗</span></button></aside>`;
 const board = document.querySelector<HTMLElement>('#board')!;
 const tray = document.querySelector<HTMLElement>('#tray')!;
 const ghost = document.querySelector<HTMLElement>('#ghost')!;
 const status = document.querySelector<HTMLElement>('#status')!;
 const scoreLabel=document.querySelector<HTMLElement>('#score')!;
 const gainLabel=document.querySelector<HTMLElement>('#score-gain')!;
-const endDialog=document.querySelector<HTMLDialogElement>('#game-over')!;
+const endDialog=document.querySelector<HTMLElement>('#game-over')!;
+const comboLabel=document.querySelector<HTMLElement>('#combo')!;
+let comboTimer:ReturnType<typeof setTimeout>|undefined;
+let shownCombo=0;
+function updateCombo(){
+  if(game.combo<2)return;
+  clearTimeout(comboTimer);
+  if(game.combo===shownCombo)return;
+  shownCombo=game.combo;comboLabel.hidden=false;
+  comboLabel.textContent=`COMBO ×${game.combo}`;
+  comboLabel.getAnimations().forEach(a=>a.cancel());
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches)comboLabel.animate([{transform:'scale(1.2)',color:'#fff'},{transform:'scale(1)',color:'#ffb957'}],{duration:280});
+}
 const again=document.querySelector<HTMLButtonElement>('#play-again')!;
 let shownScore=0;
 let best=0;
@@ -32,16 +44,22 @@ function settled(){
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
   if (!game.over) reactions.schedule();
+  updateCombo();
+  if(!reactions.busy&&!sweeps.busy&&game.combo>0){
+    const multiplier=game.combo;const bonus=game.finishChain();
+    if(multiplier>1){shownCombo=0;comboLabel.textContent=`COMBO ×${multiplier} · +${bonus.toLocaleString()}`;comboTimer=setTimeout(()=>{comboLabel.hidden=true;shownCombo=0;},1800);}
+  }
   updateScore();
   clearTimeout(endTimer);
   if(game.over||reactions.busy||sweeps.busy||game.hasLegalMove())return;
   endTimer=setTimeout(()=>{
     if(!game.finishIfBlocked(reactions.busy||sweeps.busy))return;
-    cancel();best=Math.max(best,game.score);
+    best=Math.max(best,game.score);
     try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
     document.querySelector('#final-score')!.textContent=game.score.toLocaleString();
     document.querySelector('#best-score')!.textContent=best.toLocaleString();
-    endDialog.showModal();again.focus();
+    endDialog.hidden=false;host!.classList.add('ended');
+    status.textContent=`No more moves. Final score ${game.score}. You can still try the remaining pieces, or play again.`;
   },400);
 }
 const world = new World(board);
@@ -54,8 +72,9 @@ const refreshPreview = () => {
   const piece = selected === null ? null : game.inventory[selected];
   if (piece && target !== null) world.showPreview(target, piece, game.canPlace(piece, target));
 };
-const sweeps = new SandSweeps(game, (cells, origin, phase) => {
+const sweeps = new SandSweeps(game, (cells, origin, phase, depth) => {
   world.sandSweep(game.board,cells,origin,phase);
+  reactions.schedule(depth+1);
   refreshPreview();
 },settled);
 const reactions = new StoneReactions(game, cell => {
@@ -66,11 +85,12 @@ const reactions = new StoneReactions(game, cell => {
 
 again.addEventListener('click',()=>{
   clearTimeout(endTimer);reactions.dispose();sweeps.dispose();cancel();
-  game.restart();world.syncBoard(game.board,false);endDialog.close();
+  game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended');
+  clearTimeout(comboTimer);shownCombo=0;comboLabel.hidden=true;
   shownScore=0;gainLabel.textContent='';updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
 }, {signal:events.signal});
-endDialog.addEventListener('cancel',event=>event.preventDefault(),{signal:events.signal});
+
 
 function renderTray() {
   tray.innerHTML = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
@@ -110,7 +130,7 @@ function place() {
   return true;
 }
 tray.addEventListener('pointerdown', event => {
-  if (game.over || drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  if (drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (!button || button.disabled) return;
   event.preventDefault();
@@ -155,9 +175,9 @@ board.addEventListener('pointerdown', event => {
   place();
 }, { signal: events.signal });
 tray.addEventListener('click', event => {
-  if (game.over || event.detail !== 0) return;
+  if (event.detail !== 0) return;
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (button && !button.disabled) { selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
 renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { events.abort(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { events.abort(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer); clearTimeout(comboTimer); world.dispose(); });

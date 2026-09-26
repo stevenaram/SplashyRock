@@ -17,6 +17,9 @@ export class Game {
   boardRevision = 0;
   score = 0;
   over = false;
+  combo = 0;
+  chainPoints = 0;
+  readonly stoneDepth: number[] = Array(64).fill(0);
   readonly versions: number[] = Array(64).fill(0);
   constructor(private readonly random: () => number = Math.random) {
     this.inventory = this.deal();
@@ -32,7 +35,15 @@ export class Game {
     const removed: number[]=[];
     for(const cell of new Set(cells)) if(this.board[cell]!==null){this.write(cell,null);removed.push(cell);}
     this.score+=removed.length*10;
+    if(this.combo>0)this.chainPoints+=removed.length*10;
     return removed;
+  }
+  // Base reaction points are shown as earned; pay the remaining multiplier
+  // once all reaction/sweep timers settle. Placements are never included.
+  finishChain(): number {
+    const bonus=this.chainPoints*Math.max(0,this.combo-1);
+    this.score+=bonus;this.combo=0;this.chainPoints=0;
+    return bonus;
   }
   hasLegalMove(): boolean {
     return this.inventory.some(piece=>piece!==null&&this.board.some((_,cell)=>this.canPlace(piece,cell)));
@@ -43,7 +54,7 @@ export class Game {
   }
   restart() {
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
-    this.score=0;this.over=false;this.inventory=this.deal();
+    this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   private deal(): Piece[] {
     const majority: Element = this.random() < .5 ? 'water' : 'lava';
@@ -74,10 +85,11 @@ export class Game {
   stoneCandidates(): number[] {
     return this.board.flatMap((_, cell) => this.canFormStone(cell) ? [cell] : []);
   }
-  formStone(cell: number): boolean {
+  formStone(cell: number, depth = 1): boolean {
     if (!this.canFormStone(cell)) return false;
     this.write(cell, 'stone');
     this.score += 20;
+    this.stoneDepth[cell]=depth;this.combo=Math.max(this.combo,depth);this.chainPoints+=20;
     return true;
   }
   place(slot: number, anchor: number): boolean {

@@ -59,3 +59,30 @@ test('a neighbor cleared by a sand sweep reacts automatically without another pl
  assert.equal(game.stoneCandidates().length,0);assert.equal(reactions.busy,false);assert.equal(sweeps.busy,false);
  reactions.dispose();sweeps.dispose();
 });
+
+
+test('successive reaction waves multiply the entire chain exactly once',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const game=new Game(),depths:number[]=[];
+ game.board[26]='water';game.board[28]='lava';game.board[20]='water';game.board[29]='lava';game.board[21]='water';
+ const settle=()=>{reactions.schedule();if(!reactions.busy&&!sweeps.busy)game.finishChain();};
+ const sweeps=new SandSweeps(game,(_,__,___,depth)=>reactions.schedule(depth+1),settle);
+ const reactions=new StoneReactions(game,cell=>{depths.push(game.stoneDepth[cell]);sweeps.schedule();},settle);
+ reactions.schedule();
+ for(let i=0;i<50;i++)t.mock.timers.tick(100);
+ assert.deepEqual(depths,[1,2]);
+ // Two creations (40), two stones and four elemental clears (60), doubled.
+ assert.equal(game.score,200);assert.equal(game.combo,0);assert.equal(game.chainPoints,0);
+ assert.equal(game.finishChain(),0);assert.equal(game.score,200);
+ reactions.dispose();sweeps.dispose();
+});
+test('simultaneous stones stay at x1; placement points and previous score are not multiplied',()=>{
+ const game=new Game();game.score=100;
+ game.board[26]='water';game.board[28]='lava';game.board[10]='water';game.board[12]='lava';
+ game.formStone(27);game.formStone(11);assert.equal(game.combo,1);
+ game.inventory[0]={tile:'water',shape:single};game.place(0,0);
+ game.clearCells([27,11]);assert.equal(game.finishChain(),0);assert.equal(game.score,161);
+ for(const depth of [1,2,3,4]){game.board[27]=null;game.formStone(27,depth);}
+ game.clearCells([27]);assert.equal(game.combo,4);assert.equal(game.finishChain(),270);
+ assert.equal(game.score,521);
+ game.restart();assert.equal(game.combo,0);assert.equal(game.chainPoints,0);assert.ok(game.stoneDepth.every(d=>d===0));
+});
