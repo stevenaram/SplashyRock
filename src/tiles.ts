@@ -4,7 +4,7 @@ import type { Tile } from './game';
 export const COLORS = {
   water: { fill: '#4d8195', edge: '#73d8fa' },
   lava: { fill: '#984300', edge: '#ff7100' },
-  stone: { fill: '#f8d9c1', edge: '#f8d9c1' },
+  stone: { fill: '#89715e', edge: '#f8d9c1' },
 };
 export function createTile(tile: Tile, preview = false, valid = true) {
   const group = new THREE.Group();
