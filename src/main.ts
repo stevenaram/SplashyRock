@@ -97,14 +97,8 @@ function place() {
   if (game.over || selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
   if (!game.place(selected, target)) return false;
-  if (game.lastClear) {
-    reactions.dispose();
-    world.syncBoard(game.board);
-    sweeps.schedule();
-  } else {
-    world.addPiece(target, piece);
-    reactions.schedule();
-  }
+  world.addPiece(target, piece);
+  reactions.schedule();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
   selected = null;
   clearPreview();

@@ -6,18 +6,18 @@ const piece = (id: string, tile: Piece['tile'] = 'water'): Piece => ({shape: SHA
 const pattern = (p: Piece) => Array.from({length:p.shape.height}, (_, y) =>
   Array.from({length:p.shape.width}, (_, x) => p.shape.cells.some(([cx, cy]) => cx === x && cy === y) ? '1' : '0').join('')).join('/');
 
-test('every drawing in the reference is represented, including repeats and disconnected cells', () => {
-  // All 20 drawings, row by row. Three drawings duplicate an earlier shape.
+test('every replacement drawing is represented with no old extra shapes', () => {
   const reference = [
-    '10/11', '11/01', '11/10', '01/11',
-    '10/01', '01/10', '10/01', '01/10',
-    '010/111/010', '1/1/1', '111', '1',
-    '11/10/11', '11/01/11', '111/101', '101/111',
-    '010/101', '010/101', '10/01/10', '01/10/01',
+    '0010/0111/1110/0100', '0100/1110/0111/0010',
+    '110/111/011', '011/111/110', '011/111/110', '110/111/011',
+    '10/11', '11/01', '11/10', '01/11', '1', '111/111/111',
+    '011/110/100', '110/011/001', '010/111/111/010',
+    '010/111/010', '1/1/1', '001/011/110', '111', '100/110/011',
+    '11/10/11', '11/01/11', '111/101', '0110/1111/0110', '101/111',
   ];
   const actual = SHAPES.map(shape => pattern({shape, tile:'water'}));
   assert.deepEqual(new Set(actual), new Set(reference));
-  assert.equal(actual.length, 17);
+  assert.equal(actual.length, 23);
   assert.equal(new Set(actual).size, actual.length);
 });
 
@@ -88,81 +88,22 @@ test('bounds never wrap to adjacent rows, and holes may straddle occupied cells'
   assert.equal(game.board[19], 'lava');
 });
 
-for (const element of ['water', 'lava'] as const) for (const axis of ['row','column']) {
-  test(`${element} ${axis} instantly resets the board and petrifies only the opposite element`, () => {
-    const game = new Game();
-    const line = Array.from({length:8}, (_, i) => axis === 'row' ? 16+i : i*8+2);
-    for (const cell of line.slice(0,7)) game.board[cell] = element;
-    const opposite = element === 'water' ? 'lava' : 'water';
-    game.board[63] = opposite; game.board[62] = 'stone'; game.board[61] = element;
-    game.inventory = [piece('single', element),piece('single', opposite),piece('single', element)];
-    const second = game.inventory[1];
-    assert.equal(game.place(0,line[7]),true);
-    assert.equal(game.lastClear,element);
-    assert.equal(game.boardRevision,1);
-    assert.deepEqual(game.board, Array.from({length:64},(_,i)=>i===63||i===62?'stone':null));
-    assert.equal(game.inventory[0],null);
-    assert.equal(game.inventory[1],second);
+for (const element of ['water','lava'] as const) for (const axis of ['row','column']) {
+  test(`full ${element} ${axis} has no clearing, conversion, or score bonus`, () => {
+    const game=new Game(),line=Array.from({length:8},(_,i)=>axis==='row'?16+i:i*8+2);
+    for(const cell of line.slice(0,7))game.board[cell]=element;
+    game.board[63]=element==='water'?'lava':'water';game.board[62]='stone';
+    const before=[...game.board];game.inventory[0]=piece('single',element);
+    assert.equal(game.place(0,line[7]),true);before[line[7]]=element;
+    assert.deepEqual(game.board,before);assert.equal(game.score,1);assert.equal(game.boardRevision,0);
   });
 }
-test('mixed, incomplete and stone-filled lines do not clear', () => {
-  for (const blocker of ['lava','stone',null] as const) {
-    const game = new Game(); game.board.fill('water',0,6);game.board[6]=blocker;
-    game.inventory[0]=piece('single');game.place(0,7);
-    assert.equal(game.lastClear,null);assert.equal(game.board[0],'water');
-  }
-});
-test('simultaneous row and column completion resets once and final-slot refill stays mixed', () => {
-  const game = new Game();
-  for(let i=1;i<8;i++){game.board[i]='lava';game.board[i*8]='lava';}
-  game.board[63]='water';game.inventory=[null,null,piece('single','lava')];
-  game.place(2,0);
-  assert.equal(game.boardRevision,1);assert.equal(game.board[63],'stone');
-  assert.equal(game.inventory.filter(Boolean).length,3);
-  assert.equal(new Set(game.inventory.map(p=>p!.tile)).size,2);
-});
-
 for (const axis of ['row','column']) {
-  test(`a completed stone ${axis} clears only that line after a reaction`, () => {
-    const game=new Game();
-    const line=Array.from({length:8},(_,i)=>axis==='row'?24+i:i*8+3);
-    const gap=line[3];
+  test(`completing a stone ${axis} has no special line effect`,()=>{
+    const game=new Game(),line=Array.from({length:8},(_,i)=>axis==='row'?24+i:i*8+3),gap=line[3];
     line.forEach(cell=>{if(cell!==gap)game.board[cell]='stone';});
-    const water=axis==='row'?gap-8:gap-1, lava=axis==='row'?gap+8:gap+1;
-    game.board[water]='water';game.board[lava]='lava';game.board[63]='stone';
-    assert.equal(game.formStone(gap),true);
-    assert.ok(line.every(cell=>game.board[cell]==='stone'));
-    assert.equal(game.pendingStoneLines.length,8);
-    game.removeStoneCells(game.pendingStoneLines);
-    assert.ok(line.every(cell=>game.board[cell]===null));
-    assert.equal(game.board[water],'water');assert.equal(game.board[lava],'lava');assert.equal(game.board[63],'stone');
+    game.board[axis==='row'?gap-8:gap-1]='water';game.board[axis==='row'?gap+8:gap+1]='lava';
+    const before=[...game.board];assert.equal(game.formStone(gap),true);before[gap]='stone';
+    assert.deepEqual(game.board,before);assert.equal(game.score,20);
   });
 }
-test('element reset preserves old stone, then clears only complete stone rows and columns simultaneously', () => {
-  const game=new Game();
-  // Water completes top row. Existing lava becomes the intersection of a stone
-  // row and column; a separate water/lava mix cannot clear these prematurely.
-  game.board.fill('water',0,7);
-  for(let x=0;x<8;x++)game.board[24+x]='stone';
-  game.board[27]='lava';
-  for(let y=1;y<8;y++)if(y!==3)game.board[y*8+3]='stone';
-  // The top intersection becomes sand, so column 3 is deliberately incomplete.
-  game.board[63]='stone';game.board[62]='lava';
-  game.inventory[0]=piece('single','water');game.place(0,7);
-  assert.equal(game.pendingStoneLines.length,8);
-  game.removeStoneCells(game.pendingStoneLines);
-  assert.ok(game.board.slice(24,32).every(v=>v===null));
-  assert.equal(game.board[11],'stone');assert.equal(game.board[63],'stone');assert.equal(game.board[62],'stone');
-});
-test('multiple stone rows are marked simultaneously after conversion', () => {
-  const game=new Game();
-  // A full water row cannot intersect a stone column, but conversion can
-  // complete multiple stone rows at once. Both must be detected before clearing.
-  game.board.fill('water',0,7);
-  for(const row of [3,4]) for(let x=0;x<8;x++)game.board[row*8+x]=x===3?'lava':'stone';
-  game.board[63]='stone';game.inventory[0]=piece('single','water');game.place(0,7);
-  assert.equal(game.pendingStoneLines.length,16);
-  game.removeStoneCells(game.pendingStoneLines);
-  assert.ok(game.board.slice(24,40).every(v=>v===null));
-  assert.equal(game.board[63],'stone');
-});

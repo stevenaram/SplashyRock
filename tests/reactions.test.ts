@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game';
 import { SHAPES } from '../src/shapes';
-import { StoneReactions, StoneLineClears } from '../src/reactions';
+import { StoneReactions } from '../src/reactions';
 
 test('all pairs of orthogonal water/lava neighbors produce a shared stone cell', () => {
   const neighbors = [19, 26, 28, 35];
@@ -89,40 +89,9 @@ test('multiple shared neighbors react; late occupied cells are preserved; cleanu
   assert.equal(game.board[28], null);
 });
 
-test('a pending reaction from before a board reset cannot fire on the new board', t => {
-  t.mock.timers.enable({apis:['setTimeout']});
-  const game=new Game(), shown:number[]=[];
-  const reactions=new StoneReactions(game,cell=>shown.push(cell));
-  game.board[26]='water';game.board[28]='lava';reactions.schedule();
-  game.board.fill('water',0,7);
-  game.inventory[0]={tile:'water',shape:SHAPES.find(s=>s.id==='single')!};
-  game.place(0,7);
-  assert.equal(game.lastClear,'water');
-  // Even if later moves make the old candidate eligible again, its old timer
-  // must not shorten the new half-second delay.
-  game.board[26]='water';game.board[28]='lava';
-  t.mock.timers.tick(500);
-  assert.equal(game.board[27],null);assert.deepEqual(shown,[]);
-  reactions.schedule();t.mock.timers.tick(500);
-  assert.equal(game.board[27],'stone');reactions.dispose();
-});
-
-
-test('stone produced by a reset remains for 500ms, then only completed lines clear', t => {
-  t.mock.timers.enable({apis:['setTimeout']});
-  const game=new Game(), cleared:number[][]=[];
-  game.board.fill('water',0,7);game.board.fill('stone',24,32);game.board[27]='lava';game.board[63]='stone';
-  game.inventory[0]={tile:'water',shape:SHAPES.find(s=>s.id==='single')!};
-  game.place(0,7);
-  const lines=new StoneLineClears(game,cells=>cleared.push(cells));lines.schedule();
-  t.mock.timers.tick(499);assert.ok(game.board.slice(24,32).every(v=>v==='stone'));assert.equal(cleared.length,0);
-  lines.schedule(); // Repeated scheduling must neither shorten nor restart the hold.
-  t.mock.timers.tick(1);assert.ok(game.board.slice(24,32).every(v=>v===null));
-  assert.equal(game.board[63],'stone');assert.equal(cleared.length,1);assert.equal(cleared[0].length,8);
-  lines.dispose();
-});
-test('disposing delayed line clears cancels the pending removal', t => {
-  t.mock.timers.enable({apis:['setTimeout']});const game=new Game();game.board.fill('stone',0,8);game.pendingStoneLines=[0,1,2,3,4,5,6,7];
-  const lines=new StoneLineClears(game,()=>assert.fail('Disposed callback'));lines.schedule();lines.dispose();t.mock.timers.tick(1000);
-  assert.ok(game.board.slice(0,8).every(v=>v==='stone'));
+test('a reaction scheduled in a previous run cannot alter the restarted board',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});const game=new Game();
+  game.board[26]='water';game.board[28]='lava';const reactions=new StoneReactions(game,()=>assert.fail('Old run reaction'));
+  reactions.schedule();game.restart();game.board[26]='water';game.board[28]='lava';t.mock.timers.tick(500);
+  assert.equal(game.board[27],null);reactions.dispose();
 });

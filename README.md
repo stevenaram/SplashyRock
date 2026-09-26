@@ -16,15 +16,17 @@ GitHub Actions builds and deploys to GitHub Pages on every push to `main`. The w
 
 ## Shape catalog
 
-`src/shapes.ts` contains all 17 distinct shapes from the 20 reference drawings, with their original orientations. The repeated diagonal pairs and repeated up-pointing split piece share catalog entries. Each shape can be dealt in either water or lava.
+`src/shapes.ts` contains the 23 distinct shapes from the replacement reference's 25 drawings, with their original orientations. The two seven-cell diagonal blocks are each drawn twice and share catalog entries. Each shape can be dealt in either water or lava.
 
-- Four three-square corners.
-- Two diagonal pairs.
-- Five-square cross, vertical three, horizontal three, and single square.
-- Four five-square cups, opening right, left, down, and up.
-- Three disconnected three-square pieces pointing up, right, and left.
+- Four three-square corners, a single square, horizontal/vertical threes, and a five-square cross.
+- Four five-square cups and four five-square staircases.
+- Two seven-square diagonal blocks.
+- Two diagonal double crosses, a tall cross, and a wide cross (eight squares each).
+- A solid nine-square block.
 
-The pointer anchors the center cell of the shape's bounding box; the full footprint is highlighted before release. Tests verify the catalog against all 20 reference drawings and cover every shape's occupancy, bounds, gaps, and atomic placement.
+Four-cell-wide or tall icons scale to fit the same tray slots and retain single shared dividers.
+
+The pointer anchors the center cell of the shape's bounding box; the full footprint is highlighted before release. Tests verify the catalog against all 25 replacement reference drawings and cover every shape's occupancy, bounds, gaps, and atomic placement.
 
 ## Stone reaction
 
@@ -42,19 +44,18 @@ Water and lava connect across same-element cell boundaries, including pieces pla
 
 The entire Three.js scene is rendered through a nearest-neighbor pixel pass calibrated to 512 logical pixels across the 16-unit board (capped at the screen's resolution), then mapped to a fixed 34-color palette. This applies to geometry, lighting, shadows, particles, and textures. Placement adds short pixel splashes and ripples; stone formation adds a small steam puff. No effects appear in the placement forecast.
 
-## Line transitions and sand sweeps
+## Sand sweeps (no line mechanics)
 
-Completing a full water row or column instantly returns water to sand and converts all lava to stone. A full lava row or column does the reverse. Existing stone carries over until its own sand sweep; remaining inventory slots are preserved.
+Full rows and columns of water, lava, or stone have no special effect. There are no line clears, board conversions, resets, or line bonuses.
 
-Every newly created stone, including stones produced by line conversions, holds for 500 ms, then is covered in sand and cleared. A short directional sand wave reaches its horizontal and vertical neighbors 280 ms later and clears any occupied cells there. Diagonal cells are untouched. The individual stone sweeps replace the earlier stone-line-only removal behavior. Overlapping waves award clearing points only once per occupied cell. Pending neighboring-stone reactions from a previous board conversion are canceled; already-started sand waves continue.
+Every newly created stone holds for 500 ms, then is covered in sand and cleared. A directional sand wave reaches its horizontal and vertical neighbors 280 ms later and clears occupied cells there. Diagonals are untouched. Overlapping waves award points only once per occupied cell. The normal neighboring-water/lava reaction remains the only source of new stone.
 
-Placement previews sit on the grid plane with exact two-unit cell bounds. They never forecast stone creation or line resets.
+Placement previews sit on the grid plane with exact two-unit cell bounds and never forecast stone creation.
 
 ## Score and runs
 
 - One point per square placed.
 - Twenty points per stone formed by neighboring water/lava.
 - Ten points per occupied square returned to sand by a stone sweep.
-- One hundred bonus points for a water/lava line-triggered board reset.
 
 A run ends only when none of the remaining inventory pieces can legally fit anywhere, after pending reactions and both stages of sand sweeps have finished. The result panel shows final score, locally saved best score, and Play Again. Restart cancels all timers, clears the board and effects, resets the score, and deals a fresh mixed tray. Reduced-motion preferences suppress the animation without changing timing or rules.

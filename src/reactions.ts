@@ -27,27 +27,6 @@ export class StoneReactions {
 }
 
 
-export const STONE_LINE_DELAY_MS = 500;
-export class StoneLineClears {
-  private readonly pending = new Set<number>();
-  private readonly timers = new Set<ReturnType<typeof setTimeout>>();
-  constructor(private readonly game: Game, private readonly onClear: (cells: number[]) => void) {}
-  schedule() {
-    const cells = this.game.pendingStoneLines.filter(cell => !this.pending.has(cell));
-    if (!cells.length) return;
-    cells.forEach(cell => this.pending.add(cell));
-    const timer = setTimeout(() => {
-      this.timers.delete(timer);
-      cells.forEach(cell => this.pending.delete(cell));
-      const removed = this.game.removeStoneCells(cells);
-      if (removed.length) this.onClear(removed);
-    }, STONE_LINE_DELAY_MS);
-    this.timers.add(timer);
-  }
-  dispose() { this.timers.forEach(clearTimeout); this.timers.clear(); this.pending.clear(); }
-}
-
-
 export const STONE_BURY_MS = 500;
 export const NEIGHBOR_SWEEP_MS = 280;
 export class SandSweeps {

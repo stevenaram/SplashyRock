@@ -35,7 +35,7 @@ test('restart cancels old timers, clears score and board, and deals a mixed tray
  const sweeps=new SandSweeps(game,()=>assert.fail('stale effect'),()=>{});sweeps.schedule();sweeps.dispose();game.restart();t.mock.timers.tick(2000);
  assert.equal(game.score,0);assert.equal(game.over,false);assert.ok(game.board.every(v=>v===null));assert.equal(new Set(game.inventory.map(p=>p!.tile)).size,2);
 });
-test('placement, stone creation and reset award deterministic points',()=>{
+test('placement, stone creation and sweeping award deterministic points',()=>{
  const game=new Game();game.inventory[0]={tile:'water',shape:single};game.place(0,26);assert.equal(game.score,1);
  game.board[28]='lava';game.formStone(27);assert.equal(game.score,21);
  game.clearCells([27,27]);assert.equal(game.score,31);
