@@ -44,6 +44,7 @@ function settled(){
   if(game.over||reactions.busy||sweeps.busy||game.hasLegalMove())return;
   endTimer=setTimeout(()=>{
     if(!game.finishIfBlocked(reactions.busy||sweeps.busy))return;
+    world.removePet();
     best=Math.max(best,game.score);
     try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
     document.querySelector('#final-score')!.textContent=game.score.toLocaleString();
@@ -79,7 +80,7 @@ const reactions = new StoneReactions(game, cell => {
 
 again.addEventListener('click',()=>{
   clearTimeout(endTimer);reactions.dispose();sweeps.dispose();cancel();
-  game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended');
+  world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended');
   shownCombo=0;combo.reset();
   shownScore=0;gainLabel.textContent='';updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});

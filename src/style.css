@@ -49,3 +49,9 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 @media (prefers-reduced-motion:reduce) { #game-over { animation:none; } #board canvas { transition:none; } }
 
 @media (prefers-reduced-motion:reduce) { .shape-icon { transition:none; } }
+
+.slot.pet { position:relative; border-radius:12px; background:radial-gradient(ellipse,#ffb95720,transparent 70%); }
+.pet-icon { width:88px; height:88px; object-fit:contain; image-rendering:pixelated; }
+.pet-label { position:absolute; bottom:0; left:0; right:0; color:#ffcf85; font:700 9px ui-monospace,monospace; letter-spacing:1px; text-align:center; pointer-events:none; }
+#ghost .pet-label { display:none; }
+@media(max-height:500px) { .pet-icon { width:68px; height:68px; } .pet-label { bottom:-4px; font-size:8px; } }

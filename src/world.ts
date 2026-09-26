@@ -5,6 +5,7 @@ import { createTile, disposeGroup } from './tiles';
 import { createIsland, rock } from './island';
 import { ConnectedSurface } from './surface';
 import { Effects } from './effects';
+import {PetWalker} from './pet';
 import { PixelRenderer } from './pixel-renderer';
 
 export class World {
@@ -18,6 +19,8 @@ export class World {
   private readonly pixels = new PixelRenderer();
   private arrivals: {group: THREE.Group;age:number}[] = [];
   private departures: {group:THREE.Group;age:number}[]=[];
+  private pet:PetWalker|null=null;
+  removePet(){this.pet?.dispose();this.pet=null;}
   private frame = 0;
   private previousTime = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -56,6 +59,7 @@ export class World {
     const dt=Math.min((ms-this.previousTime)/1000,.05);this.previousTime=ms;
     const time=this.reducedMotion.matches?0:ms/1000;
     this.surface.update(ms/1000,this.reducedMotion.matches);
+    if(this.pet)this.pet.update(dt,this.reducedMotion.matches);
     if (!this.reducedMotion.matches) {
       this.effects.update(dt);
       if(this.arrivals.length||this.departures.length)this.renderer.shadowMap.needsUpdate=true;
@@ -89,7 +93,7 @@ export class World {
   private pieceMesh(cell: number, piece: Piece, preview = false, valid = true) {
     const group = new THREE.Group();
     for (const [x, y] of footprint(piece, cell)) {
-      const mesh = createTile(piece.tile, preview, valid);
+      const mesh = createTile(piece.tile==='pet'?'stone':piece.tile, preview, valid);
       mesh.position.x = gridWorld(x);
       mesh.position.z = gridWorld(y);
       group.add(mesh);
@@ -148,6 +152,7 @@ export class World {
   }
 
   addPiece(cell: number, piece: Piece) {
+    if(piece.tile==='pet'){this.removePet();this.pet=new PetWalker(cell);this.scene.add(this.pet.group);this.render();return;}
     for(const [x,y] of footprint(piece,cell)) {
       const index=y*8+x;this.effects.cancelEvaporation(index);this.surface.set(index,piece.tile);
       if(!this.reducedMotion.matches)this.effects.burst(index,piece.tile);
@@ -219,6 +224,7 @@ export class World {
   }
 
   dispose() {
+    this.removePet();
     cancelAnimationFrame(this.frame);
     this.pixels.dispose();
     this.effects.dispose();

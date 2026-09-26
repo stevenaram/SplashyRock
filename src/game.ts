@@ -1,7 +1,7 @@
 import { SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
 export type Tile = Element | 'stone';
-export interface Piece { tile: Element; shape: Shape }
+export interface Piece { tile: Element | 'pet'; shape: Shape }
 export const SIZE = 8;
 
 // The pointer anchors the center cell of a shape's bounding box. Holes remain
@@ -17,6 +17,8 @@ export class Game {
   boardRevision = 0;
   score = 0;
   over = false;
+  petRewardDealt=false;
+  petPlaced=false;
   combo = 0;
   chainPoints = 0;
   readonly stoneDepth: number[] = Array(64).fill(0);
@@ -54,9 +56,15 @@ export class Game {
   }
   restart() {
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
-    this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
+    this.score=0;this.over=false;this.petRewardDealt=false;this.petPlaced=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   private deal(): Piece[] {
+    if(this.score>=5000&&!this.petRewardDealt){
+      this.petRewardDealt=true;
+      const first:Element=this.random()<.5?'water':'lava';
+      const shape=()=>SHAPES[Math.floor(this.random()*SHAPES.length)];
+      return [{tile:first,shape:shape()},{tile:'pet',shape:{id:'lava-pet',name:'Lava pet',width:1,height:1,cells:[[0,0]]}},{tile:first==='water'?'lava':'water',shape:shape()}];
+    }
     const majority: Element = this.random() < .5 ? 'water' : 'lava';
     const minoritySlot = Math.floor(this.random() * 3);
     return Array.from({ length: 3 }, (_, slot) => ({
@@ -95,8 +103,11 @@ export class Game {
   place(slot: number, anchor: number): boolean {
     const piece = this.inventory[slot];
     if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
-    for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
-    this.score += piece.shape.cells.length;
+    if(piece.tile==='pet')this.petPlaced=true;
+    else {
+      for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
+      this.score += piece.shape.cells.length;
+    }
     this.inventory[slot] = null;
     if (this.inventory.every(item => item === null)) this.inventory = this.deal();
     return true;
