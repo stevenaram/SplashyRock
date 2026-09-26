@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
 import { SIZE, footprint, type Piece } from './game';
 import { createTile, disposeGroup } from './tiles';
+import { createIsland } from './island';
 
 export class World {
   readonly scene = new THREE.Scene();
@@ -14,7 +15,16 @@ export class World {
   private readonly observer: ResizeObserver;
 
   constructor(private readonly host: HTMLElement) {
-    this.scene.background = new THREE.Color('#1e1e1e');
+    this.scene.background = new THREE.Color('#168eac');
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.scene.add(new THREE.HemisphereLight('#fff6da', '#538b94', 1.45));
+    const sun = new THREE.DirectionalLight('#fff3d6', 1.65);
+    sun.position.set(-12, 22, -9); sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 60 });
+    sun.shadow.normalBias = .035; sun.shadow.bias = -.0001;
+    this.scene.add(sun, createIsland());
     this.scene.add(createMap());
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     host.append(this.renderer.domElement);
@@ -133,7 +143,12 @@ export class World {
         list.forEach(material => materials.add(material));
       }
     });
-    materials.forEach(material => material.dispose());
+    const textures = new Set<THREE.Texture>();
+    materials.forEach(material => {
+      for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
+      material.dispose();
+    });
+    textures.forEach(texture => texture.dispose());
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

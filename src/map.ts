@@ -11,8 +11,8 @@ export const gridWorld = (coordinate: number) =>
 export function createMap(): THREE.Group {
   const map = new THREE.Group();
   map.name = 'map';
-  const material = new THREE.MeshBasicMaterial({ color: '#686868' });
-  const thickness = 0.095;
+  const material = new THREE.MeshBasicMaterial({ color: '#b49661', transparent: true, opacity: 0.67 });
+  const thickness = 0.045;
   const geometry = new THREE.PlaneGeometry(BOARD_EXTENT + thickness, thickness);
   const half = BOARD_EXTENT / 2;
 

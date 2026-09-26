@@ -1,0 +1,131 @@
+import * as T from 'three';
+
+export const PIXELS_PER_UNIT = 32;
+function random(seed: number) {
+  return () => { seed = (Math.imul(seed, 1664525) + 1013904223) | 0; return (seed >>> 0) / 4294967296; };
+}
+function pixelTexture(size: number, draw: (ctx: CanvasRenderingContext2D) => void) {
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d')!; draw(ctx);
+  const texture = new T.CanvasTexture(canvas);
+  texture.colorSpace = T.SRGBColorSpace;
+  texture.magFilter = texture.minFilter = T.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.wrapS = texture.wrapT = T.RepeatWrapping;
+  return texture;
+}
+export function sandTexture(units = 16) {
+  const size = Math.round(units * PIXELS_PER_UNIT);
+  return pixelTexture(size, ctx => {
+    const rng = random(87); ctx.fillStyle = '#e6c88d'; ctx.fillRect(0, 0, size, size);
+    // Restrained color steps keep the grain readable at exactly 32 texels/unit.
+    const colors = ['#e0c18b','#e2c58f','#e5c994','#e7cc98','#e3c690'];
+    for (let y=0; y<size; y++) for(let x=0;x<size;x++) {
+      const wave=Math.sin(x*.037+Math.sin(y*.024)*2)*.5+.5;
+      ctx.fillStyle=colors[Math.min(4,Math.floor(wave*3+(rng()>.85?1:0)))];ctx.fillRect(x,y,1,1);
+    }
+    for(let i=0;i<size*.8;i++) {
+      const x=Math.floor(rng()*size),y=Math.floor(rng()*size);
+      ctx.fillStyle=i%3 ? '#ead29f' : '#d3b67f';ctx.fillRect(x,y,1+Math.floor(rng()*3),1);
+    }
+  });
+}
+export function waterTexture(lava = false) {
+  const size = 8 * PIXELS_PER_UNIT;
+  return pixelTexture(size, ctx => {
+    const rng=random(lava ? 122 : 314);
+    ctx.fillStyle=lava ? '#bd3e14' : '#168fb4';ctx.fillRect(0,0,size,size);
+    // Periodic cellular caustics: seamless, nearest-filtered, not a photo.
+    const cells=8, step=size/cells;
+    const points=Array.from({length:cells*cells},(_,i)=>[(i%cells+.2+rng()*.6)*step,(Math.floor(i/cells)+.2+rng()*.6)*step]);
+    const data=ctx.getImageData(0,0,size,size);
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++) {
+      let first=Infinity,second=Infinity;
+      const frequency=Math.PI*2/size;
+      const wx=(x+(lava?0:5)*Math.sin(y*frequency*3)+size)%size;
+      const wy=(y+(lava?0:4)*Math.sin(x*frequency*4)+size)%size;
+      const gx=Math.floor(wx/step),gy=Math.floor(wy/step);
+      for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++) {
+        const ix=(gx+ox+cells)%cells,iy=(gy+oy+cells)%cells;
+        const p=points[iy*cells+ix];let dx=Math.abs(wx-p[0]),dy=Math.abs(wy-p[1]);dx=Math.min(dx,size-dx);dy=Math.min(dy,size-dy);
+        const d=dx*dx+dy*dy;if(d<first){second=first;first=d;}else if(d<second)second=d;
+      }
+      const edge=Math.sqrt(second)-Math.sqrt(first);
+      const shimmer=Math.sin(x*.035+y*.03)*.5+.5;
+      const palette=lava ? [[145,42,20],[190,54,17],[229,79,15],[255,153,31],[255,213,94]] : [[24,129,182],[27,136,186],[32,144,190],[48,155,196],[84,178,210]];
+      const index=edge<.6 ? 4 : edge<1.5 ? 3 : edge<3 ? 2 : shimmer>.55 ? 1 : 0;
+      const c=palette[index],i=(y*size+x)*4;data.data[i]=c[0];data.data[i+1]=c[1];data.data[i+2]=c[2];data.data[i+3]=255;
+    }
+    ctx.putImageData(data,0,0);
+  });
+}
+const coast = (angle: number) => {
+  const c=Math.cos(angle),s=Math.sin(angle);
+  const radius=9.25/Math.max(Math.abs(c),Math.abs(s));
+  const wobble=.20*Math.sin(angle*13)+.13*Math.cos(angle*19)+.16*Math.sin(angle*7);
+  return new T.Vector2(c*(radius+wobble),s*(radius+wobble));
+};
+function shoreBand(inner: number, outer: number, yi: number, yo: number, color: string, alternate: string) {
+  const positions:number[]=[],colors:number[]=[], rng=random(27);
+  for(let i=0;i<96;i++) {
+    const a=coast(i/96*Math.PI*2),b=coast((i+1)/96*Math.PI*2);
+    const verts=[[a.x*inner,yi,a.y*inner],[b.x*inner,yi,b.y*inner],[a.x*outer,yo,a.y*outer],[b.x*inner,yi,b.y*inner],[b.x*outer,yo,b.y*outer],[a.x*outer,yo,a.y*outer]];
+    const tint=new T.Color(rng()>.55?color:alternate);
+    verts.forEach(v=>{positions.push(...v);colors.push(tint.r,tint.g,tint.b);});
+  }
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
+  return new T.Mesh(geometry,new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide}));
+}
+export function rock(color = '#ac9c80', seed = 1) {
+  const rng=random(seed),geo=new T.IcosahedronGeometry(1,0);
+  const p=geo.getAttribute('position');
+  for(let i=0;i<p.count;i++) { const x=p.getX(i),y=p.getY(i),z=p.getZ(i);p.setXYZ(i,x*(.85+rng()*.12),Math.max(-.48,y)*.8,z*(.8+rng()*.15)); }
+  geo.computeVertexNormals();
+  const mesh=new T.Mesh(geo,new T.MeshStandardMaterial({color,flatShading:true,roughness:1}));mesh.castShadow=true;mesh.receiveShadow=true;return mesh;
+}
+function palm(x:number,z:number,scale:number,rotation:number) {
+  const palm=new T.Group();palm.position.set(x,-.13,z);palm.scale.setScalar(scale);palm.rotation.y=rotation;
+  const bark=new T.MeshStandardMaterial({color:'#927047',flatShading:true});
+  for(let i=0;i<6;i++) {
+    const trunk=new T.Mesh(new T.CylinderGeometry(.12-i*.009,.15-i*.009,.42,6),bark);
+    trunk.position.set(i*i*.012,i*.36+.2,0);trunk.rotation.z=-i*.045;trunk.castShadow=true;palm.add(trunk);
+  }
+  for(let i=0;i<7;i++) {
+    const geometry=new T.BufferGeometry();
+    geometry.setAttribute('position',new T.Float32BufferAttribute([0,0,0,.55,.26,-.27,.55,.37,0,0,0,0,.55,.37,0,.55,.26,.27,.55,.26,-.27,1.25,.05,-.19,.55,.37,0,.55,.37,0,1.25,.05,-.19,1.65,-.38,0,.55,.37,0,1.65,-.38,0,1.25,.05,.19,.55,.37,0,1.25,.05,.19,.55,.26,.27],3));geometry.computeVertexNormals();
+    const leaf=new T.Mesh(geometry,new T.MeshStandardMaterial({color:i%2?'#3e9b70':'#6bba7c',flatShading:true,side:T.DoubleSide}));leaf.position.set(.32,2.2,0);leaf.rotation.y=i*Math.PI*2/7;leaf.castShadow=true;palm.add(leaf);
+  }
+  return palm;
+}
+export function createIsland() {
+  const group=new T.Group();group.name='island-scenery';
+  const oceanMap=waterTexture();oceanMap.repeat.set(16,16);
+  const ocean=new T.Mesh(new T.PlaneGeometry(128,128),new T.MeshBasicMaterial({map:oceanMap,color:'#ffffff'}));ocean.rotation.x=-Math.PI/2;ocean.position.y=-.8;group.add(ocean);
+  // Shallow water, then wet sand, then the dry beach; irregular polygonal shores.
+  group.add(shoreBand(1.07,1.34,-.70,-.77,'#35a9bc','#36aebf'));
+  group.add(shoreBand(1.015,1.14,-.49,-.69,'#77c5bc','#82cac0'));
+  group.add(shoreBand(.995,1.025,-.40,-.47,'#d9eee0','#bce4d5'));
+  group.add(shoreBand(.965,1.0,-.18,-.39,'#d8c18c','#c9b885'));
+  group.add(shoreBand(.90,.967,-.08,-.17,'#ead099','#e4c58c'));
+  // Pixel-sized foam flecks break up the shoreline without covering the grid.
+  const foamMaterial = new T.MeshBasicMaterial({color:'#e1f4dc',transparent:true,opacity:.85});
+  for(let i=0;i<72;i++) {
+    if(i%5===0)continue;
+    const angle=i/72*Math.PI*2,p=coast(angle).multiplyScalar(1.018);
+    const foam=new T.Mesh(new T.PlaneGeometry(.12+(i%4)*.065,.04),foamMaterial);
+    foam.rotation.set(-Math.PI/2,0,-angle+Math.PI/2);foam.position.set(p.x,-.405,p.y);group.add(foam);
+  }
+  const sand=new T.Mesh(new T.PlaneGeometry(17.6,17.6),new T.MeshStandardMaterial({map:sandTexture(17.6),roughness:1}));sand.rotation.x=-Math.PI/2;sand.position.y=-.09;sand.receiveShadow=true;group.add(sand);
+  group.add(palm(-6.7,-9.1,.94,.3),palm(-8.6,-8.7,.65,-.7));
+  const rng=random(552);
+  for(const [x,z,s] of [[7.1,-9.05,.65],[7.9,-9,.4],[6.7,-9.5,.3],[-9.3,5,.35],[9.1,4.1,.4],[-5.8,9.2,.28]]) {
+    const boulder=rock('#a6a999',Math.floor(rng()*1000));boulder.scale.set(s,s*.7,s);boulder.position.set(x,s*.25-.12,z);boulder.rotation.y=rng()*6;group.add(boulder);
+  }
+  // Beach details stay entirely outside the playable footprint.
+  for(let i=0;i<65;i++) {
+    const edge=coast(rng()*Math.PI*2).multiplyScalar(.92+rng()*.055);
+    if(Math.abs(edge.x)<8.2&&Math.abs(edge.y)<8.2)continue;
+    const shell=new T.Mesh(new T.BoxGeometry(.07+rng()*.12,.035,.06+rng()*.12),new T.MeshStandardMaterial({color:i%3?'#fff0c6':'#c4a774'}));shell.position.set(edge.x,-.045,edge.y);shell.rotation.y=rng()*6;group.add(shell);
+  }
+  return group;
+}
