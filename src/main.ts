@@ -1,6 +1,7 @@
 import './style.css';
 import { World } from './world';
 import { Game, type Piece } from './game';
+import { StoneReactions } from './reactions';
 
 const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
@@ -18,6 +19,12 @@ const events = new AbortController();
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;
+const reactions = new StoneReactions(game, cell => {
+  world.addStone(cell);
+  // If stone appears during the next drag, refresh that piece's validity.
+  const piece = selected === null ? null : game.inventory[selected];
+  if (piece && target !== null) world.showPreview(target, piece, game.canPlace(piece, target));
+});
 
 function pieceIcon(piece: Piece) {
   const { width, height, cells } = piece.shape;
@@ -53,6 +60,7 @@ function place() {
   const piece = game.inventory[selected] as Piece;
   if (!game.place(selected, target)) return false;
   world.addPiece(target, piece);
+  reactions.schedule();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
   selected = null;
   clearPreview();
@@ -110,4 +118,4 @@ tray.addEventListener('click', event => {
   if (button && !button.disabled) { selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
 renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { events.abort(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { events.abort(); reactions.dispose(); world.dispose(); });

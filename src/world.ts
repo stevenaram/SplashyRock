@@ -48,6 +48,14 @@ export class World {
     return group;
   }
 
+  addStone(cell: number) {
+    const mesh = createTile('stone');
+    mesh.position.x = gridWorld(cell % SIZE);
+    mesh.position.z = gridWorld(Math.floor(cell / SIZE));
+    this.scene.add(mesh);
+    this.render();
+  }
+
   addPiece(cell: number, piece: Piece) {
     this.scene.add(this.pieceMesh(cell, piece));
     this.render();

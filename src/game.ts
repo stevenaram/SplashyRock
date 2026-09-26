@@ -1,6 +1,7 @@
 import { SHAPES, type Shape, type Offset } from './shapes';
-export type Tile = 'water' | 'lava';
-export interface Piece { tile: Tile; shape: Shape }
+export type Element = 'water' | 'lava';
+export type Tile = Element | 'stone';
+export interface Piece { tile: Element; shape: Shape }
 export const SIZE = 8;
 
 // The pointer anchors the center cell of a shape's bounding box. Holes remain
@@ -26,6 +27,27 @@ export class Game {
     if (!Number.isInteger(anchor) || anchor < 0 || anchor >= SIZE * SIZE) return false;
     return footprint(piece, anchor).every(([x, y]) =>
       x >= 0 && x < SIZE && y >= 0 && y < SIZE && this.board[y * SIZE + x] === null);
+  }
+  canFormStone(cell: number): boolean {
+    if (!Number.isInteger(cell) || cell < 0 || cell >= SIZE * SIZE || this.board[cell] !== null) return false;
+    const x = cell % SIZE, y = Math.floor(cell / SIZE);
+    const neighbors: Tile[] = [];
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
+        const tile = this.board[ny * SIZE + nx];
+        if (tile) neighbors.push(tile);
+      }
+    }
+    return neighbors.includes('water') && neighbors.includes('lava');
+  }
+  stoneCandidates(): number[] {
+    return this.board.flatMap((_, cell) => this.canFormStone(cell) ? [cell] : []);
+  }
+  formStone(cell: number): boolean {
+    if (!this.canFormStone(cell)) return false;
+    this.board[cell] = 'stone';
+    return true;
   }
   place(slot: number, anchor: number): boolean {
     const piece = this.inventory[slot];

@@ -25,3 +25,7 @@ GitHub Actions builds and deploys to GitHub Pages on every push to `main`. The w
 - Three disconnected three-square pieces pointing up, right, and left.
 
 The pointer anchors the center cell of the shape's bounding box; the full footprint is highlighted before release. Tests verify the catalog against all 20 reference drawings and cover every shape's occupancy, bounds, gaps, and atomic placement.
+
+## Stone reaction
+
+An empty cell sharing an edge with at least one water tile and one lava tile becomes stone 500 ms after the qualifying placement. Diagonal neighbors do not count. Existing water, lava, and stone are never replaced. A cell filled during the delay remains its placed element. Stone uses the supplied swatch color `#F8D9C1`, blocks future placement, and is never dealt in the tray. Placement previews show only the held piece, with no forecast of stone reactions. `src/reactions.ts` owns the delayed callbacks and cancels them on disposal.
