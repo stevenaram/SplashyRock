@@ -54,7 +54,7 @@ export class World {
     if (document.hidden || ms-this.previousTime < 1000/30) return;
     const dt=Math.min((ms-this.previousTime)/1000,.05);this.previousTime=ms;
     const time=this.reducedMotion.matches?0:ms/1000;
-    this.surface.update(time);
+    this.surface.update(ms/1000,this.reducedMotion.matches);
     if (!this.reducedMotion.matches) {
       this.effects.update(dt);
       if(this.arrivals.length)this.renderer.shadowMap.needsUpdate=true;
@@ -111,6 +111,7 @@ export class World {
 
   syncBoard(board: readonly (Tile | null)[], animate = true) {
     const before=[...this.surface.board];
+    if(!animate)this.surface.resetInfluences();
     for (const group of [...this.stones.children]) disposeGroup(group as THREE.Group);
     this.arrivals=[];
     this.effects.clear();

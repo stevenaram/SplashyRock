@@ -13,6 +13,11 @@ export class ConnectedSurface {
   readonly board: (Tile|null)[] = Array(64).fill(null);
   private readonly data = new Uint8Array(8*8*4);
   readonly texture = new T.DataTexture(this.data,8,8,T.RGBAFormat);
+  private previousTime: number | null = null;
+  private readonly targets=new Uint8Array(128);
+  private readonly progress=new Float32Array(128);
+  private readonly starts=new Float32Array(128);
+  private readonly ages=new Float32Array(128);
   readonly material: T.ShaderMaterial;
   readonly mesh: T.Mesh;
   constructor() {
@@ -30,8 +35,8 @@ export class ConnectedSurface {
           float left=kind(cell-vec2(1,0)),right=kind(cell+vec2(1,0)),up=kind(cell-vec2(0,1)),down=kind(cell+vec2(0,1));
           if(k<.5){
             // A calm, full-cell sand treatment: no partial shoreline masks.
-            bool wet=left==1.||right==1.||up==1.||down==1.;
-            bool hot=left==2.||right==2.||up==2.||down==2.;
+            vec2 reveal=texture2D(board,(cell+.5)/8.).gb;
+            bool wet=reveal.x>.001,hot=reveal.y>.001;
             if(!wet&&!hot)discard;
             // Preserve the map's fine grid while covering the entire interior.
             if(min(min(f.x,2.-f.x),min(f.y,2.-f.y))<.03125)discard;
@@ -47,7 +52,8 @@ export class ConnectedSurface {
                 float angle=hash(cell+n+51.)*6.28;
                 d=mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*d;
                 float size=.85+hash(cell+n+63.)*.3;
-                d/=size;
+                float arrival=smoothstep(n*.12,1.,reveal.y);
+                d/=size*max(.001,arrival);
                 // A faceted main ember and two smaller chips form a compact,
                 // irregular cluster. Broad faces survive the pixel renderer.
                 vec2 q=abs(d);
@@ -69,9 +75,11 @@ export class ConnectedSurface {
                 vec2 d=f-center;
                 float angle=hash(cell+n+71.)*6.28;
                 d=mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*d;
-                float radius=(i==0?.25:.18)+hash(cell+n+37.)*.035;
+                float arrival=smoothstep(n*.15,1.,reveal.x);
+                float radius=((i==0?.25:.18)+hash(cell+n+37.)*.035)*arrival;
                 // Broad, asymmetric basins rather than matching oval dots.
-                float basin=length(d*vec2(.83,1.22))-radius+sin(d.x*11.+seed*4.)*.024;
+                float basin=length(d*vec2(.83,1.22))-radius+sin(d.x*11.+seed*4.)*.024*arrival;
+                if(arrival<.02)basin=10.;
                 if(basin<pool){pool=basin;poolLocal=d;}
               }
             }
@@ -128,5 +136,34 @@ export class ConnectedSurface {
     this.mesh=new T.Mesh(new T.PlaneGeometry(16,16),this.material);this.mesh.rotation.x=-Math.PI/2;this.mesh.position.y=.065;
   }
   set(cell:number,tile:Tile|null){this.board[cell]=tile;this.data[cell*4]=elementCode(tile);this.data[cell*4+3]=255;this.texture.needsUpdate=true;}
-  update(time:number){this.material.uniforms.time.value=time;}
+  resetInfluences(){
+    this.targets.fill(0);this.progress.fill(0);this.starts.fill(0);this.ages.fill(0);this.previousTime=null;
+    for(let cell=0;cell<64;cell++){this.data[cell*4+1]=0;this.data[cell*4+2]=0;}
+    this.texture.needsUpdate=true;
+  }
+  update(time:number,reducedMotion=false){
+    const dt=this.previousTime===null?0:Math.max(0,Math.min(.05,time-this.previousTime));
+    this.previousTime=time;this.material.uniforms.time.value=reducedMotion?0:time;
+    let changed=false;
+    for(let cell=0;cell<64;cell++){
+      const x=cell%8,y=Math.floor(cell/8);
+      const neighbors=[x>0?cell-1:-1,x<7?cell+1:-1,y>0?cell-8:-1,y<7?cell+8:-1];
+      for(let element=0;element<2;element++){
+        const index=cell*2+element;
+        const desired=this.board[cell]===null&&neighbors.some(n=>n>=0&&this.board[n]===(element===0?'water':'lava'))?1:0;
+        if(desired!==this.targets[index]){
+          this.targets[index]=desired;this.starts[index]=this.progress[index];
+          // A small spatial stagger leads into, rather than delaying, stone's 500ms reaction.
+          this.ages[index]=desired?-((cell*17+element*11)%4)*.025:0;
+        }
+        this.ages[index]+=dt;
+        const t=Math.max(0,Math.min(1,this.ages[index]/(desired?.30:.18)));
+        const eased=1-Math.pow(1-t,3);
+        this.progress[index]=reducedMotion||this.board[cell]!==null?desired:this.starts[index]+(desired-this.starts[index])*eased;
+        const byte=Math.round(this.progress[index]*255),offset=cell*4+element+1;
+        if(this.data[offset]!==byte){this.data[offset]=byte;changed=true;}
+      }
+    }
+    if(changed)this.texture.needsUpdate=true;
+  }
 }

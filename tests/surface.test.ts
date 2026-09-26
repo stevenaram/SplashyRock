@@ -17,3 +17,27 @@ test('visual occupancy updates independently of gameplay and encodes all element
  surface.update(2);assert.equal(surface.material.uniforms.time.value,2);
  surface.texture.dispose();surface.mesh.geometry.dispose();surface.material.dispose();
 });
+
+test('neighbor reveals finish before stone delay, stay stable, and recede after clearing',()=>{
+ const surface=new ConnectedSurface(),data=surface.texture.image.data;
+ surface.set(26,'water');surface.set(28,'lava');surface.update(0);
+ assert.equal(data[27*4+1],0);assert.equal(data[27*4+2],0);
+ surface.update(.05);surface.update(.10);surface.update(.15);
+ assert.ok(data[27*4+1]>0&&data[27*4+1]<255);
+ for(let t=.20;t<=.46;t+=.05)surface.update(t);
+ assert.equal(data[27*4+1],255);assert.equal(data[27*4+2],255);
+ assert.equal(data[17*4+1],0); // Diagonal to water remains untouched.
+ surface.set(0,'water');surface.update(.50);assert.equal(data[27*4+1],255);
+ surface.set(26,null);surface.update(.55);assert.ok(data[27*4+1]<255&&data[27*4+1]>0);
+ for(let t=.60;t<=.81;t+=.05)surface.update(t);
+ assert.equal(data[27*4+1],0);assert.equal(data[27*4+2],255);
+ surface.resetInfluences();assert.equal(data[27*4+2],0);
+ surface.texture.dispose();surface.mesh.geometry.dispose();surface.material.dispose();
+});
+test('reduced motion snaps influences and occupied cells cannot retain them',()=>{
+ const surface=new ConnectedSurface(),data=surface.texture.image.data;
+ surface.set(26,'water');surface.update(0,true);assert.equal(data[27*4+1],255);
+ assert.equal(surface.material.uniforms.time.value,0);
+ surface.set(27,'stone');surface.update(.01);assert.equal(data[27*4+1],0);
+ surface.texture.dispose();surface.mesh.geometry.dispose();surface.material.dispose();
+});
