@@ -29,39 +29,22 @@ export class ConnectedSurface {
           vec2 p=floor((world+8.)*32.)/32.;vec2 cell=floor(p/2.);vec2 f=mod(p,2.);float k=kind(cell);
           float left=kind(cell-vec2(1,0)),right=kind(cell+vec2(1,0)),up=kind(cell-vec2(0,1)),down=kind(cell+vec2(0,1));
           if(k<.5){
-            // Only orthogonal occupied neighbors influence playable sand. The
-            // irregular contour flows out from their shared edge, at 32px/unit.
-            float wet=10.,hot=10.;
-            if(left==1.)wet=min(wet,f.x);if(right==1.)wet=min(wet,2.-f.x);if(up==1.)wet=min(wet,f.y);if(down==1.)wet=min(wet,2.-f.y);
-            if(left==2.)hot=min(hot,f.x);if(right==2.)hot=min(hot,2.-f.x);if(up==2.)hot=min(hot,f.y);if(down==2.)hot=min(hot,2.-f.y);
-            if(min(wet,hot)>3.)discard;
-            // Leave the physical grid exposed, including the outer board edge.
+            // A calm, full-cell sand treatment: no partial shoreline masks.
+            bool wet=left==1.||right==1.||up==1.||down==1.;
+            bool hot=left==2.||right==2.||up==2.||down==2.;
+            if(!wet&&!hot)discard;
+            // Preserve the map's fine grid while covering the entire interior.
             if(min(min(f.x,2.-f.x),min(f.y,2.-f.y))<.03125)discard;
-            float grain=hash(floor(p*32.));
-            float contour=(noise(p*3.)-.5)*.27;
-            float w=1.-smoothstep(.12,1.9,wet+contour);
-            float h=1.-smoothstep(.12,1.9,hot-contour);
-            if(max(w,h)<.04)discard;
-            vec3 sand=vec3(.824,.725,.510);
-            vec3 damp=wet<.18?vec3(.30,.49,.48):w>.55?vec3(.48,.55,.50):w>.3?vec3(.61,.62,.51):vec3(.70,.65,.48);
-            vec3 heated=hot<.18?vec3(.89,.44,.20):h>.55?vec3(.76,.53,.32):h>.3?vec3(.80,.64,.41):vec3(.80,.69,.46);
-            vec3 c=sand;
-            if(w>.05)c=mix(sand,damp,min(1.,w*2.));
-            if(h>.05)c=mix(c,heated,min(1.,h*1.7));
-            // Fine shoreline ribbons and scattered glowing fissures; never a
-            // solid pool or tile outline, so this still reads as empty sand.
-            float tide=.24+sin(time*.9+p.x*1.8+p.y*1.3)*.055;
-            if(abs(wet+contour-tide)<.032&&noise(p*5.)>.48)c=vec3(.64,.77,.67);
-            float crack=abs(noise(p*6.)-.5);
-            if(h>.3&&crack<.026&&noise(p*2.)>.47)c=sin(time*1.2+p.x+p.y)>.2?vec3(1.,.72,.35):vec3(.90,.53,.22);
-            // Where both influences meet, pale mineral flecks mark the future
-            // reaction without showing a rock before the gameplay delay.
-            if(wet<3.&&hot<3.){
-              float seam=abs(wet-hot+contour*2.);
-              if(seam<.23&&grain>.68)c=vec3(.973,.851,.757);
-              else if(seam<.38&&grain>.86)c=vec3(.65,.67,.57);
-            }
-            if(grain>.965)c=mix(c,vec3(.94,.84,.65),.4);
+            vec3 base=wet?vec3(.710,.710,.588):vec3(.831,.678,.490);
+            vec3 light=wet?vec3(.749,.753,.639):vec3(.875,.733,.549);
+            if(wet&&hot){base=vec3(.808,.745,.620);light=vec3(.863,.804,.675);}
+            // Broad, quiet sand ripples with a few short pixel grains, instead
+            // of busy cracks, foam, or glowing edges competing with pieces.
+            float dune=sin(p.y*9.+noise(p*.8)*3.+(wet?sin(time*.45)*.08:0.));
+            vec3 c=base;
+            if(dune>.965&&noise(p*2.)>.55)c=light;
+            vec2 grainCell=floor(p*vec2(12.,32.));
+            if(hash(grainCell)>.996)c=light;
             gl_FragColor=vec4(pow(c,vec3(2.2)),1.);
             #include <colorspace_fragment>
             return;

@@ -6,6 +6,7 @@ const palette=['#103447','#17465a','#205b70','#26758b','#248ab2','#2d9ac0','#4aa
 '#263e36','#365849','#4c7855','#70955d','#a3b573',
 '#655347','#876e53','#a38a60','#bca471','#d2b982','#e4cc98','#f0dfb1','#f8d9c1',
 '#54333a','#893a32','#bb482d','#e5632c','#f88c36','#ffb957','#ffe097',
+'#b5b596','#bfc0a3','#d4ad7d','#dfbb8c','#cebe9e','#dccdac',
 '#555c60','#788080','#a6aaa0','#d4d1b6'];
 export class PixelRenderer {
   private readonly target=new T.WebGLRenderTarget(1,1,{minFilter:T.NearestFilter,magFilter:T.NearestFilter,depthBuffer:true});
