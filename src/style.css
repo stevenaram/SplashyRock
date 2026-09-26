@@ -5,20 +5,21 @@ html, body, #game { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 #board { min-width: 0; min-height: 0; position: relative; }
 canvas { display: block; width: 100%; height: 100%; }
 #tray { display: flex; align-items: center; justify-content: center; gap: clamp(20px, 7vw, 80px); background: #252d2f; padding: 16px 20px max(16px, env(safe-area-inset-bottom)); }
-.slot { appearance: none; border: 0; background: transparent; padding: 10px; width: clamp(64px, 15vw, 110px); aspect-ratio: 1; cursor: grab; touch-action: none; }
+.slot { appearance: none; border: 0; background: transparent; padding: 10px; width: clamp(64px, 15vw, 110px); aspect-ratio: 1; cursor: grab; touch-action: none; display: flex; align-items: center; justify-content: center; --unit: clamp(12px, 3.3vw, 25px); }
 .water { --fill: #4d8195; --edge: #73d8fa; }
 .lava { --fill: #984300; --edge: #ff7100; }
-.tile-icon, #ghost { background: var(--fill); border: 4px solid var(--edge); border-radius: 2px; }
-.tile-icon { display: block; width: 100%; height: 100%; transition: opacity 100ms, translate 100ms; }
-.slot[aria-pressed="true"] .tile-icon { opacity: .4; translate: 0 -5px; }
+.tile-icon { background: var(--fill); border: 2px solid var(--edge); border-radius: 2px; }
+.shape-icon { display: grid; flex: none; width: calc(var(--columns) * var(--unit)); height: calc(var(--rows) * var(--unit)); grid-template-columns: repeat(var(--columns), var(--unit)); grid-template-rows: repeat(var(--rows), var(--unit)); transition: opacity 100ms, translate 100ms; }
+.tile-icon { display: block; width: var(--unit); height: var(--unit); }
+.slot[aria-pressed="true"] .shape-icon { opacity: .4; translate: 0 -5px; }
 .slot:focus-visible { outline: 2px solid #eee; outline-offset: 3px; border-radius: 5px; }
 .slot.used { pointer-events: none; }
 .slot.used .tile-icon { visibility: hidden; }
-#ghost { position: fixed; top: 0; left: 0; width: 64px; height: 64px; pointer-events: none; opacity: .8; z-index: 3; }
+#ghost { position: fixed; top: 0; left: 0; --unit: 22px; pointer-events: none; opacity: .8; z-index: 3; }
 #ghost[hidden] { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (min-aspect-ratio: 6/5) {
   #game { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) clamp(100px, 17vw, 190px); }
   #tray { flex-direction: column; gap: clamp(8px, 5dvh, 50px); padding: 16px max(16px, env(safe-area-inset-right)) 16px 16px; }
-  .slot { width: clamp(58px, 19dvh, 110px); }
+  .slot { width: clamp(58px, 19dvh, 110px); --unit: clamp(12px, 4dvh, 25px); }
 }

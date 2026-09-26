@@ -1,6 +1,6 @@
 import './style.css';
 import { World } from './world';
-import { Game, type Tile } from './game';
+import { Game, type Piece } from './game';
 
 const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
@@ -19,32 +19,41 @@ let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;
 
+function pieceIcon(piece: Piece) {
+  const { width, height, cells } = piece.shape;
+  return `<span class="shape-icon" style="--columns:${width};--rows:${height}">${cells.map(([x, y]) =>
+    `<span class="tile-icon" style="grid-column:${x + 1};grid-row:${y + 1}"></span>`).join('')}</span>`;
+}
 function renderTray() {
-  tray.innerHTML = game.inventory.map((tile, index) => `<button class="slot ${tile ?? 'used'}" data-slot="${index}"
-    aria-label="${tile ? `${tile} tile ${index + 1}` : 'Used tile'}" aria-pressed="${selected === index}"
-    ${tile ? '' : 'disabled'}><span class="tile-icon"></span></button>`).join('');
+  tray.innerHTML = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
+    data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
+    ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece) : ''}</button>`).join('');
 }
 function clearPreview() {
   target = null;
   ghost.hidden = true;
-  world.showPreview(null, 'water');
+  world.showPreview(null, null);
 }
 function updateTarget(x: number, y: number) {
   if (selected === null) return;
-  const tile = game.inventory[selected];
-  if (!tile) return;
+  const piece = game.inventory[selected];
+  if (!piece) return;
   target = world.cellAt(x, y);
-  world.showPreview(target, tile, target !== null && game.canPlace(target));
-  ghost.className = tile;
+  world.showPreview(target, piece, target !== null && game.canPlace(piece, target));
+  ghost.className = piece.tile;
+  if (ghost.dataset.shape !== piece.shape.id) {
+    ghost.innerHTML = pieceIcon(piece);
+    ghost.dataset.shape = piece.shape.id;
+  }
   ghost.hidden = target !== null || !drag?.moved;
   ghost.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
 }
 function place() {
   if (selected === null || target === null) return false;
-  const tile = game.inventory[selected] as Tile;
+  const piece = game.inventory[selected] as Piece;
   if (!game.place(selected, target)) return false;
-  world.addTile(target, tile);
-  status.textContent = `${tile} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
+  world.addPiece(target, piece);
+  status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
   selected = null;
   clearPreview();
   renderTray();

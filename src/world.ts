@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
-import { SIZE, type Tile } from './game';
+import { SIZE, footprint, type Piece } from './game';
 import { createTile, disposeGroup } from './tiles';
 
 export class World {
@@ -37,24 +37,30 @@ export class World {
     return column >= 0 && column < SIZE && row >= 0 && row < SIZE ? row * SIZE + column : null;
   }
 
-  addTile(cell: number, tile: Tile) {
-    const mesh = createTile(tile);
-    mesh.position.x = gridWorld(cell % SIZE);
-    mesh.position.z = gridWorld(Math.floor(cell / SIZE));
-    this.scene.add(mesh);
+  private pieceMesh(cell: number, piece: Piece, preview = false, valid = true) {
+    const group = new THREE.Group();
+    for (const [x, y] of footprint(piece, cell)) {
+      const mesh = createTile(piece.tile, preview, valid);
+      mesh.position.x = gridWorld(x);
+      mesh.position.z = gridWorld(y);
+      group.add(mesh);
+    }
+    return group;
+  }
+
+  addPiece(cell: number, piece: Piece) {
+    this.scene.add(this.pieceMesh(cell, piece));
     this.render();
   }
 
-  showPreview(cell: number | null, tile: Tile, valid = true) {
-    const key = cell === null ? '' : `${cell}-${tile}-${valid}`;
+  showPreview(cell: number | null, piece: Piece | null, valid = true) {
+    const key = cell === null || !piece ? '' : `${cell}-${piece.tile}-${piece.shape.id}-${valid}`;
     if (key === this.previewKey) return;
     if (this.preview) disposeGroup(this.preview);
     this.preview = null;
     this.previewKey = key;
-    if (cell !== null) {
-      this.preview = createTile(tile, true, valid);
-      this.preview.position.x = gridWorld(cell % SIZE);
-      this.preview.position.z = gridWorld(Math.floor(cell / SIZE));
+    if (cell !== null && piece) {
+      this.preview = this.pieceMesh(cell, piece, true, valid);
       this.scene.add(this.preview);
     }
     this.render();
