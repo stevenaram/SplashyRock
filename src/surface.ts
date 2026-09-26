@@ -35,17 +35,28 @@ export class ConnectedSurface {
             if(!wet&&!hot)discard;
             // Preserve the map's fine grid while covering the entire interior.
             if(min(min(f.x,2.-f.x),min(f.y,2.-f.y))<.03125)discard;
-            // Only the presence of an element matters, never its direction.
-            // These are sand material variants, not shores or miniature pools.
-            vec3 base=wet?vec3(196.,182.,142.)/255.:vec3(213.,177.,126.)/255.;
-            vec3 highlight=wet?vec3(206.,192.,154.)/255.:vec3(222.,188.,139.)/255.;
-            if(wet&&hot){base=vec3(203.,187.,151.)/255.;highlight=vec3(213.,198.,163.)/255.;}
-            // Quiet sand mottling and occasional grains retain the beach's
-            // texture, with no border, foam, seam, or source-facing pattern.
-            float mottle=noise(p*1.8);
-            vec3 c=mottle>.72?highlight:base;
-            vec2 grain=floor(p*32.);
-            if(hash(grain)>.997)c=highlight;
+            // Lava adds only tiny embedded coals. Discard elsewhere so the
+            // actual underlying sand, lighting, and texture remain untouched.
+            float coal=10.,seed=hash(cell);
+            if(hot){
+              for(int i=0;i<3;i++){
+                float n=float(i);
+                vec2 center=vec2(.3)+vec2(hash(cell+vec2(n*7.1,13.)),hash(cell+vec2(29.,n*9.3)))*1.4;
+                vec2 d=abs(f-center);
+                coal=min(coal,max(d.x,d.y*.85)+min(d.x,d.y)*.28);
+              }
+            }
+            if(!wet&&coal>.105)discard;
+            vec3 base=vec3(196.,182.,142.)/255.;
+            vec3 highlight=vec3(206.,192.,154.)/255.;
+            vec3 c=noise(p*1.8)>.72?highlight:base;
+            if(hash(floor(p*32.))>.997)c=highlight;
+            if(hot&&coal<.105){
+              c=vec3(.40,.325,.278); // charcoal nestled into the sand
+              if(coal<.067)c=vec3(.733,.282,.176);
+              if(coal<.042)c=vec3(.973,.549,.212);
+              if(coal<.023&&sin(time*1.35+seed*6.28)>-.25)c=vec3(1.,.725,.341);
+            }
             gl_FragColor=vec4(pow((c+.055)/1.055,vec3(2.4)),1.);
             #include <colorspace_fragment>
             return;
