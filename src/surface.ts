@@ -43,7 +43,7 @@ export class ConnectedSurface {
             if(min(min(f.x,2.-f.x),min(f.y,2.-f.y))<.03125)discard;
             // Lava adds only tiny embedded coals. Discard elsewhere so the
             // actual underlying sand, lighting, and texture remain untouched.
-            float coal=10.,seed=hash(cell);vec2 emberLocal=vec2(0.);float emberSeed=0.;
+            float coal=10.,coalHalo=10.,seed=hash(cell);vec2 emberLocal=vec2(0.);float emberSeed=0.;
             if(hot){
               for(int i=0;i<2;i++){
                 float n=float(i);
@@ -52,11 +52,12 @@ export class ConnectedSurface {
                 vec2 d=f-center;
                 float angle=hash(cell+n+51.)*6.28;
                 d=mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*d;
-                float size=.85+hash(cell+n+63.)*.3;
+                float size=1.08+hash(cell+n+63.)*.3;
                 float arrival=smoothstep(n*.12,1.,reveal.y);
                 d/=size*max(.001,arrival);
                 // A faceted main ember and two smaller chips form a compact,
                 // irregular cluster. Broad faces survive the pixel renderer.
+                coalHalo=min(coalHalo,length(d*vec2(.88,1.10))-.285);
                 vec2 q=abs(d);
                 float mainEmber=max(q.x*.86+q.y*.5,q.y)-.14;
                 float chipA=length((d-vec2(.16,.085))*vec2(1.,1.3))-.067;
@@ -67,7 +68,7 @@ export class ConnectedSurface {
             }
             // Small irregular depressions hold shallow water, leaving the
             // original beach visible everywhere between the tidepools.
-            float pool=10.;vec2 poolLocal=vec2(0.);
+            float pool=10.,poolArrival=0.;vec2 poolLocal=vec2(0.);
             if(wet){
               for(int i=0;i<2;i++){
                 float n=float(i);
@@ -81,27 +82,38 @@ export class ConnectedSurface {
                 // Broad, asymmetric basins rather than matching oval dots.
                 float basin=length(d*vec2(.83,1.22))-radius+sin(d.x*11.+seed*4.)*.024*arrival;
                 if(arrival<.02)basin=10.;
-                if(basin<pool){pool=basin;poolLocal=d;}
+                if(basin<pool){pool=basin;poolLocal=d;poolArrival=arrival;}
               }
             }
-            if(pool>.028&&coal>.025)discard;
-            vec3 c=vec3(185.,197.,170.)/255.;
-            if(pool<-.015)c=vec3(141.,189.,184.)/255.;
-            if(pool<-.095)c=vec3(110.,172.,178.)/255.;
-            // A single soft reflection on one side leaves the pool readable
-            // as a shallow depression, without a bright ring around every edge.
-            float glint=sin(poolLocal.x*13.+time*.55+seed*6.28);
-            if(pool<-.045&&poolLocal.y<-.045&&glint>.82)c=vec3(.639,.871,.843);
-            if(hot&&coal<.025){
-              // The ember itself carries the contrast: terracotta body,
-              // amber lit face, and a small gold fissure. No dark perimeter.
-              c=vec3(217.,180.,125.)/255.;
-              if(coal<0.)c=vec3(.733,.282,.176);
-              if(coal<-.014&&emberLocal.x+emberLocal.y*.6>-.025)c=vec3(.973,.549,.212);
-              if(coal<-.045&&emberLocal.x+emberLocal.y*.6>.04)c=vec3(230.,163.,95.)/255.;
+            float bank=.17*poolArrival+(noise(p*12.)-.5)*.04*poolArrival;
+            if(pool>bank&&coalHalo>.025)discard;
+            // Warm damp sand banks seat the pools in the beach, as in the
+            // reference. Their stepped rims are highlights, not dark outlines.
+            vec3 c=vec3(210.,185.,130.)/255.;
+            if(pool<bank*.7)c=vec3(188.,164.,113.)/255.;
+            if(pool<.008)c=vec3(114.,201.,207.)/255.;
+            if(pool<-.038)c=vec3(74.,174.,200.)/255.;
+            if(pool<-.11)c=vec3(45.,154.,192.)/255.;
+            if(pool<-.16)c=vec3(38.,117.,139.)/255.;
+            // Broken ivory rim and a tiny four-point reflection, each animated
+            // slowly and independently rather than flashing the whole pool.
+            if(abs(pool+.012)<.017&&(poolLocal.y<-.045||poolLocal.x>.13))c=vec3(163.,222.,215.)/255.;
+            vec2 star=abs(poolLocal-vec2(-.065,.025));
+            float sparkle=.037+.014*sin(time*.9+seed*6.28);
+            if(pool<-.035&&min(star.x,star.y)<.019&&max(star.x,star.y)<sparkle)c=vec3(212.,238.,224.)/255.;
+            if(pool>.035&&pool<.060&&poolLocal.x>.14&&abs(poolLocal.y)<.09)c=vec3(163.,222.,215.)/255.;
+            if(hot&&coalHalo<.025){
+              // A small ochre heat bed grounds the brighter, raised-looking
+              // ember facets without outlining them in black.
+              c=vec3(210.,185.,130.)/255.;
+              if(coalHalo<-.035)c=vec3(217.,180.,125.)/255.;
+              if(coal<0.)c=vec3(187.,72.,45.)/255.;
+              if(coal<0.&&emberLocal.x+emberLocal.y*.6>-.025)c=vec3(248.,140.,54.)/255.;
+              if(coal<-.035&&emberLocal.x+emberLocal.y*.6>.04)c=vec3(255.,185.,87.)/255.;
               float heat=.5+.5*sin(time*1.2+emberSeed*6.28);
               float fissure=abs(emberLocal.x*.7+emberLocal.y+.018*sin(emberLocal.x*32.));
-              if(coal<-.025&&(fissure<.010+heat*.008||emberLocal.y<-.085))c=vec3(255.,210.,139.)/255.;
+              if(coal<-.018&&(fissure<.013+heat*.007||emberLocal.y<-.085))c=vec3(255.,224.,151.)/255.;
+              if(coal<-.028&&fissure<.009)c=vec3(248.,217.,193.)/255.;
             }
             gl_FragColor=vec4(pow((c+.055)/1.055,vec3(2.4)),1.);
             #include <colorspace_fragment>
