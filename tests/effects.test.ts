@@ -29,3 +29,10 @@ test('evaporation batches steam, caps overlays, and cleans up after large cascad
  effects.evaporate(28,'lava');for(let i=0;i<60;i++)effects.update(1/30);
  assert.equal(effects.group.children.length,0);effects.dispose();
 });
+
+test('evaporation is visible on its first frame and fully settles within half a second',()=>{
+ const effects=new Effects();effects.evaporate(27,'water');effects.evaporate(28,'lava');
+ effects.update(1/30);assert.ok(effects.group.children.length>0);
+ for(let i=0;i<16;i++)effects.update(1/30);
+ assert.equal(effects.group.children.length,0);effects.dispose();
+});

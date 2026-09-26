@@ -20,7 +20,7 @@ export class Effects {
     for(let i=0;i<5;i++){
       const slot=this.vaporSlots.find(s=>s.age>=s.life);if(!slot)break;
       const angle=i*2.399+cell;
-      Object.assign(slot,{age:-i*.025,life:.72+(i%3)*.08,x:x+Math.cos(angle)*.48,z:z+Math.sin(angle)*.48,size:.18+(i%3)*.045,phase:angle});
+      Object.assign(slot,{age:.018-i*.012,life:.38+(i%3)*.035,x:x+Math.cos(angle)*.48,z:z+Math.sin(angle)*.48,size:.18+(i%3)*.045,phase:angle});
     }
     if(!this.vapor.parent)this.group.add(this.vapor);
     // The last skin of liquid breaks into pixel-sized holes as steam rises.
@@ -76,7 +76,7 @@ export class Effects {
       const angle=i*2.399+cell, speed=.7+(i%3)*.35;
       const mesh=new T.Mesh(this.geometry,this.materials[tile]);
       mesh.scale.setScalar(tile==='stone'?.14:.0625+(i%2)*.03125);mesh.position.set(x+Math.cos(angle)*.25,.15,z+Math.sin(angle)*.25);this.group.add(mesh);
-      this.particles.push({mesh,vx:Math.cos(angle)*speed,vy:tile==='stone'?.8+(i%3)*.2:1.4+(i%4)*.3,vz:Math.sin(angle)*speed,age:0,life:tile==='stone'?.9:.65,steam:tile==='stone',size:mesh.scale.x});
+      this.particles.push({mesh,vx:Math.cos(angle)*speed,vy:tile==='stone'?.8+(i%3)*.2:1.4+(i%4)*.3,vz:Math.sin(angle)*speed,age:0,life:tile==='stone'?.55:.48,steam:tile==='stone',size:mesh.scale.x});
     }
   }
   update(dt:number){
@@ -84,16 +84,17 @@ export class Effects {
     if(this.vapor.parent)this.vaporSlots.forEach((s,i)=>{
       s.age+=dt;
       if(s.age>=0&&s.age<s.life){
-        active++;const t=s.age/s.life,fade=Math.min(1,t*9)*Math.min(1,(1-t)*3);
-        const size=s.size*(.7+t*1.8)*fade;
-        this.transform.position.set(s.x+Math.sin(t*3+s.phase)*t*.24,.14+t*1.35,s.z+Math.cos(t*2+s.phase)*t*.18);
+        active++;const t=s.age/s.life,fade=Math.min(1,t*16)*Math.min(1,(1-t)*2.4);
+        const rise=1-Math.pow(1-t,2);
+        const size=s.size*(.9+rise)*fade;
+        this.transform.position.set(s.x+Math.sin(t*3+s.phase)*t*.14,.14+rise*.95,s.z+Math.cos(t*2+s.phase)*t*.12);
         this.transform.scale.set(size,size*(1.1+t*.4),size);this.transform.rotation.set(t*.3,s.phase,0);
         this.vaporColor.set(i%3===0?'#d4eee0':i%3===1?'#d4d1b6':'#f0dfb1');this.vapor.setColorAt(i,this.vaporColor);
       }else{if(s.age<0)active++;this.transform.scale.setScalar(0);}
       this.transform.updateMatrix();this.vapor.setMatrixAt(i,this.transform.matrix);
     });
     if(this.vapor.parent){this.vapor.instanceMatrix.needsUpdate=true;if(this.vapor.instanceColor)this.vapor.instanceColor.needsUpdate=true;if(!active)this.vapor.removeFromParent();}
-    this.evaporations=this.evaporations.filter(e=>{e.age+=dt;const t=Math.min(1,e.age/.42);e.mesh.material.uniforms.progress.value=t;if(t===1){e.mesh.removeFromParent();e.mesh.material.dispose();return false;}return true;});
+    this.evaporations=this.evaporations.filter(e=>{e.age+=dt;const t=Math.min(1,e.age/.22);e.mesh.material.uniforms.progress.value=1-(1-t)*(1-t);if(t===1){e.mesh.removeFromParent();e.mesh.material.dispose();return false;}return true;});
     this.sands=this.sands.filter(s=>{s.age+=dt;const t=Math.min(1,s.age/.38);if(t===1){s.mesh.removeFromParent();(s.mesh.material as T.Material).dispose();return false;}const ease=1-Math.pow(1-t,3);s.mesh.scale.setScalar(.65+.35*ease);(s.mesh.material as T.MeshBasicMaterial).opacity=.7*Math.sin(Math.PI*t);return true;});
     this.waves=this.waves.filter(w=>{w.age+=dt;const t=Math.min(1,w.age/.28);if(t===1){w.meshes.forEach(m=>{m.removeFromParent();(m.material as T.Material).dispose();});return false;}for(const m of w.meshes){const {dx,dz,x,z}=m.userData;const distance=.3+Math.sin(t*Math.PI/2)*1.7;m.position.set(x+dx*distance,.12,z+dz*distance);(m.material as T.MeshBasicMaterial).opacity=.55*Math.sin(Math.PI*t);}return true;});
     this.fades=this.fades.filter(f=>{f.age+=dt;const t=Math.min(1,f.age/.32);if(t===1){f.mesh.removeFromParent();(f.mesh.material as T.Material).dispose();return false;}f.mesh.scale.setScalar(1-.12*t);(f.mesh.material as T.MeshBasicMaterial).opacity=.6*(1-t)*(1-t);return true;});

@@ -60,7 +60,7 @@ export class World {
       this.effects.update(dt);
       if(this.arrivals.length||this.departures.length)this.renderer.shadowMap.needsUpdate=true;
       this.arrivals=this.arrivals.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.32);const rise=1-Math.pow(1-t,3);const settle=Math.sin(t*Math.PI)*.12;a.group.scale.set(1-settle*.25,rise+settle,1-settle*.25);return t<1;});
-      this.departures=this.departures.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.24);a.group.position.y=.07-t*t*.5;a.group.scale.setScalar(1-t*t*.55);if(t===1){disposeGroup(a.group);return false;}return true;});
+      this.departures=this.departures.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.18);a.group.position.y=.07-t*t*.5;a.group.scale.setScalar(1-t*t*.55);if(t===1){disposeGroup(a.group);return false;}return true;});
       const update=this.island.userData.animate as ((time:number)=>void)|undefined;
       update?.(time);
     }
