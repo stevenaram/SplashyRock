@@ -29,6 +29,9 @@ function updateScore(){
   shownScore=game.score;
 }
 function settled(){
+  // Every committed change (placement, stone creation, either sweep phase)
+  // reconciles reactions before deciding whether the board has settled.
+  if (!game.over) reactions.schedule();
   updateScore();
   clearTimeout(endTimer);
   if(game.over||reactions.busy||sweeps.busy||game.hasLegalMove())return;

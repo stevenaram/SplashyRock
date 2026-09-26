@@ -95,3 +95,13 @@ test('a reaction scheduled in a previous run cannot alter the restarted board',t
   reactions.schedule();game.restart();game.board[26]='water';game.board[28]='lava';t.mock.timers.tick(500);
   assert.equal(game.board[27],null);reactions.dispose();
 });
+
+test('a canceled candidate gets a fresh half-second when it becomes eligible again',t=>{
+  t.mock.timers.enable({apis:['setTimeout']});const game=new Game(),formed:number[]=[];
+  game.board[26]='water';game.board[28]='lava';
+  const reactions=new StoneReactions(game,cell=>formed.push(cell));reactions.schedule();
+  t.mock.timers.tick(250);game.clearCells([28]);reactions.schedule();assert.equal(reactions.busy,false);
+  t.mock.timers.tick(100);game.board[28]='lava';reactions.schedule();
+  t.mock.timers.tick(499);assert.deepEqual(formed,[]);
+  t.mock.timers.tick(1);assert.deepEqual(formed,[27]);reactions.dispose();
+});

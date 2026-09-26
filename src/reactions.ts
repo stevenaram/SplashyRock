@@ -6,8 +6,13 @@ export class StoneReactions {
   constructor(private readonly game: Game, private readonly onStone: (cell: number) => void, private readonly onSettled: () => void = () => {}) {}
   get busy() { return this.pending.size > 0; }
 
-  // Called only after a committed placement, never from the hover preview.
+  // Reconcile after every committed board change, never from a hover preview.
   schedule() {
+    // A sweep can remove a required neighbor before the delay expires. Drop
+    // stale work so a later qualifying state gets its own full reaction delay.
+    for (const [cell, timer] of this.pending) {
+      if (!this.game.canFormStone(cell)) { clearTimeout(timer); this.pending.delete(cell); }
+    }
     for (const cell of this.game.stoneCandidates()) {
       if (this.pending.has(cell)) continue;
       const revision = this.game.boardRevision;

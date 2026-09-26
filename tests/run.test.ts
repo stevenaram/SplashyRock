@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game';
-import { SandSweeps, STONE_BURY_MS, NEIGHBOR_SWEEP_MS } from '../src/reactions';
+import { StoneReactions, SandSweeps, STONE_BURY_MS, NEIGHBOR_SWEEP_MS } from '../src/reactions';
 import { SHAPES } from '../src/shapes';
 const single=SHAPES.find(s=>s.id==='single')!;
 
@@ -39,4 +39,23 @@ test('placement, stone creation and sweeping award deterministic points',()=>{
  const game=new Game();game.inventory[0]={tile:'water',shape:single};game.place(0,26);assert.equal(game.score,1);
  game.board[28]='lava';game.formStone(27);assert.equal(game.score,21);
  game.clearCells([27,27]);assert.equal(game.score,31);
+});
+
+
+test('a neighbor cleared by a sand sweep reacts automatically without another placement',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const game=new Game(),formed:number[]=[];
+ game.board[27]='stone';game.board[28]='water';game.board[20]='water';game.board[29]='lava';
+ const settle=()=>reactions.schedule();
+ const sweeps=new SandSweeps(game,()=>{},settle);
+ const reactions=new StoneReactions(game,cell=>{formed.push(cell);sweeps.schedule();},settle);
+ sweeps.schedule();settle();
+ t.mock.timers.tick(500); // Initial stone is buried.
+ t.mock.timers.tick(280); // Its neighbor 28 becomes empty between water and lava.
+ assert.equal(game.board[28],null);assert.equal(game.canFormStone(28),true);assert.equal(reactions.busy,true);
+ t.mock.timers.tick(499);assert.equal(game.board[28],null);
+ t.mock.timers.tick(1);assert.equal(game.board[28],'stone');assert.ok(formed.includes(28));
+ // Keep resolving with no player input: there must be no stranded candidates.
+ for(let i=0;i<30;i++)t.mock.timers.tick(100);
+ assert.equal(game.stoneCandidates().length,0);assert.equal(reactions.busy,false);assert.equal(sweeps.busy,false);
+ reactions.dispose();sweeps.dispose();
 });
