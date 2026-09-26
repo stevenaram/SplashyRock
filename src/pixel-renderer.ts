@@ -16,7 +16,10 @@ export class PixelRenderer {
     uniforms:{image:{value:this.target.texture},palette:{value:palette.map(hex=>new T.Color(hex))}},
     vertexShader:'varying vec2 vUv;void main(){vUv=position.xy*.5+.5;gl_Position=vec4(position.xy,0.,1.);}',
     fragmentShader:`varying vec2 vUv;uniform sampler2D image;uniform vec3 palette[${palette.length}];
-    void main(){vec3 c=texture2D(image,vUv).rgb;float best=100.;vec3 chosen=c;for(int i=0;i<${palette.length};i++){vec3 d=c-palette[i];float distance=dot(d*d,vec3(.27,.53,.20));if(distance<best){best=distance;chosen=palette[i];}}gl_FragColor=vec4(chosen,1.);
+    void main(){vec3 c=texture2D(image,vUv).rgb;float best=100.;vec3 chosen=c;for(int i=0;i<${palette.length};i++){vec3 d=c-palette[i];float distance=dot(d*d,vec3(.27,.53,.20));// Reserve the six subtle influence colors for their exact shader output;
+    // nearby scenery shades must retain the original island palette.
+    if(i>=30&&i<36&&distance>.00002)continue;
+    if(distance<best){best=distance;chosen=palette[i];}}gl_FragColor=vec4(chosen,1.);
     #include <colorspace_fragment>
     }`,
     depthTest:false,depthWrite:false,
