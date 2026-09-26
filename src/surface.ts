@@ -37,14 +37,25 @@ export class ConnectedSurface {
             if(min(min(f.x,2.-f.x),min(f.y,2.-f.y))<.03125)discard;
             // Lava adds only tiny embedded coals. Discard elsewhere so the
             // actual underlying sand, lighting, and texture remain untouched.
-            float coal=10.,seed=hash(cell);
+            float coal=10.,seed=hash(cell);vec2 emberLocal=vec2(0.);float emberSeed=0.;
             if(hot){
-              for(int i=0;i<3;i++){
+              for(int i=0;i<2;i++){
                 float n=float(i);
-                vec2 center=vec2(.3)+vec2(hash(cell+vec2(n*7.1,13.)),hash(cell+vec2(29.,n*9.3)))*1.4;
+                vec2 center=i==0?vec2(.55,1.38):vec2(1.42,.52);
+                center+=(vec2(hash(cell+n+13.),hash(cell+n+29.))-.5)*.25;
                 vec2 d=f-center;
-                float size=.82+hash(cell+n+51.)*.36;
-                coal=min(coal,length(d*vec2(1.,1.25))/size);
+                float angle=hash(cell+n+51.)*6.28;
+                d=mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*d;
+                float size=.85+hash(cell+n+63.)*.3;
+                d/=size;
+                // A faceted main ember and two smaller chips form a compact,
+                // irregular cluster. Broad faces survive the pixel renderer.
+                vec2 q=abs(d);
+                float mainEmber=max(q.x*.86+q.y*.5,q.y)-.14;
+                float chipA=length((d-vec2(.16,.085))*vec2(1.,1.3))-.067;
+                float chipB=length((d+vec2(.10,.15))*vec2(1.3,1.))-.052;
+                float shape=min(mainEmber,min(chipA,chipB));
+                if(shape<coal){coal=shape;emberLocal=d;emberSeed=hash(cell+n+81.);}
               }
             }
             // Small irregular depressions hold shallow water, leaving the
@@ -64,7 +75,7 @@ export class ConnectedSurface {
                 if(basin<pool){pool=basin;poolLocal=d;}
               }
             }
-            if(pool>.028&&coal>.11)discard;
+            if(pool>.028&&coal>.025)discard;
             vec3 c=vec3(185.,197.,170.)/255.;
             if(pool<-.015)c=vec3(141.,189.,184.)/255.;
             if(pool<-.095)c=vec3(110.,172.,178.)/255.;
@@ -72,11 +83,16 @@ export class ConnectedSurface {
             // as a shallow depression, without a bright ring around every edge.
             float glint=sin(poolLocal.x*13.+time*.55+seed*6.28);
             if(pool<-.045&&poolLocal.y<-.045&&glint>.82)c=vec3(.639,.871,.843);
-            if(hot&&coal<.11){
-              // Warm sand -> amber -> gold, with no charcoal/black outline.
+            if(hot&&coal<.025){
+              // A sand-colored halo and warm amber facets: no dark outline.
               c=vec3(217.,180.,125.)/255.;
-              if(coal<.077)c=vec3(230.,163.,95.)/255.;
-              if(coal<.037+sin(time*1.1+seed*6.28)*.006)c=vec3(255.,210.,139.)/255.;
+              if(coal<0.)c=vec3(230.,163.,95.)/255.;
+              if(coal<-.025&&emberLocal.x+emberLocal.y*.6>.0)c=vec3(.973,.549,.212);
+              // Thin gold fissures and a lit upper face, softly breathing at
+              // different phases per cluster rather than blinking together.
+              float heat=.5+.5*sin(time*1.2+emberSeed*6.28);
+              float fissure=abs(emberLocal.x*.7+emberLocal.y+.018*sin(emberLocal.x*32.));
+              if(coal<-.018&&(fissure<.012+heat*.009||emberLocal.y<-.075))c=vec3(255.,210.,139.)/255.;
             }
             gl_FragColor=vec4(pow((c+.055)/1.055,vec3(2.4)),1.);
             #include <colorspace_fragment>
