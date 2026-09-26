@@ -7,15 +7,15 @@ export const COLORS = {
 };
 // Placement ghosts deliberately contain no stone-reaction forecasting.
 export function createTile(tile: Tile, _preview = true, valid = true) {
-  const group=new THREE.Group(),size=1.95;
+  const group=new THREE.Group(),size=2;
   const colors=valid?COLORS[tile]:{fill:'#893a32',edge:'#f88c36'};
   const plane=(w:number,h:number,color:string,opacity:number,x=0,z=0)=>{
-    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false}));
-    mesh.rotation.x=-Math.PI/2;mesh.position.set(x,.17,z);group.add(mesh);
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,depthTest:false}));
+    mesh.rotation.x=-Math.PI/2;mesh.position.set(x,.001,z);mesh.renderOrder=10;group.add(mesh);
   };
   plane(size,size,colors.fill,.58);
-  for(const sign of [-1,1]){plane(size,.0625,colors.edge,1,0,sign*.95);plane(.0625,size,colors.edge,1,sign*.95,0);}
-  group.children.slice(1).forEach(part=>part.position.y+=.005);
+  for(const sign of [-1,1]){plane(size,.0625,colors.edge,1,0,sign*(1-.0625/2));plane(.0625,size,colors.edge,1,sign*(1-.0625/2),0);}
+  group.children.slice(1).forEach(part=>part.position.y+=.001);
   return group;
 }
 export function disposeGroup(group: THREE.Group) {

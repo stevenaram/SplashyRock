@@ -6,6 +6,8 @@ type Particle={mesh:T.Mesh;vx:number;vy:number;vz:number;age:number;life:number;
 export class Effects {
   readonly group=new T.Group();
   private particles:Particle[]=[];
+  private fades:{mesh:T.Mesh;age:number;stone:boolean}[]=[];
+  private readonly tileGeometry=new T.PlaneGeometry(1.96,1.96);
   private ripples:{mesh:T.Mesh;age:number}[]=[];
   private readonly ring=new T.RingGeometry(.36,.39,24);
   private readonly geometry=new T.BoxGeometry(1,1,1);
@@ -14,6 +16,11 @@ export class Effects {
     lava:new T.MeshBasicMaterial({color:'#ffbd5b'}),
     stone:new T.MeshBasicMaterial({color:'#e3e4c9'}),
   };
+  dissolve(cell:number,tile:Tile) {
+    const material=new T.MeshBasicMaterial({color:tile==='water'?'#72c9cf':tile==='lava'?'#ffb957':'#d4d1b6',transparent:true,opacity:.6,depthWrite:false});
+    const mesh=new T.Mesh(this.tileGeometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.set(gridWorld(cell%8),.10,gridWorld(Math.floor(cell/8)));this.group.add(mesh);this.fades.push({mesh,age:0,stone:tile==='stone'});
+    if(tile==='stone')this.burst(cell,'stone');
+  }
   burst(cell:number,tile:Tile){
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
     if(tile==='water'){
@@ -27,6 +34,7 @@ export class Effects {
     }
   }
   update(dt:number){
+    this.fades=this.fades.filter(f=>{f.age+=dt;if(f.age>.32){f.mesh.removeFromParent();(f.mesh.material as T.Material).dispose();return false;}f.mesh.scale.setScalar(1-f.age*2.5);(f.mesh.material as T.MeshBasicMaterial).opacity=.6*(1-f.age/.32);return true;});
     this.ripples=this.ripples.filter(r=>{r.age+=dt;if(r.age>.6){r.mesh.removeFromParent();return false;}r.mesh.scale.setScalar(.5+r.age*2.5);return true;});
     this.particles=this.particles.filter(p=>{
       p.age+=dt;if(p.age>=p.life){p.mesh.removeFromParent();return false;}
@@ -37,5 +45,6 @@ export class Effects {
       return true;
     });
   }
-  dispose(){this.ring.dispose();this.ripples=[];this.geometry.dispose();Object.values(this.materials).forEach(m=>m.dispose());this.particles=[];this.group.clear();}
+  clear(){this.fades.forEach(f=>(f.mesh.material as T.Material).dispose());this.fades=[];this.particles=[];this.ripples=[];this.group.clear();}
+  dispose(){this.clear();this.tileGeometry.dispose();this.ring.dispose();this.ripples=[];this.geometry.dispose();Object.values(this.materials).forEach(m=>m.dispose());this.particles=[];this.group.clear();}
 }

@@ -57,6 +57,6 @@ export class ConnectedSurface {
     });
     this.mesh=new T.Mesh(new T.PlaneGeometry(16,16),this.material);this.mesh.rotation.x=-Math.PI/2;this.mesh.position.y=.065;
   }
-  set(cell:number,tile:Tile){this.board[cell]=tile;this.data[cell*4]=elementCode(tile);this.data[cell*4+3]=255;this.texture.needsUpdate=true;}
+  set(cell:number,tile:Tile|null){this.board[cell]=tile;this.data[cell*4]=elementCode(tile);this.data[cell*4+3]=255;this.texture.needsUpdate=true;}
   update(time:number){this.material.uniforms.time.value=time;}
 }

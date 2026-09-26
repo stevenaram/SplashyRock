@@ -2,7 +2,7 @@
 
 A minimal Three.js map, ready to build on. Uses the same TypeScript + Vite + Three.js foundation as Diggy Splash, with its 8×8 grid (two world units per cell), 34° perspective lens, and fixed 60° camera tilt.
 
-The board is a sandy island with water (blue) and lava (orange) pieces. Drag a piece from the three-slot tray onto the board, or tap a piece and then a cell. Every occupied square of the shape must fit on an empty board cell; gaps in the shape are preserved. A snapped preview shows the destination; red indicates a collision or a piece extending beyond the board. Touch drags lift the preview above the finger. All three pieces must be used before the tray refills. Rows do not clear.
+The board is a sandy island with water (blue) and lava (orange) pieces. Drag a piece from the three-slot tray onto the board, or tap a piece and then a cell. Every occupied square of the shape must fit on an empty board cell; gaps in the shape are preserved. A snapped preview shows the destination; red indicates a collision or a piece extending beyond the board. Touch drags lift the preview above the finger. Every tray has two water pieces and one lava piece, or two lava pieces and one water piece, in random order. All three pieces must be used before the tray refills. Inventory icons use one shared divider per neighboring pair, without inset squares.
 
 The tray sits below the board in portrait and to the side in landscape. The camera fits the full grid to the remaining space with a small gutter.
 
@@ -28,7 +28,7 @@ The pointer anchors the center cell of the shape's bounding box; the full footpr
 
 ## Stone reaction
 
-An empty cell sharing an edge with at least one water tile and one lava tile becomes stone 500 ms after the qualifying placement. Diagonal neighbors do not count. Existing water, lava, and stone are never replaced. A cell filled during the delay remains its placed element. Stone uses the supplied swatch color `#F8D9C1` for its outline with a darker brown fill (`#89715E`) and a cluster of low-poly boulders, blocks future placement, and is never dealt in the tray. Placement previews show only the held piece, with no forecast of stone reactions. `src/reactions.ts` owns the delayed callbacks and cancels them on disposal.
+An empty cell sharing an edge with at least one water tile and one lava tile becomes stone 500 ms after the qualifying placement. Diagonal neighbors do not count. This neighboring-cell reaction does not replace occupied cells. A cell filled during the delay remains its placed element. Stone uses the supplied swatch color `#F8D9C1` for its outline with a darker brown fill (`#89715E`) and a cluster of low-poly boulders, blocks future placement, and is never dealt in the tray. Placement previews show only the held piece, with no forecast of stone reactions. `src/reactions.ts` owns the delayed callbacks and cancels them on disposal.
 
 ## Island art
 
@@ -41,3 +41,11 @@ The original camera, grid coordinates, framing, and responsive tray layout are p
 Water and lava connect across same-element cell boundaries, including pieces placed in separate turns. A single world-aligned surface shader removes internal borders and animates continuous pools at 32 texels per world unit. Lava and water remain distinct; their shared empty neighbors still turn to stone after 500 ms.
 
 The entire Three.js scene is rendered through a nearest-neighbor pixel pass calibrated to 512 logical pixels across the 16-unit board (capped at the screen's resolution), then mapped to a fixed 34-color palette. This applies to geometry, lighting, shadows, particles, and textures. Placement adds short pixel splashes and ripples; stone formation adds a small steam puff. No effects appear in the placement forecast.
+
+## Line transitions
+
+Completing a full water row or column instantly returns water to sand and converts all lava to stone. A full lava row or column does the reverse. Existing stone carries over in both cases; remaining inventory slots are preserved.
+
+A completed stone row or column stays visible and occupied for 500 ms, then only that line clears to sand. This also applies to lines formed by a water/lava conversion. Multiple complete lines are detected together. Reset transitions dissolve removed surfaces, new rocks rise with a steam puff, and stone-line removal uses a short dissolve effect. Delayed neighboring reactions from the previous board are canceled.
+
+Placement previews sit on the grid plane, with exact two-unit cell bounds. They never forecast stone creation or line resets.

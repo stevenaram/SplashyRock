@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
-import { SIZE, footprint, type Piece } from './game';
+import { SIZE, footprint, type Piece, type Tile } from './game';
 import { createTile, disposeGroup } from './tiles';
 import { createIsland, rock } from './island';
 import { ConnectedSurface } from './surface';
@@ -12,9 +12,11 @@ export class World {
   // Same lens and fixed viewing angle as Diggy Splash.
   readonly camera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
   readonly renderer = new THREE.WebGLRenderer({ antialias: false });
+  private readonly stones = new THREE.Group();
   private readonly surface = new ConnectedSurface();
   private readonly effects = new Effects();
   private readonly pixels = new PixelRenderer();
+  private arrivals: {group: THREE.Group;age:number}[] = [];
   private frame = 0;
   private previousTime = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -37,7 +39,7 @@ export class World {
     Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 60 });
     sun.shadow.normalBias = .035; sun.shadow.bias = -.0001;
     this.island = createIsland();
-    this.scene.add(sun, this.island, this.surface.mesh, this.effects.group);
+    this.scene.add(sun, this.island, this.surface.mesh, this.effects.group, this.stones);
     this.scene.add(createMap());
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     host.append(this.renderer.domElement);
@@ -55,6 +57,8 @@ export class World {
     this.surface.update(time);
     if (!this.reducedMotion.matches) {
       this.effects.update(dt);
+      if(this.arrivals.length)this.renderer.shadowMap.needsUpdate=true;
+      this.arrivals=this.arrivals.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.24);a.group.scale.y=1-Math.pow(1-t,3);return t<1;});
       const update=this.island.userData.animate as ((time:number)=>void)|undefined;
       update?.(time);
     }
@@ -86,15 +90,36 @@ export class World {
     return group;
   }
 
-  addStone(cell: number) {
+  addStone(cell: number, animate = true) {
     this.surface.set(cell,'stone');
     const group=new THREE.Group();group.position.set(gridWorld(cell%8),.07,gridWorld(Math.floor(cell/8)));
     for(const [x,z,size] of [[-.25,.1,.64],[.40,.25,.35],[.1,-.4,.36]]) {
       const boulder=rock('#bca471',cell+Math.round(size*100));boulder.scale.set(size,size*.85,size);boulder.position.set(x,size*.35,z);group.add(boulder);
     }
-    this.scene.add(group);
+    this.stones.add(group);
+    if(animate&&!this.reducedMotion.matches){group.scale.y=.05;this.arrivals.push({group,age:0});}
     this.renderer.shadowMap.needsUpdate = true;
-    if(!this.reducedMotion.matches)this.effects.burst(cell,'stone');
+    if(animate && !this.reducedMotion.matches)this.effects.burst(cell,'stone');
+    if(animate)this.render();
+  }
+
+  syncBoard(board: readonly (Tile | null)[]) {
+    const before=[...this.surface.board];
+    for (const group of [...this.stones.children]) disposeGroup(group as THREE.Group);
+    this.arrivals=[];
+    this.effects.clear();
+    board.forEach((tile, cell) => {
+      this.surface.set(cell, tile);
+      if (tile === 'stone') {
+        this.addStone(cell, false);
+        if(before[cell]!=='stone'&&!this.reducedMotion.matches){
+          const group=this.stones.children[this.stones.children.length-1] as THREE.Group;
+          group.scale.y=.05;this.arrivals.push({group,age:0});this.effects.burst(cell,'stone');
+        }
+      }
+      if(before[cell] && tile===null && !this.reducedMotion.matches) this.effects.dissolve(cell,before[cell]!);
+    });
+    this.renderer.shadowMap.needsUpdate = true;
     this.render();
   }
 

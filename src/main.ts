@@ -1,7 +1,8 @@
 import './style.css';
+import { pieceIcon } from './piece-icon';
 import { World } from './world';
 import { Game, type Piece } from './game';
-import { StoneReactions } from './reactions';
+import { StoneReactions, StoneLineClears } from './reactions';
 
 const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
@@ -19,18 +20,22 @@ const events = new AbortController();
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;
+const refreshPreview = () => {
+  const piece = selected === null ? null : game.inventory[selected];
+  if (piece && target !== null) world.showPreview(target, piece, game.canPlace(piece, target));
+};
+const stoneLines = new StoneLineClears(game, () => {
+  world.syncBoard(game.board);
+  refreshPreview();
+});
 const reactions = new StoneReactions(game, cell => {
   world.addStone(cell);
+  stoneLines.schedule();
   // If stone appears during the next drag, refresh that piece's validity.
   const piece = selected === null ? null : game.inventory[selected];
   if (piece && target !== null) world.showPreview(target, piece, game.canPlace(piece, target));
 });
 
-function pieceIcon(piece: Piece) {
-  const { width, height, cells } = piece.shape;
-  return `<span class="shape-icon" style="--columns:${width};--rows:${height}">${cells.map(([x, y]) =>
-    `<span class="tile-icon" style="grid-column:${x + 1};grid-row:${y + 1}"></span>`).join('')}</span>`;
-}
 function renderTray() {
   tray.innerHTML = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
     data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
@@ -59,8 +64,14 @@ function place() {
   if (selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
   if (!game.place(selected, target)) return false;
-  world.addPiece(target, piece);
-  reactions.schedule();
+  if (game.lastClear) {
+    reactions.dispose();
+    world.syncBoard(game.board);
+    stoneLines.schedule();
+  } else {
+    world.addPiece(target, piece);
+    reactions.schedule();
+  }
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
   selected = null;
   clearPreview();
@@ -118,4 +129,4 @@ tray.addEventListener('click', event => {
   if (button && !button.disabled) { selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
 renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { events.abort(); reactions.dispose(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { events.abort(); reactions.dispose(); stoneLines.dispose(); world.dispose(); });
