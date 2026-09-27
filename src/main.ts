@@ -153,6 +153,7 @@ function updateTrayWarnings(){
     const piece=game.inventory[index],blocked=!!piece&&!game.pieceFits(piece);
     if(blocked)count++;
     button.classList.toggle('blocked',blocked);
+    if(blocked&&!game.over)tutorial.showFitWarning(piece);
     button.setAttribute('aria-label',piece?`${piece.tile==='pet'?'Mystery Egg':`${piece.tile} ${piece.shape.name}`}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
   });
   if(count>blockedSlots&&!game.over)sound.play('warning');
@@ -219,7 +220,7 @@ tray.addEventListener('pointerdown', event => {
   event.preventDefault();
   host!.classList.add('dragging');tutorial.beginDrag();sound.play('pick');
   selected = Number(button.dataset.slot);
-  tutorial.showFitWarning(game.inventory[selected]);
+
   // Capture on the persistent tray so replacing its buttons cannot lose the drag.
   tray.setPointerCapture(event.pointerId);
   drag = { pointer: event.pointerId, x: event.clientX, y: event.clientY, moved: false, offset: event.pointerType === 'touch' ? 48 : 0 };
@@ -266,7 +267,7 @@ tray.addEventListener('click', event => {
   if (event.detail !== 0) return;
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (button && !button.disabled) { tutorial.beginDrag();sound.play('pick');selected = Number(button.dataset.slot);
-  tutorial.showFitWarning(game.inventory[selected]); renderTray(); }
+ renderTray(); }
 }, { signal: events.signal });
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 tutorial.start();updateScore();renderTray();
