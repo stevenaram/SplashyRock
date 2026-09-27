@@ -1,3 +1,4 @@
+import type {SoundCue} from './sound';
 import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
 import { SIZE, footprint, type Piece, type Tile, type Game } from './game';
@@ -24,6 +25,7 @@ export class World {
   private readonly petBatch=new PetBatch();
   game:Game|null=null;
   onPetChange:()=>void=()=>{};
+  onSound:(cue:SoundCue,cell?:number)=>void=()=>{};
   removePet(){this.petBatch.clear();this.pets.forEach(p=>p.dispose());this.pets=[];}
   private frame = 0;
   private previousTime = 0;
@@ -67,7 +69,9 @@ export class World {
     this.petBatch.prepare();
     let petsChanged=false;
     if(!this.game?.won)for(const pet of this.pets){
-      const revision=pet.motion.revision,busy=pet.motion.busy;pet.update(dt,this.reducedMotion.matches);
+      const revision=pet.motion.revision,busy=pet.motion.busy,hatch=pet.motion.hatchRemaining,charge=pet.motion.planting;pet.update(dt,this.reducedMotion.matches);
+      if(hatch>.65&&pet.motion.hatchRemaining<=.65)this.onSound('hatch',pet.motion.cell);
+      if(charge===0&&pet.motion.planting>0)this.onSound('charge',pet.motion.cell);
       if(revision!==pet.motion.revision||busy!==pet.motion.busy)petsChanged=true;
     }
     if(this.game)for(const cell of this.game.petTileEvents.splice(0)){
@@ -119,6 +123,7 @@ export class World {
   }
 
   addStone(cell: number, animate = true) {
+    if(animate)this.onSound('stone',cell);
     this.surface.set(cell,'stone');
     const group=stoneCluster(cell);
     group.userData.cell=cell;
@@ -151,6 +156,7 @@ export class World {
   }
 
   sandSweep(board: readonly (Tile | null)[], cells: readonly number[], origin: number, phase: 'stone'|'neighbors') {
+    if(cells.length)this.onSound(phase==='stone'?'sand':'steam',origin);
     for(const cell of cells){
       const previous=this.surface.board[cell];
       this.surface.set(cell,null);
@@ -166,6 +172,7 @@ export class World {
   }
 
   addPiece(cell: number, piece: Piece) {
+    this.onSound(piece.tile==='pet'?'egg':piece.tile,cell);
     if(piece.tile==='pet'){if(this.game?.pet){const pet=new PetWalker(this.game.pet);this.pets.push(pet);this.scene.add(pet.group);}this.render();return;}
     for(const [x,y] of footprint(piece,cell)) {
       const index=y*8+x;this.effects.cancelEvaporation(index);this.surface.set(index,piece.tile);

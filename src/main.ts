@@ -1,3 +1,4 @@
+import {SoundEngine} from './sound';
 import {Tutorial} from './tutorial';
 import {EGG_GOALS,MAX_PETS} from './egg-goals';
 import {eggIcon} from './egg';
@@ -17,6 +18,11 @@ host.innerHTML = `<header id="run-hud"><div id="hud"><span>SCORE</span><strong i
   <div id="ghost" aria-hidden="true" hidden></div>
   <p id="status" role="status" class="sr-only"></p>
   <aside id="game-over" hidden aria-labelledby="end-title"><div><h1 id="end-title">Game Over</h1><p><span id="final-score">0</span> points · Best <span id="best-score">0</span></p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↗</span></button></aside>`;
+const sound=new SoundEngine();
+const soundButton=document.createElement('button');soundButton.id='sound-toggle';soundButton.type='button';
+soundButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="sound-waves" d="M16 8q5 4 0 8m3-11q8 7 0 14"/><path class="sound-off" d="m16 9 6 6m0-6-6 6"/></svg>';
+const refreshSound=()=>{soundButton.classList.toggle('muted',sound.muted);soundButton.setAttribute('aria-label',sound.muted?'Enable sound':'Mute sound');soundButton.setAttribute('aria-pressed',String(!sound.muted));};
+refreshSound();host.append(soundButton);soundButton.addEventListener('click',()=>{sound.toggle();refreshSound();});
 const board = document.querySelector<HTMLElement>('#board')!;
 const tray = document.querySelector<HTMLElement>('#tray')!;
 const ghost = document.querySelector<HTMLElement>('#ghost')!;
@@ -32,6 +38,7 @@ let announcedEggs=0;
 let unlockTimer:ReturnType<typeof setTimeout>|undefined;
 function announceEggs(){
   if(game.rewardsDealt<=announcedEggs)return;
+  sound.play('reward');
   announcedEggs=game.rewardsDealt;renderTray();unlock.hidden=false;
   unlock.getAnimations().forEach(a=>a.cancel());
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)unlock.animate([{opacity:0,transform:'translate(-50%, 8px) scale(.9)'},{opacity:1,transform:'translate(-50%, -2px) scale(1.03)',offset:.7},{opacity:1,transform:'translate(-50%, 0) scale(1)'}],{duration:480,easing:'cubic-bezier(.2,.8,.3,1)'});
@@ -58,6 +65,7 @@ function updateScore(){
   goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===MAX_PETS?'All egg rewards earned':`Next egg at ${target.toLocaleString()} points`);
 }
 function showEnd(won=false){
+  sound.play(won?'win':'over');
   tutorial.dismiss();tutorial.dismissGoal();
   best=Math.max(best,game.score);try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
   document.querySelector('#end-title')!.textContent=won?'The game is beat!':'Game Over';
@@ -92,7 +100,7 @@ function settled(){
 const world = new World(board);
 const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
 const game = new Game();
-world.game=game;world.onPetChange=settled;
+world.game=game;world.onPetChange=settled;world.onSound=(cue,cell)=>sound.play(cue,1,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
 const tutorial=new Tutorial(board,goal);
@@ -112,12 +120,13 @@ const sweeps = new SandSweeps(game, (cells, origin, phase, depth, owner) => {
 },settled);
 const reactions = new StoneReactions(game, (cell,owner) => {
   world.addStone(cell);
-  if(game.combo>=2&&game.combo>shownCombo){shownCombo=game.combo;combo.show(game.combo,cell);}
+  if(game.combo>=2&&game.combo>shownCombo){shownCombo=game.combo;combo.show(game.combo,cell);sound.play('combo',game.combo);}
   sweeps.schedule(owner);
   refreshPreview();
 },settled);
 
 again.addEventListener('click',()=>{
+  sound.stop();sound.play('restart');
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
   clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
   world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won');
@@ -127,12 +136,17 @@ again.addEventListener('click',()=>{
 }, {signal:events.signal});
 
 
+let blockedSlots=0;
 function updateTrayWarnings(){
+  let count=0;
   tray.querySelectorAll<HTMLButtonElement>('.slot').forEach((button,index)=>{
     const piece=game.inventory[index],blocked=!!piece&&!game.pieceFits(piece);
+    if(blocked)count++;
     button.classList.toggle('blocked',blocked);
     button.setAttribute('aria-label',piece?`${piece.tile==='pet'?'Mystery Egg':`${piece.tile} ${piece.shape.name}`}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
   });
+  if(count>blockedSlots&&!game.over)sound.play('warning');
+  blockedSlots=count;
 }
 function renderTray() {
   tray.classList.toggle('expanded',game.inventory.length>3);
@@ -141,6 +155,7 @@ function renderTray() {
     ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece)+'<svg class="fit-warning" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path class="warning-mark" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>' : ''}</button>`).join('');
   const fresh=game.inventory.map((piece,i)=>!!piece&&piece!==trayPieces[i]);
   if(markup===trayMarkup&&!fresh.some(Boolean)){updateTrayWarnings();return;}
+  if(trayPieces.length&&fresh.length===3&&fresh.every(Boolean))sound.play('deal');
   trayMarkup=markup;tray.innerHTML=markup;trayPieces=[...game.inventory];updateTrayWarnings();
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
     tray.querySelectorAll<HTMLElement>('.slot').forEach((slot,i)=>{
@@ -157,7 +172,9 @@ function updateTarget(x: number, y: number) {
   if (selected === null) return;
   const piece = game.inventory[selected];
   if (!piece) return;
+  const previousTarget=target;
   target = world.cellAt(x, y);
+  if(target!==null&&target!==previousTarget&&game.canPlace(piece,target))sound.play('snap');
   world.showPreview(target, piece, target !== null && game.canPlace(piece, target));
   ghost.className = piece.tile;
   if (ghost.dataset.shape !== piece.shape.id) {
@@ -171,7 +188,7 @@ function place() {
   if (game.over || selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
-  if (!game.place(selected, target)) return false;
+  if (!game.place(selected, target)){sound.play('reject');return false;}
   tutorial.played();
   world.addPiece(target, piece);
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(piece.tile!=='pet'&&!game.over)for(const pet of pets)if(game.pets.includes(pet))pet.queueAbility();settled();});
@@ -189,7 +206,7 @@ tray.addEventListener('pointerdown', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (!button || button.disabled) return;
   event.preventDefault();
-  tutorial.dismiss();
+  tutorial.dismiss();sound.play('pick');
   selected = Number(button.dataset.slot);
   // Capture on the persistent tray so replacing its buttons cannot lose the drag.
   tray.setPointerCapture(event.pointerId);
@@ -207,6 +224,7 @@ window.addEventListener('pointerup', event => {
   if (!drag || event.pointerId !== drag.pointer) return;
   if (drag.moved) {
     updateTarget(event.clientX, event.clientY - drag.offset);
+    if(target===null||game.over)sound.play('reject');
     place();
     selected = null;
   }
@@ -233,7 +251,8 @@ board.addEventListener('pointerdown', event => {
 tray.addEventListener('click', event => {
   if (event.detail !== 0) return;
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
-  if (button && !button.disabled) { selected = Number(button.dataset.slot); renderTray(); }
+  if (button && !button.disabled) { sound.play('pick');selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
+document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 updateScore();renderTray();tutorial.start();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();tutorial.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();sound.dispose();tutorial.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
