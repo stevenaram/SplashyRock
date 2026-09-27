@@ -82,6 +82,7 @@ function settled(){
     if(multiplier>1)combo.finish(bonus);
     shownCombo=0;
   }
+  tutorial.settled(!reactions.busy&&!sweeps.busy);
   game.claimEggRewards();announceEggs();
   updateScore();
   updateTrayWarnings();
@@ -103,7 +104,7 @@ const game = new Game();
 world.game=game;world.onPetChange=settled;world.onSound=(cue,cell)=>sound.play(cue,1,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
-const tutorial=new Tutorial(board,goal,cue=>sound.play(cue));
+const tutorial=new Tutorial(board,goal,tray,game,cell=>world.cellScreen(cell,0));
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;
@@ -111,7 +112,7 @@ let trayMarkup="";
 let trayPieces:(Piece|null)[]=[];
 const refreshPreview = () => {
   const piece = selected === null ? null : game.inventory[selected];
-  if (piece && target !== null) world.showPreview(target, piece, game.canPlace(piece, target));
+  if (piece && target !== null) world.showPreview(target, piece, (game.canPlace(piece, target)&&tutorial.permits(piece,target)));
 };
 const sweeps = new SandSweeps(game, (cells, origin, phase, depth, owner) => {
   world.sandSweep(game.board,cells,origin,phase);
@@ -131,7 +132,7 @@ again.addEventListener('click',()=>{
   clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
   world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won');
   shownCombo=0;combo.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
-  shownScore=0;gainLabel.textContent='';updateScore();renderTray();tutorial.start();
+  shownScore=0;gainLabel.textContent='';tutorial.start();updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
 }, {signal:events.signal});
 
@@ -175,7 +176,7 @@ function updateTarget(x: number, y: number) {
   const previousTarget=target;
   target = world.cellAt(x, y);
   if(target!==null&&target!==previousTarget&&game.canPlace(piece,target))sound.play('snap');
-  world.showPreview(target, piece, target !== null && game.canPlace(piece, target));
+  world.showPreview(target, piece, target !== null && (game.canPlace(piece, target)&&tutorial.permits(piece,target)));
   ghost.className = piece.tile;
   if (ghost.dataset.shape !== piece.shape.id) {
     ghost.innerHTML = pieceIcon(piece);
@@ -188,8 +189,9 @@ function place() {
   if (game.over || selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
+  if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   if (!game.place(selected, target)){sound.play('reject');return false;}
-  tutorial.played();
+  tutorial.placed(piece,target);
   world.addPiece(target, piece);
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(piece.tile!=='pet'&&!game.over)for(const pet of pets)if(game.pets.includes(pet))pet.queueAbility();settled();});
   aftermaths.add(aftermath);
@@ -206,7 +208,7 @@ tray.addEventListener('pointerdown', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (!button || button.disabled) return;
   event.preventDefault();
-  tutorial.dismiss();sound.play('pick');
+  tutorial.beginDrag();sound.play('pick');
   selected = Number(button.dataset.slot);
   // Capture on the persistent tray so replacing its buttons cannot lose the drag.
   tray.setPointerCapture(event.pointerId);
@@ -229,10 +231,12 @@ window.addEventListener('pointerup', event => {
     selected = null;
   }
   drag = null;
+  tutorial.endDrag();
   clearPreview();
   renderTray();
 }, { signal: events.signal });
 function cancel() {
+  tutorial.endDrag();
   drag = null;
   selected = null;
   clearPreview();
@@ -251,8 +255,8 @@ board.addEventListener('pointerdown', event => {
 tray.addEventListener('click', event => {
   if (event.detail !== 0) return;
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
-  if (button && !button.disabled) { sound.play('pick');selected = Number(button.dataset.slot); renderTray(); }
+  if (button && !button.disabled) { tutorial.beginDrag();sound.play('pick');selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
-updateScore();renderTray();tutorial.start();
+tutorial.start();updateScore();renderTray();
 if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();sound.dispose();tutorial.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });

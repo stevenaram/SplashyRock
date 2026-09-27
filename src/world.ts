@@ -90,8 +90,8 @@ export class World {
     this.render();
   };
 
-  cellScreen(cell:number) {
-    const point=new THREE.Vector3(gridWorld(cell%SIZE),.6,gridWorld(Math.floor(cell/SIZE))).project(this.camera);
+  cellScreen(cell:number,height=.6) {
+    const point=new THREE.Vector3(gridWorld(cell%SIZE),height,gridWorld(Math.floor(cell/SIZE))).project(this.camera);
     const view=this.renderer.domElement.getBoundingClientRect(),board=this.host.getBoundingClientRect();
     return {x:(point.x+1)*view.width/2+view.left-board.left,y:(1-point.y)*view.height/2+view.top-board.top};
   }
