@@ -1,6 +1,5 @@
 import {eggIcon} from './egg';
 import {pieceIcon} from './piece-icon';
-import {SHAPES} from './shapes';
 import type {Game,Piece,Element} from './game';
 
 export class Tutorial {
@@ -29,8 +28,7 @@ export class Tutorial {
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
   start(){clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
-    // A small opening hand guarantees either element can teach the reaction.
-    const shape=SHAPES.find(s=>s.id==='single')!;this.game.inventory=this.game.inventory.map(p=>p?{...p,shape}:null);this.refresh();
+    this.refresh();
   }
   private destination(){
     if(this.phase===0)return 27;
@@ -38,6 +36,7 @@ export class Tutorial {
     return [[x+2,y],[x-2,y],[x,y+2],[x,y-2]].filter(([a,b])=>a>=0&&a<8&&b>=0&&b<8).map(([a,b])=>b*8+a).find(c=>this.game.board[c]===null&&this.game.board[(c+this.firstCell)/2]===null)??27;
   }
   permits(piece:Piece,cell:number){
+    if(this.phase<2&&piece.shape.cells.length!==1)return false;
     if(this.phase===2)return false;
     if(this.phase!==1)return true;
     const distance=Math.abs(cell%8-this.firstCell%8)+Math.abs(Math.floor(cell/8)-Math.floor(this.firstCell/8));
@@ -57,7 +56,7 @@ export class Tutorial {
   private layout(){
     this.animation?.cancel();this.hand.hidden=this.target.hidden=this.phase>1||this.game.over;
     if(this.hand.hidden)return;
-    const slot=this.game.inventory.findIndex(p=>p&&(this.phase===0||p.tile!==this.firstElement));
+    const slot=this.game.inventory.findIndex(p=>p&&p.shape.cells.length===1&&(this.phase===0||p.tile!==this.firstElement));
     const button=this.tray.querySelector<HTMLElement>(`[data-slot="${slot}"]`),piece=this.game.inventory[slot];if(!button||!piece)return;
     const r=button.getBoundingClientRect(),b=this.board.getBoundingClientRect(),point=this.screen(this.destination()),neighbor=this.screen(this.destination()%8<7?this.destination()+1:this.destination()-1);
     const x=point.x+b.left,y=point.y+b.top,size=Math.abs(neighbor.x-point.x)*.86;

@@ -25,7 +25,10 @@ test('every shape can be dealt in either element and every tray has a 2:1 mix', 
   SHAPES.forEach((shape, index) => {
     for (const majority of [.1, .9]) for (const slot of [0,1,2]) {
       const values = [majority, (slot + .5)/3, ...Array(3).fill((index+.5)/SHAPES.length)];
-      const game = new Game(() => values.shift()!);
+      const game = new Game(() => values.shift()??.1);
+      // Only the third and subsequent hands draw from the full shape pool.
+      const refill=()=>{game.board.fill(null);game.board[1]='lava';game.inventory=[piece('single'),null,null];game.place(0,0);game.board.fill(null);};
+      refill();values.splice(0,values.length,majority,(slot+.5)/3,...Array(3).fill((index+.5)/SHAPES.length));refill();
       assert.ok(game.inventory.every(p => p?.shape === shape));
       const water = game.inventory.filter(p => p?.tile === 'water').length;
       assert.equal(water, majority < .5 ? 2 : 1);
@@ -107,3 +110,15 @@ for (const axis of ['row','column']) {
     assert.deepEqual(game.board,before);assert.equal(game.score,20);
   });
 }
+
+test('opening hands ramp from singles to threes to unrestricted shapes, and reset on replay',()=>{
+ for(const random of [()=>0,()=>.49,()=>.99]){
+  const g=new Game(random);
+  const sizes=()=>g.inventory.map(p=>p!.shape.cells.length);
+  const next=()=>{g.board.fill(null);g.inventory=[piece('single'),null,null];g.place(0,0);g.board.fill(null);};
+  assert.deepEqual(sizes(),[1,1,3]);assert.notEqual(g.inventory[0]!.tile,g.inventory[1]!.tile);
+  next();assert.deepEqual(sizes().slice(0,2),[3,3]);assert.ok(sizes()[2]>3);
+  next();assert.ok(g.inventory.every(p=>p!.shape===SHAPES[Math.floor(random()*SHAPES.length)]));
+  g.restart();assert.deepEqual(sizes(),[1,1,3]);next();assert.deepEqual(sizes().slice(0,2),[3,3]);assert.ok(sizes()[2]>3);
+ }
+});

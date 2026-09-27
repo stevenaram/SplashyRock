@@ -16,6 +16,7 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
 export class Game {
   readonly board: (Tile | null)[] = Array(SIZE * SIZE).fill(null);
   inventory: (Piece | null)[];
+  private handsDealt=0;
   boardRevision = 0;
   score = 0;
   over = false;
@@ -72,7 +73,7 @@ export class Game {
   restart() {
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
-    this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
+    this.handsDealt=0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   private deal(): Piece[] {
     const occupied=this.board.filter(Boolean).length;
@@ -80,9 +81,13 @@ export class Game {
     const lava=this.board.filter(t=>t==='lava').length;
     const fallback:Element=this.random()<.5?'water':'lava';
     const majority: Element = water>occupied/2?'lava':lava>occupied/2?'water':fallback;
-    const minoritySlot = Math.floor(this.random() * 3);
+    const hand=this.handsDealt++;
+    const minoritySlot = Math.floor(this.random() * (hand===0?2:3));
     return Array.from({ length: 3 }, (_, slot) => ({
-      shape: SHAPES[Math.floor(this.random() * SHAPES.length)],
+      shape: (()=>{
+        const pool=hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
+        return pool[Math.floor(this.random()*pool.length)];
+      })(),
       tile: slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority,
     }));
   }
