@@ -104,6 +104,12 @@ const game = new Game();
 world.game=game;world.onPetChange=settled;world.onSound=(cue,cell)=>sound.play(cue,1,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
+// Suppress native selection/callouts without cancelling button taps or keyboard clicks.
+const preventNativeGesture=(event:Event)=>{if(event.cancelable)event.preventDefault();};
+for(const type of ['contextmenu','selectstart','dragstart','gesturestart','gesturechange','gestureend']){
+  host.addEventListener(type,preventNativeGesture,{passive:false,signal:events.signal});
+}
+host.addEventListener('touchmove',preventNativeGesture,{passive:false,signal:events.signal});
 const tutorial=new Tutorial(board,goal,tray,game,cell=>world.cellScreen(cell,0));
 world.onFirstPetAbility=element=>tutorial.showPetAbility(element);
 let selected: number | null = null;
@@ -206,7 +212,7 @@ function place() {
   return true;
 }
 tray.addEventListener('pointerdown', event => {
-  if (drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  if (!event.isPrimary || drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (!button || button.disabled) return;
   event.preventDefault();
@@ -251,7 +257,7 @@ window.addEventListener('resize', ()=>{cancel();updateScore();}, { signal: event
 window.addEventListener('keydown', event => { if (event.key === 'Escape') cancel(); }, { signal: events.signal });
 // Tap a tray tile, then tap the board is also supported.
 board.addEventListener('pointerdown', event => {
-  if (selected === null || drag) return;
+  if (!event.isPrimary || selected === null || drag) return;
   updateTarget(event.clientX, event.clientY);
   place();
 }, { signal: events.signal });

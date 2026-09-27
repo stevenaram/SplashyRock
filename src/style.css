@@ -229,3 +229,8 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 
 /* Enlarge only inventory shapes; eggs retain their established dimensions. */
 #tray .slot > svg.shape-icon {width:calc(var(--columns) * var(--icon-unit, var(--unit)) * 1.35);height:calc(var(--rows) * var(--icon-unit, var(--unit)) * 1.35)}
+
+/* Keep mobile long presses and drags inside the game's interaction model. */
+html,body {overscroll-behavior:none}
+#game,#game * {-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+#game img,#game svg,#game canvas {-webkit-user-drag:none}
