@@ -259,7 +259,7 @@ html,body {overscroll-behavior:none}
 #tray .slot {transition:filter .4s ease,opacity .4s ease}
 .ended:not(.won) #tray .slot {filter:brightness(.62) saturate(.8)}
 .ended:not(.won) #ghost {filter:brightness(.75)}
-#inventory-end-note {display:none;position:fixed;left:0;right:0;bottom:calc(clamp(100px,20dvh,190px) - 5px);margin:0;text-align:center;color:#c5dad2;font:600 12px/1.4 ui-monospace,monospace;letter-spacing:.4px;text-shadow:0 2px #103447;pointer-events:none;z-index:3}
+#inventory-end-note {display:none;position:fixed;left:0;right:0;bottom:calc(clamp(100px,20dvh,190px) / 2);transform:translateY(50%);margin:0;text-align:center;color:#f5faf6;font:700 22px/1.4 ui-monospace,monospace;letter-spacing:.4px;text-shadow:0 2px 2px #103447,0 0 12px #103447;pointer-events:none;z-index:3}
 .ended:not(.won) #inventory-end-note {display:block;animation:end-button .4s .2s both}
-@media(max-height:500px){#inventory-end-note{bottom:calc(clamp(88px,24dvh,110px) - 3px);font-size:11px}}
+@media(max-height:500px){#inventory-end-note{bottom:calc(clamp(88px,24dvh,110px) / 2);font-size:20px}}
 @media(prefers-reduced-motion:reduce){#tray .slot{transition:none}.ended:not(.won) #inventory-end-note{animation:none}}
