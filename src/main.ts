@@ -105,6 +105,7 @@ world.game=game;world.onPetChange=settled;world.onSound=(cue,cell)=>sound.play(c
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
 const tutorial=new Tutorial(board,goal,tray,game,cell=>world.cellScreen(cell,0));
+world.onFirstPetAbility=element=>tutorial.showPetAbility(element);
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;

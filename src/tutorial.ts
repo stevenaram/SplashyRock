@@ -1,7 +1,7 @@
 import {eggIcon} from './egg';
 import {pieceIcon} from './piece-icon';
 import {SHAPES} from './shapes';
-import type {Game,Piece} from './game';
+import type {Game,Piece,Element} from './game';
 
 export class Tutorial {
   private phase=0;
@@ -10,6 +10,8 @@ export class Tutorial {
   private hand=document.createElement('div');
   private target=document.createElement('div');
   private tip=document.createElement('div');
+  private petTip=document.createElement('div');
+  private petTimer:ReturnType<typeof setTimeout>|undefined;
   private goalHint=document.createElement('div');
   private timer:ReturnType<typeof setTimeout>|undefined;
   private observer:ResizeObserver;
@@ -20,11 +22,13 @@ export class Tutorial {
     this.hand.id='guide-hand';this.hand.setAttribute('aria-hidden','true');this.target.id='guide-target';this.target.setAttribute('aria-hidden','true');
     this.tip.id='clearing-tip';this.tip.hidden=true;this.tip.innerHTML='<p>Place water and lava one space apart to clear tiles and build your score.</p><button type="button">Got it</button>';
     this.goalHint.id='goal-hint';this.goalHint.hidden=true;this.goalHint.innerHTML=`<img src="${eggIcon()}" alt=""/><p>Earn <strong>5,000</strong> score<br/>to hatch a pet</p><button aria-label="Dismiss pet goal">×</button>`;
+    this.petTip.id='pet-ability-tip';this.petTip.hidden=true;this.petTip.setAttribute('role','status');this.petTip.innerHTML='<p></p><button type="button">Got it</button>';board.append(this.petTip);
+    this.petTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.petTimer);this.petTip.hidden=true;});
     goal.append(this.goalHint);board.append(this.tip);document.querySelector('#game')!.append(this.hand,this.target);
     this.tip.querySelector('button')!.addEventListener('click',()=>this.showGoal());this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal());
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
-  start(){clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+  start(){clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
     // A small opening hand guarantees either element can teach the reaction.
     const shape=SHAPES.find(s=>s.id==='single')!;this.game.inventory=this.game.inventory.map(p=>p?{...p,shape}:null);this.refresh();
   }
@@ -64,7 +68,12 @@ export class Tutorial {
     if(matchMedia('(prefers-reduced-motion: reduce)').matches){this.hand.style.transform=to;return;}
     this.animation=this.hand.animate([{transform:from,opacity:0},{transform:from,opacity:1,offset:.15},{transform:to,opacity:1,offset:.66},{transform:to,opacity:1,offset:.8},{transform:to,opacity:0}],{duration:2300,iterations:Infinity,easing:'cubic-bezier(.3,.1,.25,1)'});
   }
-  dismiss(){this.phase=5;this.tip.hidden=true;clearTimeout(this.timer);this.refresh();}
+  showPetAbility(element:Element){
+    this.dismissGoal();this.tip.hidden=true;
+    this.petTip.querySelector('p')!.textContent=`Your ${element} pet places 1 ${element} tile each time you place a shape.`;
+    this.petTip.hidden=false;clearTimeout(this.petTimer);this.petTimer=setTimeout(()=>{this.petTip.hidden=true;},9000);
+  }
+  dismiss(){clearTimeout(this.petTimer);this.petTip.hidden=true;this.phase=5;this.tip.hidden=true;clearTimeout(this.timer);this.refresh();}
   dismissGoal(){this.goalHint.hidden=true;}
-  dispose(){this.dismiss();cancelAnimationFrame(this.frame);this.animation?.cancel();this.observer.disconnect();this.hand.remove();this.target.remove();this.tip.remove();this.goalHint.remove();}
+  dispose(){this.dismiss();cancelAnimationFrame(this.frame);this.animation?.cancel();this.observer.disconnect();this.hand.remove();this.target.remove();this.tip.remove();this.petTip.remove();this.goalHint.remove();}
 }

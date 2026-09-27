@@ -1,7 +1,7 @@
 import type {SoundCue} from './sound';
 import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
-import { SIZE, footprint, type Piece, type Tile, type Game } from './game';
+import { SIZE, footprint, type Piece, type Tile, type Game, type Element } from './game';
 import { createTile, disposeGroup } from './tiles';
 import { createIsland, stoneCluster } from './island';
 import { ConnectedSurface } from './surface';
@@ -25,6 +25,7 @@ export class World {
   private readonly petBatch=new PetBatch();
   game:Game|null=null;
   onPetChange:()=>void=()=>{};
+  onFirstPetAbility:(element:Element)=>void=()=>{};
   onSound:(cue:SoundCue,cell?:number)=>void=()=>{};
   removePet(){this.petBatch.clear();this.pets.forEach(p=>p.dispose());this.pets=[];}
   private frame = 0;
@@ -69,7 +70,8 @@ export class World {
     this.petBatch.prepare();
     let petsChanged=false;
     if(!this.game?.won)for(const pet of this.pets){
-      const revision=pet.motion.revision,busy=pet.motion.busy,hatch=pet.motion.hatchRemaining,charge=pet.motion.planting;pet.update(dt,this.reducedMotion.matches);
+      const revision=pet.motion.revision,busy=pet.motion.busy,hatch=pet.motion.hatchRemaining,charge=pet.motion.planting,used=pet.motion.abilitiesUsed;pet.update(dt,this.reducedMotion.matches);
+      if(used===0&&pet.motion.abilitiesUsed>0&&pet.motion===this.game?.pets[0])this.onFirstPetAbility(pet.motion.element);
       if(hatch>.65&&pet.motion.hatchRemaining<=.65)this.onSound('hatch',pet.motion.cell);
       if(charge===0&&pet.motion.planting>0)this.onSound('charge',pet.motion.cell);
       if(revision!==pet.motion.revision||busy!==pet.motion.busy)petsChanged=true;

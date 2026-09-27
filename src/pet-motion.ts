@@ -3,6 +3,7 @@ import type {Element, Tile} from './game';
 export class PetMotion {
   hatchRemaining=0;
   startHatch(){this.hatchRemaining=1.8;this.revision++;}
+  abilitiesUsed=0;
   queued=0; // Ready abilities, not walking steps.
   completed=0;
   revision=0;
@@ -81,7 +82,7 @@ export class PetMotion {
       if(this.planting>0&&!this.allowed(this.cell)){this.planting=0;this.revision++;}
       if(this.planting>0){
         const before=this.planting,used=Math.min(dt,.56-before);this.planting+=used;dt-=used;
-        if(before<.3&&this.planting>=.3){if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell)!==false)this.queued--;this.revision++;}
+        if(before<.3&&this.planting>=.3){if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell)!==false){this.queued--;this.abilitiesUsed++;}this.revision++;}
         if(this.planting>=.56){this.planting=0;this.revision++;}
         continue;
       }
