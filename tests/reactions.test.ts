@@ -105,15 +105,3 @@ test('a canceled candidate gets a fresh half-second when it becomes eligible aga
   t.mock.timers.tick(499);assert.deepEqual(formed,[]);
   t.mock.timers.tick(1);assert.deepEqual(formed,[27]);reactions.dispose();
 });
-
-test('pet footprint stone uses the standard delay and sweep without another placement',t=>{
- t.mock.timers.enable({apis:['setTimeout']});
- const g=new Game();g.board[28]='water';g.leavePetMark(27,'lava');let created=0;
- const reactions=new StoneReactions(g,()=>created++);
- reactions.schedule();t.mock.timers.tick(499);assert.equal(g.board[27],null);t.mock.timers.tick(1);
- assert.equal(created,1);assert.equal(g.board[27],'stone');assert.equal(g.petMarks[27],null);reactions.dispose();
-});
-test('expired pet influence cancels its pending stone reaction',t=>{
- t.mock.timers.enable({apis:['setTimeout']});const g=new Game();g.board[28]='water';g.leavePetMark(27,'lava');const reactions=new StoneReactions(g,()=>assert.fail('expired mark reacted'));
- reactions.schedule();g.petMarks[27]=null;reactions.schedule();t.mock.timers.tick(1000);assert.equal(g.board[27],null);reactions.dispose();
-});

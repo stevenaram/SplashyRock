@@ -1,3 +1,4 @@
+import {Aftermath} from './aftermath';
 import './style.css';
 import { ComboCallout } from './combo-callout';
 import { pieceIcon } from './piece-icon';
@@ -33,7 +34,6 @@ function updateScore(){
 function settled(){
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
-  world.syncPetMarks();
   if (!game.over) reactions.schedule();
   if(!reactions.busy&&!sweeps.busy&&game.combo>0){
     const multiplier=game.combo;const bonus=game.finishChain();
@@ -42,9 +42,9 @@ function settled(){
   }
   updateScore();
   clearTimeout(endTimer);
-  if(game.over||reactions.busy||sweeps.busy||game.pet?.busy||game.hasLegalMove())return;
+  if(game.over||reactions.busy||sweeps.busy||aftermaths.size>0||game.pet?.busy||game.hasLegalMove())return;
   endTimer=setTimeout(()=>{
-    if(!game.finishIfBlocked(reactions.busy||sweeps.busy||!!game.pet?.busy))return;
+    if(!game.finishIfBlocked(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.pet?.busy))return;
     world.removePet();
     best=Math.max(best,game.score);
     try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
@@ -58,6 +58,7 @@ const world = new World(board);
 const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
 const game = new Game();
 world.game=game;world.onPetChange=settled;
+const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
@@ -68,22 +69,22 @@ const refreshPreview = () => {
   const piece = selected === null ? null : game.inventory[selected];
   if (piece && target !== null) world.showPreview(target, piece, game.canPlace(piece, target));
 };
-const sweeps = new SandSweeps(game, (cells, origin, phase, depth) => {
+const sweeps = new SandSweeps(game, (cells, origin, phase, depth, owner) => {
   world.sandSweep(game.board,cells,origin,phase);
-  reactions.schedule(depth+1);
+  reactions.schedule(depth+1,owner);
   refreshPreview();
 },settled);
-const reactions = new StoneReactions(game, cell => {
-  world.syncPetMarks();
+const reactions = new StoneReactions(game, (cell,owner) => {
   world.addStone(cell);
   if(game.combo>=2&&game.combo>shownCombo){shownCombo=game.combo;combo.show(game.combo,cell);}
-  sweeps.schedule();
+  sweeps.schedule(owner);
   refreshPreview();
 },settled);
 
 again.addEventListener('click',()=>{
+  aftermaths.forEach(a=>a.cancel());aftermaths.clear();
   clearTimeout(endTimer);reactions.dispose();sweeps.dispose();cancel();
-  world.removePet();game.restart();world.syncPetMarks();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended');
+  world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended');
   shownCombo=0;combo.reset();
   shownScore=0;gainLabel.textContent='';updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
@@ -127,7 +128,10 @@ function place() {
   const piece = game.inventory[selected] as Piece;
   if (!game.place(selected, target)) return false;
   world.addPiece(target, piece);
-  reactions.schedule();
+  const pet=game.pet;
+  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(pet&&game.pet===pet&&!game.over)pet.queueAbility();settled();});
+  aftermaths.add(aftermath);
+  reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
   selected = null;
   clearPreview();
@@ -186,4 +190,4 @@ tray.addEventListener('click', event => {
   if (button && !button.disabled) { selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
 renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { events.abort(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer); combo.dispose(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer); combo.dispose(); world.dispose(); });

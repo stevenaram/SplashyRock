@@ -156,7 +156,6 @@ export class ConnectedSurface {
     for(let cell=0;cell<64;cell++){this.data[cell*4+1]=0;this.data[cell*4+2]=0;}
     this.texture.needsUpdate=true;
   }
-  petMarks:readonly ({element:'water'|'lava'}|null)[]=Array(64).fill(null);
   update(time:number,reducedMotion=false){
     const dt=this.previousTime===null?0:Math.max(0,Math.min(.05,time-this.previousTime));
     this.previousTime=time;this.material.uniforms.time.value=reducedMotion?0:time;
@@ -166,7 +165,7 @@ export class ConnectedSurface {
       const neighbors=[x>0?cell-1:-1,x<7?cell+1:-1,y>0?cell-8:-1,y<7?cell+8:-1];
       for(let element=0;element<2;element++){
         const index=cell*2+element;
-        const desired=this.board[cell]===null&&!this.burying.has(cell)&&(this.petMarks[cell]?.element===(element===0?'water':'lava')||neighbors.some(n=>n>=0&&this.board[n]===(element===0?'water':'lava')))?1:0;
+        const desired=this.board[cell]===null&&!this.burying.has(cell)&&neighbors.some(n=>n>=0&&this.board[n]===(element===0?'water':'lava'))?1:0;
         if(desired!==this.targets[index]){
           this.targets[index]=desired;this.starts[index]=this.progress[index];
           // A small spatial stagger leads into, rather than delaying, stone's 500ms reaction.

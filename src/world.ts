@@ -22,7 +22,6 @@ export class World {
   private pet:PetWalker|null=null;
   game:Game|null=null;
   onPetChange:()=>void=()=>{};
-  syncPetMarks(){if(this.game)this.surface.petMarks=this.game.petMarks;}
   removePet(){this.pet?.dispose();this.pet=null;}
   private frame = 0;
   private previousTime = 0;
