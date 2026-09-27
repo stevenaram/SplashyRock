@@ -46,6 +46,9 @@ let endTimer:ReturnType<typeof setTimeout>|undefined;
 function updateScore(){
   const gain=game.score-shownScore;scoreLabel.textContent=game.score.toLocaleString();
   if(gain>0){gainLabel.textContent=`+${gain}`;gainLabel.getAnimations().forEach(a=>a.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-14px)'}],{duration:750,fill:'forwards',easing:'cubic-bezier(.2,.7,.3,1)'});}
+  // Fit the number inside its reserved column without moving the goal bar.
+  const scoreWidth=scoreLabel.clientWidth;
+  scoreLabel.style.fontSize=`${Math.min(25,scoreWidth/Math.max(1,scoreLabel.textContent!.length)/.62)}px`;
   shownScore=game.score;
   const earned=game.earnedEggs,index=Math.min(earned,MAX_PETS-1),target=EGG_GOALS[index],previous=index?EGG_GOALS[index-1]:0;
   const progress=earned===MAX_PETS?1:Math.max(0,Math.min(1,(game.score-previous)/(target-previous)));
@@ -219,7 +222,7 @@ function cancel() {
 }
 window.addEventListener('pointercancel', cancel, { signal: events.signal });
 window.addEventListener('blur', cancel, { signal: events.signal });
-window.addEventListener('resize', cancel, { signal: events.signal });
+window.addEventListener('resize', ()=>{cancel();updateScore();}, { signal: events.signal });
 window.addEventListener('keydown', event => { if (event.key === 'Escape') cancel(); }, { signal: events.signal });
 // Tap a tray tile, then tap the board is also supported.
 board.addEventListener('pointerdown', event => {
