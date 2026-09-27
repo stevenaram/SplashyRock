@@ -1,3 +1,4 @@
+import {Tutorial} from './tutorial';
 import {EGG_GOALS,MAX_PETS} from './egg-goals';
 import {eggIcon} from './egg';
 import {Aftermath} from './aftermath';
@@ -10,7 +11,7 @@ import { StoneReactions, SandSweeps } from './reactions';
 
 const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
-host.innerHTML = `<section id="board" aria-label="Eight by eight board"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div><div id="egg-goal" role="progressbar"><img alt=""/><div class="egg-track"><i></i></div><strong></strong><span class="egg-pending"></span></div></section>
+host.innerHTML = `<header id="run-hud"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div><div id="egg-goal" role="progressbar"><img alt=""/><div class="egg-track"><i></i></div><strong></strong><span class="egg-pending"></span></div></header><section id="board" aria-label="Eight by eight board"></section>
   <div id="egg-unlocked" role="status" hidden><img alt=""/><strong>Egg Unlocked</strong></div>
   <nav id="tray" aria-label="Available tiles"></nav>
   <div id="ghost" aria-hidden="true" hidden></div>
@@ -54,6 +55,7 @@ function updateScore(){
   goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===MAX_PETS?'All egg rewards earned':`Next egg at ${target.toLocaleString()} points`);
 }
 function showEnd(won=false){
+  tutorial.dismiss();tutorial.dismissGoal();
   best=Math.max(best,game.score);try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
   document.querySelector('#end-title')!.textContent=won?'The game is beat!':'Game Over';
   document.querySelector('#final-score')!.textContent=game.score.toLocaleString();document.querySelector('#best-score')!.textContent=best.toLocaleString();
@@ -90,6 +92,7 @@ const game = new Game();
 world.game=game;world.onPetChange=settled;
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
+const tutorial=new Tutorial(board,goal);
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;
@@ -116,7 +119,7 @@ again.addEventListener('click',()=>{
   clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
   world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won');
   shownCombo=0;combo.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
-  shownScore=0;gainLabel.textContent='';updateScore();renderTray();
+  shownScore=0;gainLabel.textContent='';updateScore();renderTray();tutorial.start();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
 }, {signal:events.signal});
 
@@ -166,6 +169,7 @@ function place() {
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
   if (!game.place(selected, target)) return false;
+  tutorial.played();
   world.addPiece(target, piece);
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(piece.tile!=='pet'&&!game.over)for(const pet of pets)if(game.pets.includes(pet))pet.queueAbility();settled();});
   aftermaths.add(aftermath);
@@ -182,6 +186,7 @@ tray.addEventListener('pointerdown', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (!button || button.disabled) return;
   event.preventDefault();
+  tutorial.dismiss();
   selected = Number(button.dataset.slot);
   // Capture on the persistent tray so replacing its buttons cannot lose the drag.
   tray.setPointerCapture(event.pointerId);
@@ -227,5 +232,5 @@ tray.addEventListener('click', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (button && !button.disabled) { selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
-updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
+updateScore();renderTray();tutorial.start();
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();tutorial.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
