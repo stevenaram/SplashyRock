@@ -11,6 +11,7 @@ import { StoneReactions, SandSweeps } from './reactions';
 const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
 host.innerHTML = `<section id="board" aria-label="Eight by eight board"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div><div id="egg-goal" role="progressbar"><img alt=""/><div class="egg-track"><i></i></div><strong></strong><span class="egg-pending"></span></div></section>
+  <div id="egg-unlocked" role="status" hidden><img alt=""/><strong>Egg Unlocked</strong></div>
   <nav id="tray" aria-label="Available tiles"></nav>
   <div id="ghost" aria-hidden="true" hidden></div>
   <p id="status" role="status" class="sr-only"></p>
@@ -24,6 +25,17 @@ const gainLabel=document.querySelector<HTMLElement>('#score-gain')!;
 const endDialog=document.querySelector<HTMLElement>('#game-over')!;
 const goal=document.querySelector<HTMLElement>('#egg-goal')!;
 (goal.querySelector('img') as HTMLImageElement).src=eggIcon();
+const unlock=document.querySelector<HTMLElement>('#egg-unlocked')!;
+(unlock.querySelector('img') as HTMLImageElement).src=eggIcon();
+let announcedEggs=0;
+let unlockTimer:ReturnType<typeof setTimeout>|undefined;
+function announceEggs(){
+  if(game.rewardsDealt<=announcedEggs)return;
+  announcedEggs=game.rewardsDealt;renderTray();unlock.hidden=false;
+  unlock.getAnimations().forEach(a=>a.cancel());
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches)unlock.animate([{opacity:0,transform:'translate(-50%, 8px) scale(.9)'},{opacity:1,transform:'translate(-50%, -2px) scale(1.03)',offset:.7},{opacity:1,transform:'translate(-50%, 0) scale(1)'}],{duration:480,easing:'cubic-bezier(.2,.8,.3,1)'});
+  clearTimeout(unlockTimer);unlockTimer=setTimeout(()=>{unlock.hidden=true;},2800);
+}
 let shownCombo=0;
 const again=document.querySelector<HTMLButtonElement>('#play-again')!;
 let shownScore=0;
@@ -57,13 +69,17 @@ function settled(){
     if(multiplier>1)combo.finish(bonus);
     shownCombo=0;
   }
+  game.claimEggRewards();announceEggs();
   updateScore();
   updateTrayWarnings();
-  clearTimeout(endTimer);
-  if(game.over||reactions.busy||sweeps.busy||aftermaths.size>0||game.petsBusy||game.hasLegalMove())return;
+  if(game.over||reactions.busy||sweeps.busy||aftermaths.size>0||game.petsBusy||game.hasLegalMove()){
+    clearTimeout(endTimer);endTimer=undefined;return;
+  }
+  // Walking animation updates must not continually postpone this final check.
+  if(endTimer!==undefined)return;
   endTimer=setTimeout(()=>{
+    endTimer=undefined;
     if(!game.finishIfBlocked(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy))return;
-    world.removePet();
     showEnd();
     status.textContent=`Game Over. Final score ${game.score}. You can still try the remaining pieces, or play again.`;
   },400);
@@ -97,9 +113,9 @@ const reactions = new StoneReactions(game, (cell,owner) => {
 
 again.addEventListener('click',()=>{
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
-  clearTimeout(endTimer);reactions.dispose();sweeps.dispose();cancel();
+  clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
   world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won');
-  shownCombo=0;combo.reset();
+  shownCombo=0;combo.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
   shownScore=0;gainLabel.textContent='';updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
 }, {signal:events.signal});
@@ -113,6 +129,7 @@ function updateTrayWarnings(){
   });
 }
 function renderTray() {
+  tray.classList.toggle('expanded',game.inventory.length>3);
   const markup = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
     data-pet="${piece?.tile==='pet'?'egg':''}" data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
     ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece)+'<svg class="fit-warning" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path class="warning-mark" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>' : ''}</button>`).join('');
@@ -141,7 +158,7 @@ function updateTarget(x: number, y: number) {
     ghost.innerHTML = pieceIcon(piece);
     ghost.dataset.shape = piece.shape.id;
   }
-  ghost.hidden = target !== null || !drag?.moved;
+  ghost.hidden = (target !== null && piece.tile!=='pet') || !drag?.moved;
   ghost.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
 }
 function place() {
@@ -211,4 +228,4 @@ tray.addEventListener('click', event => {
   if (button && !button.disabled) { selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
 updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer); combo.dispose(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });

@@ -28,7 +28,7 @@ export class Game {
   get petRewardDealt(){return this.rewardsDealt>0;}
   get earnedEggs(){return earnedEggs(this.score);}
   get petsBusy(){return this.pets.some(p=>p.busy);}
-  finishIfWon(){if(this.pets.length===MAX_PETS&&this.pets.every(p=>p.hatchRemaining===0)){this.won=true;this.over=true;}return this.won;}
+  finishIfWon(){if(this.over)return this.won;if(this.pets.length===MAX_PETS&&this.pets.every(p=>p.hatchRemaining===0)){this.won=true;this.over=true;}return this.won;}
   moves=0;
   readonly petTileEvents:number[]=[];
   combo = 0;
@@ -50,6 +50,7 @@ export class Game {
     for(const cell of new Set(cells)){if(this.board[cell]!==null){this.write(cell,null);removed.push(cell);}}
     this.score+=removed.length*10;
     if(this.combo>0)this.chainPoints+=removed.length*10;
+    this.claimEggRewards();
     return removed;
   }
   // Base reaction points are shown as earned; pay the remaining multiplier
@@ -57,6 +58,7 @@ export class Game {
   finishChain(): number {
     const bonus=this.chainPoints*Math.max(0,this.combo-1);
     this.score+=bonus;this.combo=0;this.chainPoints=0;
+    this.claimEggRewards();
     return bonus;
   }
   pieceFits(piece:Piece):boolean {return this.board.some((_,cell)=>this.canPlace(piece,cell));}
@@ -73,19 +75,27 @@ export class Game {
     this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   private deal(): Piece[] {
-    if(this.rewardsDealt<MAX_PETS&&this.score>=EGG_GOALS[this.rewardsDealt]){
-      this.rewardsDealt++;
-      const first:Element=this.random()<.5?'water':'lava';
-      const petElement:Element=this.random()<.5?'lava':'water';
-      const shape=()=>SHAPES[Math.floor(this.random()*SHAPES.length)];
-      return [{tile:first,shape:shape()},{tile:'pet',petElement,shape:{id:'pet-egg',name:'Mystery Egg',width:1,height:1,cells:[[0,0]]}},{tile:first==='water'?'lava':'water',shape:shape()}];
-    }
-    const majority: Element = this.random() < .5 ? 'water' : 'lava';
+    const occupied=this.board.filter(Boolean).length;
+    const water=this.board.filter(t=>t==='water').length;
+    const lava=this.board.filter(t=>t==='lava').length;
+    const fallback:Element=this.random()<.5?'water':'lava';
+    const majority: Element = water>occupied/2?'lava':lava>occupied/2?'water':fallback;
     const minoritySlot = Math.floor(this.random() * 3);
     return Array.from({ length: 3 }, (_, slot) => ({
       shape: SHAPES[Math.floor(this.random() * SHAPES.length)],
       tile: slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority,
     }));
+  }
+  claimEggRewards(): number {
+    if(this.over)return 0;
+    let count=0;
+    while(this.rewardsDealt<MAX_PETS&&this.score>=EGG_GOALS[this.rewardsDealt]){
+      const egg:Piece={tile:'pet',shape:{id:'pet-egg',name:'Mystery Egg',width:1,height:1,cells:[[0,0]]}};
+      const empty=this.inventory[1]===null?1:this.inventory.indexOf(null);
+      if(empty<0)this.inventory.push(egg);else this.inventory[empty]=egg;
+      this.rewardsDealt++;count++;
+    }
+    return count;
   }
   canPlace(piece: Piece, anchor: number): boolean {
     if(piece.tile==='pet'&&this.pets.length>=MAX_PETS)return false;
@@ -118,18 +128,24 @@ export class Game {
     this.write(cell, 'stone');
     this.score += 20;
     this.stoneDepth[cell]=depth;this.combo=Math.max(this.combo,depth);this.chainPoints+=20;
+    this.claimEggRewards();
     return true;
   }
   place(slot: number, anchor: number): boolean {
     const piece = this.inventory[slot];
     if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
     this.moves++;
-    if(piece.tile==='pet'){const pet=new PetMotion(anchor,piece.petElement??'lava',this.board,cell=>this.plantPetTile(cell,piece.petElement??'lava'),this.random,()=>this.boardChange);pet.startHatch();this.pets.push(pet);}
+    if(piece.tile==='pet'){
+      const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');
+      const pet=new PetMotion(anchor,element,this.board,cell=>this.plantPetTile(cell,element),this.random,()=>this.boardChange);
+      pet.startHatch();this.pets.push(pet);
+    }
     else {
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;
     }
     this.inventory[slot] = null;
+    this.claimEggRewards();
     if (this.inventory.every(item => item === null)) this.inventory = this.deal();
     return true;
   }

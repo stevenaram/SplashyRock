@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {EGG_GOALS,earnedEggs,MAX_PETS} from '../src/egg-goals';
+import {PetMotion} from '../src/pet-motion';
 import {Game,type Piece} from '../src/game';
 const shape={id:'single',name:'Single',width:1,height:1,cells:[[0,0] as const]};
 const egg:Piece={tile:'pet',petElement:'water',shape};
@@ -10,10 +11,11 @@ test('egg milestones grow the incremental requirement by 1.2 with exact early ta
  EGG_GOALS.forEach((goal,i)=>{assert.ok(Number.isSafeInteger(goal));if(i)assert.ok(goal>EGG_GOALS[i-1]);});
  assert.equal(earnedEggs(4999),0);assert.equal(earnedEggs(5000),1);assert.equal(earnedEggs(26840),4);assert.equal(earnedEggs(Number.MAX_SAFE_INTEGER),64);
 });
-test('large score jumps preserve every egg, dealing one in the middle of each fresh tray',()=>{
- const g=new Game(()=>.2);const inventory=g.inventory;g.score=26840;assert.equal(g.inventory,inventory);
- for(let i=1;i<=4;i++){deal(g);assert.equal(g.rewardsDealt,i);assert.equal(g.inventory[1]?.tile,'pet');assert.deepEqual(new Set([g.inventory[0]?.tile,g.inventory[2]?.tile]),new Set(['water','lava']));}
- deal(g);assert.ok(g.inventory.every(p=>p?.tile!=='pet'));
+test('large score jumps immediately preserve every egg without replacing shapes',()=>{
+ const g=new Game(()=>.2),original=[...g.inventory];g.score=26840;
+ assert.equal(g.claimEggRewards(),4);assert.equal(g.inventory.length,7);
+ assert.deepEqual(g.inventory.slice(0,3),original);assert.equal(g.rewardsDealt,4);
+ assert.equal(g.claimEggRewards(),0);assert.equal(g.inventory.filter(p=>p?.tile==='pet').length,4);
 });
 test('five pets keep independent abilities and can plant five tiles',()=>{
  const g=new Game(()=>.2);for(const cell of [0,7,27,56,63]){g.inventory=[egg,null,null];assert.ok(g.place(0,cell));}
@@ -21,7 +23,7 @@ test('five pets keep independent abilities and can plant five tiles',()=>{
  assert.equal(g.board.filter(Boolean).length,5);assert.ok(g.pets.every(p=>p.queued===0));
 });
 test('competing pets never overwrite each other and retain an ability until they find another cell',()=>{
- const g=new Game(()=>.2);for(let i=0;i<2;i++){g.inventory=[egg,null,null];g.place(0,27);}
+ const g=new Game(()=>.2);for(let i=0;i<2;i++){const pet=new PetMotion(27,'water',g.board,c=>g.plantPetTile(c,'water'),()=>.2,()=>g.boardChange);pet.startHatch();g.pets.push(pet);}
  g.pets.forEach(p=>{p.update(1.8);p.queueAbility();});g.pets.forEach(p=>p.update(.35));assert.equal(g.board.filter(Boolean).length,1);assert.equal(g.pets[1].queued,1);
  for(let i=0;i<200;i++)g.pets.forEach(p=>p.update(.05));assert.equal(g.board.filter(Boolean).length,2);assert.ok(g.pets.every(p=>p.queued===0));
 });
