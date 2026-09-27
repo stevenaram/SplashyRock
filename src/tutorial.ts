@@ -2,6 +2,8 @@ import {eggIcon} from './egg';
 import {pieceIcon} from './piece-icon';
 import type {Game,Piece,Element} from './game';
 
+const TOOLTIP_DURATION=5000;
+
 export class Tutorial {
   private phase=0;
   private firstCell=27;
@@ -53,8 +55,8 @@ export class Tutorial {
     else if(this.phase===1)this.phase=2;
     this.paused=false;this.refresh();
   }
-  settled(ready:boolean){if(this.phase===2&&ready){this.phase=3;this.tip.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.showGoal(),6500);}}
-  private showGoal(){if(this.phase!==3)return;clearTimeout(this.timer);this.phase=4;this.tip.hidden=true;this.goalHint.hidden=false;this.timer=setTimeout(()=>this.dismissGoal(),20000);}
+  settled(ready:boolean){if(this.phase===2&&ready){this.phase=3;this.tip.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.showGoal(),TOOLTIP_DURATION);}}
+  private showGoal(){if(this.phase!==3)return;clearTimeout(this.timer);this.phase=4;this.tip.hidden=true;this.goalHint.hidden=false;this.timer=setTimeout(()=>this.dismissGoal(),TOOLTIP_DURATION);}
   beginDrag(){this.paused=true;this.refresh();}
   endDrag(){this.paused=false;this.refresh();}
   refresh(){cancelAnimationFrame(this.frame);this.frame=requestAnimationFrame(()=>this.layout());}
@@ -75,13 +77,13 @@ export class Tutorial {
   showFitWarning(){
     if(this.warningShown)return;
     this.warningShown=true;this.dismissGoal();this.tip.hidden=true;this.petTip.hidden=true;
-    this.warningTip.hidden=false;clearTimeout(this.warningTimer);this.warningTimer=setTimeout(()=>{this.warningTip.hidden=true;},9000);
+    this.warningTip.hidden=false;clearTimeout(this.warningTimer);this.warningTimer=setTimeout(()=>{this.warningTip.hidden=true;},TOOLTIP_DURATION);
   }
   showPetAbility(element:Element){
     this.warningTip.hidden=true;
     this.dismissGoal();this.tip.hidden=true;
     this.petTip.querySelector('p')!.textContent=`Your ${element} pet places 1 ${element} tile each time you place a shape.`;
-    this.petTip.hidden=false;clearTimeout(this.petTimer);this.petTimer=setTimeout(()=>{this.petTip.hidden=true;},9000);
+    this.petTip.hidden=false;clearTimeout(this.petTimer);this.petTimer=setTimeout(()=>{this.petTip.hidden=true;},TOOLTIP_DURATION);
   }
   dismiss(){clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;this.phase=5;this.tip.hidden=true;clearTimeout(this.timer);this.refresh();}
   dismissGoal(){this.goalHint.hidden=true;}
