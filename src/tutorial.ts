@@ -14,6 +14,7 @@ export class Tutorial {
   private petTip=document.createElement('div');
   private warningTip=document.createElement('div');
   private warningShown=false;
+  private warningPiece:Piece|undefined;
   private warningTimer:ReturnType<typeof setTimeout>|undefined;
   private petTimer:ReturnType<typeof setTimeout>|undefined;
   private goalHint=document.createElement('div');
@@ -34,7 +35,7 @@ export class Tutorial {
     this.tip.querySelector('button')!.addEventListener('click',()=>this.showGoal());this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal());
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
-  start(){this.warningShown=false;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+  start(){this.warningPiece=undefined;this.warningShown=false;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
     this.refresh();
   }
   private destination(){
@@ -74,8 +75,14 @@ export class Tutorial {
     if(matchMedia('(prefers-reduced-motion: reduce)').matches){this.hand.style.transform=to;return;}
     this.animation=this.hand.animate([{transform:from,opacity:0},{transform:from,opacity:1,offset:.15},{transform:to,opacity:1,offset:.66},{transform:to,opacity:1,offset:.8},{transform:to,opacity:0}],{duration:2300,iterations:Infinity,easing:'cubic-bezier(.3,.1,.25,1)'});
   }
-  showFitWarning(){
-    if(this.warningShown)return;
+  updateFitWarning(){
+    if(this.warningPiece&&(!this.game.inventory.includes(this.warningPiece)||this.game.pieceFits(this.warningPiece))){
+      clearTimeout(this.warningTimer);this.warningTip.hidden=true;this.warningPiece=undefined;
+    }
+  }
+  showFitWarning(piece:Piece|undefined|null){
+    if(this.warningShown||!piece||piece.tile==='pet'||this.game.pieceFits(piece))return;
+    this.warningPiece=piece;
     this.warningShown=true;this.dismissGoal();this.tip.hidden=true;this.petTip.hidden=true;
     this.warningTip.hidden=false;clearTimeout(this.warningTimer);this.warningTimer=setTimeout(()=>{this.warningTip.hidden=true;},TOOLTIP_DURATION);
   }
