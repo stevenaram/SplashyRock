@@ -41,14 +41,18 @@ export class Tutorial {
   }
   start(){
     clearTimeout(this.timer);clearTimeout(this.hintTimer);
-    this.panel.hidden=false;this.goalHint.hidden=false;
+    this.panel.hidden=false;this.goalHint.hidden=true;
     clearInterval(this.phaseTimer);this.phase=0;this.setPhase();
     this.phaseTimer=setInterval(()=>{this.phase=(this.phase+1)%3;this.setPhase();},3200);
     this.panel.classList.remove('playing');void this.panel.offsetWidth;this.panel.classList.add('playing');
     this.timer=setTimeout(()=>this.dismiss(),19200);
-    this.hintTimer=setTimeout(()=>this.dismissGoal(),20000);
   }
-  dismiss(){clearInterval(this.phaseTimer);clearTimeout(this.timer);this.panel.hidden=true;}
+  dismiss(){
+    clearInterval(this.phaseTimer);clearTimeout(this.timer);
+    if(this.panel.hidden)return;
+    this.panel.hidden=true;this.goalHint.hidden=false;
+    clearTimeout(this.hintTimer);this.hintTimer=setTimeout(()=>this.dismissGoal(),20000);
+  }
   dismissGoal(){clearTimeout(this.hintTimer);this.goalHint.hidden=true;}
   played(){this.dismiss();clearTimeout(this.hintTimer);this.hintTimer=setTimeout(()=>this.dismissGoal(),4500);}
   dispose(){clearInterval(this.phaseTimer);clearTimeout(this.timer);clearTimeout(this.hintTimer);this.events.abort();this.panel.remove();this.goalHint.remove();}
