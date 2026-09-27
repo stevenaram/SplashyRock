@@ -10,6 +10,9 @@ export class Tutorial {
   private target=document.createElement('div');
   private tip=document.createElement('div');
   private petTip=document.createElement('div');
+  private warningTip=document.createElement('div');
+  private warningShown=false;
+  private warningTimer:ReturnType<typeof setTimeout>|undefined;
   private petTimer:ReturnType<typeof setTimeout>|undefined;
   private goalHint=document.createElement('div');
   private timer:ReturnType<typeof setTimeout>|undefined;
@@ -23,11 +26,13 @@ export class Tutorial {
     this.goalHint.id='goal-hint';this.goalHint.hidden=true;this.goalHint.innerHTML=`<img src="${eggIcon()}" alt=""/><p>Earn <strong>5,000</strong> score<br/>to hatch a pet</p><button aria-label="Dismiss pet goal">×</button>`;
     this.petTip.id='pet-ability-tip';this.petTip.hidden=true;this.petTip.setAttribute('role','status');this.petTip.innerHTML='<p></p><button type="button">Got it</button>';board.append(this.petTip);
     this.petTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.petTimer);this.petTip.hidden=true;});
+    this.warningTip.id='fit-warning-tip';this.warningTip.hidden=true;this.warningTip.setAttribute('role','status');this.warningTip.innerHTML='<p>Watch out! This shape won’t fit on the current board.</p><button type="button">Got it</button>';board.append(this.warningTip);
+    this.warningTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.warningTimer);this.warningTip.hidden=true;});
     goal.append(this.goalHint);board.append(this.tip);document.querySelector('#game')!.append(this.hand,this.target);
     this.tip.querySelector('button')!.addEventListener('click',()=>this.showGoal());this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal());
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
-  start(){clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+  start(){this.warningShown=false;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
     this.refresh();
   }
   private destination(){
@@ -67,12 +72,18 @@ export class Tutorial {
     if(matchMedia('(prefers-reduced-motion: reduce)').matches){this.hand.style.transform=to;return;}
     this.animation=this.hand.animate([{transform:from,opacity:0},{transform:from,opacity:1,offset:.15},{transform:to,opacity:1,offset:.66},{transform:to,opacity:1,offset:.8},{transform:to,opacity:0}],{duration:2300,iterations:Infinity,easing:'cubic-bezier(.3,.1,.25,1)'});
   }
+  showFitWarning(){
+    if(this.warningShown)return;
+    this.warningShown=true;this.dismissGoal();this.tip.hidden=true;this.petTip.hidden=true;
+    this.warningTip.hidden=false;clearTimeout(this.warningTimer);this.warningTimer=setTimeout(()=>{this.warningTip.hidden=true;},9000);
+  }
   showPetAbility(element:Element){
+    this.warningTip.hidden=true;
     this.dismissGoal();this.tip.hidden=true;
     this.petTip.querySelector('p')!.textContent=`Your ${element} pet places 1 ${element} tile each time you place a shape.`;
     this.petTip.hidden=false;clearTimeout(this.petTimer);this.petTimer=setTimeout(()=>{this.petTip.hidden=true;},9000);
   }
-  dismiss(){clearTimeout(this.petTimer);this.petTip.hidden=true;this.phase=5;this.tip.hidden=true;clearTimeout(this.timer);this.refresh();}
+  dismiss(){clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;this.phase=5;this.tip.hidden=true;clearTimeout(this.timer);this.refresh();}
   dismissGoal(){this.goalHint.hidden=true;}
-  dispose(){this.dismiss();cancelAnimationFrame(this.frame);this.animation?.cancel();this.observer.disconnect();this.hand.remove();this.target.remove();this.tip.remove();this.petTip.remove();this.goalHint.remove();}
+  dispose(){this.dismiss();cancelAnimationFrame(this.frame);this.animation?.cancel();this.observer.disconnect();this.hand.remove();this.target.remove();this.tip.remove();this.petTip.remove();this.warningTip.remove();this.goalHint.remove();}
 }

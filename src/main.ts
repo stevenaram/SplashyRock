@@ -140,14 +140,15 @@ again.addEventListener('click',()=>{
 
 let blockedSlots=0;
 function updateTrayWarnings(){
-  let count=0;
+  let count=0,blockedShape=false;
   tray.querySelectorAll<HTMLButtonElement>('.slot').forEach((button,index)=>{
     const piece=game.inventory[index],blocked=!!piece&&!game.pieceFits(piece);
-    if(blocked)count++;
+    if(blocked){count++;if(piece!.tile!=='pet')blockedShape=true;}
     button.classList.toggle('blocked',blocked);
     button.setAttribute('aria-label',piece?`${piece.tile==='pet'?'Mystery Egg':`${piece.tile} ${piece.shape.name}`}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
   });
   if(count>blockedSlots&&!game.over)sound.play('warning');
+  if(blockedShape&&!game.over)tutorial.showFitWarning();
   blockedSlots=count;
 }
 function renderTray() {
