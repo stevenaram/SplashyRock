@@ -154,7 +154,6 @@ function updateTrayWarnings(){
     button.setAttribute('aria-label',piece?`${piece.tile==='pet'?'Mystery Egg':`${piece.tile} ${piece.shape.name}`}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
   });
   if(count>blockedSlots&&!game.over)sound.play('warning');
-  tutorial.updateFitWarning();
   blockedSlots=count;
 }
 function renderTray() {

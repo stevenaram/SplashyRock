@@ -14,7 +14,6 @@ export class Tutorial {
   private petTip=document.createElement('div');
   private warningTip=document.createElement('div');
   private warningShown=false;
-  private warningPiece:Piece|undefined;
   private warningTimer:ReturnType<typeof setTimeout>|undefined;
   private petTimer:ReturnType<typeof setTimeout>|undefined;
   private goalHint=document.createElement('div');
@@ -29,13 +28,13 @@ export class Tutorial {
     this.goalHint.id='goal-hint';this.goalHint.hidden=true;this.goalHint.innerHTML=`<img src="${eggIcon()}" alt=""/><p>Earn <strong>5,000</strong> score<br/>to hatch a pet</p><button aria-label="Dismiss pet goal">×</button>`;
     this.petTip.id='pet-ability-tip';this.petTip.hidden=true;this.petTip.setAttribute('role','status');this.petTip.innerHTML='<p></p><button type="button">Got it</button>';board.append(this.petTip);
     this.petTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.petTimer);this.petTip.hidden=true;});
-    this.warningTip.id='fit-warning-tip';this.warningTip.hidden=true;this.warningTip.setAttribute('role','status');this.warningTip.innerHTML='<p>Watch out! This shape won’t fit on the current board.</p><button type="button">Got it</button>';board.append(this.warningTip);
+    this.warningTip.id='fit-warning-tip';this.warningTip.hidden=true;this.warningTip.setAttribute('role','status');this.warningTip.innerHTML='<p>When none of your remaining shapes fit, it&#39;s game over.</p><button type="button">Got it</button>';board.append(this.warningTip);
     this.warningTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.warningTimer);this.warningTip.hidden=true;});
     goal.append(this.goalHint);board.append(this.tip);document.querySelector('#game')!.append(this.hand,this.target);
     this.tip.querySelector('button')!.addEventListener('click',()=>this.showGoal());this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal());
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
-  start(){this.warningPiece=undefined;this.warningShown=false;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+  start(){this.warningShown=false;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
     this.refresh();
   }
   private destination(){
@@ -75,14 +74,8 @@ export class Tutorial {
     if(matchMedia('(prefers-reduced-motion: reduce)').matches){this.hand.style.transform=to;return;}
     this.animation=this.hand.animate([{transform:from,opacity:0},{transform:from,opacity:1,offset:.15},{transform:to,opacity:1,offset:.66},{transform:to,opacity:1,offset:.8},{transform:to,opacity:0}],{duration:2300,iterations:Infinity,easing:'cubic-bezier(.3,.1,.25,1)'});
   }
-  updateFitWarning(){
-    if(this.warningPiece&&(!this.game.inventory.includes(this.warningPiece)||this.game.pieceFits(this.warningPiece))){
-      clearTimeout(this.warningTimer);this.warningTip.hidden=true;this.warningPiece=undefined;
-    }
-  }
   showFitWarning(piece:Piece|undefined|null){
     if(this.warningShown||!piece||piece.tile==='pet'||this.game.pieceFits(piece))return;
-    this.warningPiece=piece;
     this.warningShown=true;this.dismissGoal();this.tip.hidden=true;this.petTip.hidden=true;
     this.warningTip.hidden=false;clearTimeout(this.warningTimer);this.warningTimer=setTimeout(()=>{this.warningTip.hidden=true;},TOOLTIP_DURATION);
   }
