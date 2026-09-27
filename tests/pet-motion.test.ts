@@ -50,3 +50,34 @@ test('hatching holds multiple earned abilities without walking or planting and d
 test('an egg with no following placements hatches into a wandering pet without planting',()=>{
  const b=board();const pet=new PetMotion(27,'water',b,()=>assert.fail('egg earned an ability'),()=>0);pet.startHatch();pet.update(20);assert.equal(pet.hatchRemaining,0);assert.ok(pet.completed>0);assert.equal(pet.queued,0);
 });
+
+for(const element of ['lava','water'] as const){
+ test(`${element} escapes opposite liquid and its shoreline at unchanged linear speed`,()=>{
+  const b=board(),opposite=element==='lava'?'water':'lava';b[27]=opposite;
+  const p=new PetMotion(27,element,b,()=>assert.fail('escape must not plant'),()=>0);
+  p.update(.2);assert.equal(p.next,26);assert.ok(Math.abs(p.x-(3-.2*1.7/2))<1e-8);
+  p.update(.2);assert.ok(Math.abs(p.x-(3-.4*1.7/2))<1e-8);
+  p.update(2);assert.equal(p.cell,25);assert.equal(p.completed,2);
+ });
+ test(`${element} escapes a multi-tile hostile patch, preserving its queued ability`,()=>{
+  const b=Array<Tile|null>(64).fill(element==='lava'?'water':'lava');b[0]=element;
+  const p=new PetMotion(27,element,b,()=>assert.fail(),()=>0);p.queueAbility();
+  assert.equal(p.busy,true);p.update(7.1);assert.equal(p.cell,0);assert.equal(p.queued,1);assert.equal(p.busy,false);
+ });
+}
+test('escape reroutes after board changes without teleporting, accelerating or crossing stone',()=>{
+ const b=board();b[27]='water';const p=new PetMotion(27,'lava',b,()=>{},()=>0);
+ p.update(.4);const x=p.x;b[26]='stone';p.update(.2);assert.ok(Math.abs(p.x-x-.2*1.7/2)<1e-8);
+ p.update(4);assert.notEqual(p.cell,26);assert.ok(p.completed>0);
+});
+test('a surrounded pet waits safely and resumes escaping when a route opens',()=>{
+ const b=Array<Tile|null>(64).fill('water');let version=0;
+ const p=new PetMotion(27,'lava',b,()=>{},()=>0,()=>version);p.queueAbility();p.update(10);
+ assert.equal(p.cell,27);assert.equal(p.busy,false);
+ b[26]='lava';version++;p.update(1.18);assert.equal(p.cell,26);
+});
+test('hostile liquid under a charging pet cancels charge and preserves the ability during escape',()=>{
+ const b=board();let planted=0;const p=new PetMotion(27,'lava',b,()=>planted++,()=>0);
+ p.queueAbility();p.update(.1);b[27]='water';p.update(.2);
+ assert.equal(p.planting,0);assert.equal(p.queued,1);assert.equal(planted,0);assert.ok(p.x<3);
+});

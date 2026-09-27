@@ -13,6 +13,8 @@ export class PetMotion {
   y:number;
   heading=0;
   private retreating=false;
+  private escapingStep=false;
+  private escapeCache:{key:string;value:number|null}|null=null;
   private recent:number[]=[];
   private routeCache:{key:string;value:number|null}|null=null;
   constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number){this.x=cell%8;this.y=Math.floor(cell/8);}
@@ -34,6 +36,26 @@ export class PetMotion {
     }
     return result;
   }
+  // A tile can become unsafe underneath a pet. Only in that case allow a
+  // cardinal escape across hostile liquid/shoreline to the nearest safe tile.
+  // Stones remain obstacles; normal wandering never uses this exception.
+  private escapeRoute():number|null {
+    const key=this.boardVersion?`${this.cell}:${this.boardVersion()}`:null;
+    if(key&&this.escapeCache?.key===key)return this.escapeCache.value;
+    const queue=[this.cell],first=Array<number>(64).fill(-1),seen=new Set(queue);
+    let result:number|null=null;
+    for(let i=0;i<queue.length;i++){
+      const c=queue[i];
+      if(c!==this.cell&&this.allowed(c)){result=first[c];break;}
+      const x=c%8,y=Math.floor(c/8);
+      for(const n of [x>0?c-1:-1,x<7?c+1:-1,y>0?c-8:-1,y<7?c+8:-1]){
+        if(n<0||seen.has(n)||this.board[n]==='stone')continue;
+        seen.add(n);first[n]=c===this.cell?n:first[c];queue.push(n);
+      }
+    }
+    if(key)this.escapeCache={key,value:result};
+    return result;
+  }
   private sandRoute(){
     const key=this.boardVersion?`${this.cell}:${this.boardVersion()}`:null;
     if(key&&this.routeCache?.key===key)return this.routeCache.value;
@@ -52,10 +74,11 @@ export class PetMotion {
     return null;
   }
   // Cosmetic wandering must never keep a lost run alive indefinitely.
-  get busy(){return this.hatchRemaining>0||this.planting>0||(this.queued>0&&this.sandRoute()!==null);}
+  get busy(){return this.hatchRemaining>0||this.planting>0||(this.queued>0&&(this.allowed(this.cell)?this.sandRoute():this.escapeRoute())!==null);}
   update(dt:number){
     if(this.hatchRemaining>0){const used=Math.min(dt,this.hatchRemaining);this.hatchRemaining-=used;dt-=used;if(this.hatchRemaining===0)this.revision++;}
     while(dt>0){
+      if(this.planting>0&&!this.allowed(this.cell)){this.planting=0;this.revision++;}
       if(this.planting>0){
         const before=this.planting,used=Math.min(dt,.56-before);this.planting+=used;dt-=used;
         if(before<.3&&this.planting>=.3){if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell)!==false)this.queued--;this.revision++;}
@@ -63,7 +86,10 @@ export class PetMotion {
         continue;
       }
       if(this.next===null){
-        const target=this.queued>0?this.sandRoute():null;
+        const unsafe=!this.allowed(this.cell);
+        const target=unsafe?this.escapeRoute():this.queued>0?this.sandRoute():null;
+        if(unsafe&&target===null)break;
+        this.escapingStep=unsafe;
         if(target===this.cell){this.planting=.000001;this.revision++;continue;}
         let choices=this.neighbors(this.cell);
         if(target!==null)choices=[target];
@@ -72,7 +98,8 @@ export class PetMotion {
         this.next=choices[Math.min(choices.length-1,Math.floor(this.random()*choices.length))];this.progress=0;this.retreating=false;
       }
       const sx=this.cell%8,sy=Math.floor(this.cell/8),dx=this.next%8-sx,dy=Math.floor(this.next/8)-sy;
-      if(!this.allowed(this.next)||(dx&&dy&&(!this.allowed(sy*8+sx+dx)||!this.allowed((sy+dy)*8+sx))))this.retreating=true;
+      const blocked=this.escapingStep?this.board[this.next]==='stone':!this.allowed(this.next)||(dx&&dy&&(!this.allowed(sy*8+sx+dx)||!this.allowed((sy+dy)*8+sx)));
+      if(blocked)this.retreating=true;
       const duration=Math.hypot(dx,dy)*2/1.7,remaining=(this.retreating?this.progress:1-this.progress)*duration;
       const used=Math.min(dt,remaining);dt-=used;this.progress+=used/duration*(this.retreating?-1:1);
       this.x=sx+dx*this.progress;this.y=sy+dy*this.progress;this.heading=Math.atan2(-dx,-dy)+(this.retreating?Math.PI:0);
