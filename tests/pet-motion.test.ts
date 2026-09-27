@@ -35,9 +35,18 @@ test('a newly filled cell during charge does not consume or overwrite the abilit
  const b=board();const p=new PetMotion(27,'water',b,c=>{b[c]='water';return true;},()=>0);p.queueAbility();p.update(.1);b[27]='water';p.update(.25);assert.equal(p.queued,1);p.update(5);assert.equal(p.queued,0);
 });
 test('pet placement itself does not grant an ability; planting does not grant another one',()=>{
- const g=new Game(()=>.2);const shape={id:'single',name:'single',width:1,height:1,cells:[[0,0] as const]};g.inventory=[{tile:'pet',petElement:'water',shape},null,null];g.place(0,27);assert.equal(g.pet?.queued,0);g.pet!.queueAbility();g.pet!.update(.35);assert.equal(g.board[27],'water');assert.equal(g.pet?.queued,0);assert.deepEqual(g.petTileEvents,[27]);g.restart();assert.equal(g.pet,null);
+ const g=new Game(()=>.2);const shape={id:'single',name:'single',width:1,height:1,cells:[[0,0] as const]};g.inventory=[{tile:'pet',petElement:'water',shape},null,null];g.place(0,27);assert.equal(g.pet?.queued,0);g.pet!.queueAbility();g.pet!.update(.35);assert.equal(g.board[27],null);g.pet!.update(1.8);assert.equal(g.board[27],'water');assert.equal(g.pet?.queued,0);assert.deepEqual(g.petTileEvents,[27]);g.restart();assert.equal(g.pet,null);
 });
 
 test('swimming follows the actual liquid under the pet and switches at tile boundaries',()=>{
  for(const element of ['water','lava'] as const){const b=board(),p=new PetMotion(0,element,b,()=>{},()=>0);assert.equal(p.onOwnLiquid,false);b[1]=element;p.x=.49;assert.equal(p.onOwnLiquid,false);p.x=.51;assert.equal(p.onOwnLiquid,true);b[1]=element==='water'?'lava':'water';assert.equal(p.onOwnLiquid,false);b[1]=null;assert.equal(p.onOwnLiquid,false);}
+});
+
+test('hatching holds multiple earned abilities without walking or planting and drains them only after emergence',()=>{
+ const b=board(),drops:number[]=[];const pet=new PetMotion(27,'lava',b,c=>{b[c]='lava';drops.push(c);},()=>0);pet.startHatch();pet.queueAbility();pet.update(.6);pet.queueAbility();pet.update(.6);pet.queueAbility();pet.update(.5);
+ assert.equal(pet.cell,27);assert.equal(pet.completed,0);assert.equal(pet.queued,3);assert.deepEqual(drops,[]);assert.ok(pet.busy);
+ pet.update(.5);assert.equal(drops.length,1);pet.update(15);assert.equal(drops.length,3);assert.equal(pet.queued,0);
+});
+test('an egg with no following placements hatches into a wandering pet without planting',()=>{
+ const b=board();const pet=new PetMotion(27,'water',b,()=>assert.fail('egg earned an ability'),()=>0);pet.startHatch();pet.update(20);assert.equal(pet.hatchRemaining,0);assert.ok(pet.completed>0);assert.equal(pet.queued,0);
 });

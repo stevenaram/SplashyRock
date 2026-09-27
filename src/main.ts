@@ -96,12 +96,12 @@ function updateTrayWarnings(){
   tray.querySelectorAll<HTMLButtonElement>('.slot').forEach((button,index)=>{
     const piece=game.inventory[index],blocked=!!piece&&!game.pieceFits(piece);
     button.classList.toggle('blocked',blocked);
-    button.setAttribute('aria-label',piece?`${piece.tile} ${piece.shape.name}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
+    button.setAttribute('aria-label',piece?`${piece.tile==='pet'?'Mystery Egg':`${piece.tile} ${piece.shape.name}`}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
   });
 }
 function renderTray() {
   const markup = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
-    data-pet="${piece?.petElement??''}" data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
+    data-pet="${piece?.tile==='pet'?'egg':''}" data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
     ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece)+'<svg class="fit-warning" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path class="warning-mark" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>' : ''}</button>`).join('');
   const fresh=game.inventory.map((piece,i)=>!!piece&&piece!==trayPieces[i]);
   if(markup===trayMarkup&&!fresh.some(Boolean)){updateTrayWarnings();return;}
@@ -137,7 +137,7 @@ function place() {
   if (!game.place(selected, target)) return false;
   world.addPiece(target, piece);
   const pet=game.pet;
-  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(pet&&game.pet===pet&&!game.over)pet.queueAbility();settled();});
+  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(piece.tile!=='pet'&&pet&&game.pet===pet&&!game.over)pet.queueAbility();settled();});
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;

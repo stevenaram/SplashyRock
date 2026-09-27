@@ -30,3 +30,7 @@ test('reaching 5000 during a chain preserves the current tray until it is used',
  assert.equal(game.inventory,tray);assert.ok(game.inventory.every(p=>p?.tile!=='pet'));
  finishTray(game);assert.equal(game.inventory[1]?.tile,'pet');
 });
+
+test('both elemental rewards are presented as the same one-cell mystery egg',()=>{
+ const elements=new Set();for(const random of [()=>.2,()=>.8]){const game=new Game(random);game.score=5000;finishTray(game);const egg=game.inventory[1]!;assert.equal(egg.shape.id,'pet-egg');assert.equal(egg.shape.name,'Mystery Egg');elements.add(egg.petElement);game.place(1,27);assert.equal(game.pet?.hatchRemaining,1.8);assert.equal(game.pet?.queued,0);game.restart();assert.equal(game.pet,null);}assert.deepEqual(elements,new Set(['lava','water']));
+});

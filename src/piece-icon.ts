@@ -1,9 +1,9 @@
 import type { Piece } from './game';
-import {petIcon} from './pet';
+import {eggIcon} from './egg';
 
 // Each grid edge is emitted once, including shared interior dividers.
 export function pieceIcon(piece: Piece) {
-  if(piece.tile==='pet')return `<img class="shape-icon pet-icon" src="${petIcon(piece.petElement)}" alt="" draggable="false"/><span class="pet-label">${piece.petElement==='water'?'WATER PET':'LAVA PET'}</span>`;
+  if(piece.tile==='pet')return `<img class="shape-icon pet-icon" src="${eggIcon()}" alt="" draggable="false"/>`;
   const {width,height,cells}=piece.shape;
   const edges=new Set<string>();
   const fills=cells.map(([x,y])=>{

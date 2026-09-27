@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {createEgg} from './egg';
 import {gridWorld} from './map';
 import type {Element} from './game';
 import type {PetMotion} from './pet-motion';
@@ -57,11 +58,12 @@ export function createPetModel(element:Element='lava'){
 export class PetWalker {
  readonly group=new T.Group();
  private readonly model:ReturnType<typeof createPetModel>;
+ private readonly egg=createEgg();
  private age=0;private spawn=0;private swim=0;
  private readonly wake=new T.Group();
  private readonly wakeMaterial:T.ShaderMaterial;
  private readonly shadow:T.Mesh;
- constructor(readonly motion:PetMotion){this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root);
+ constructor(readonly motion:PetMotion){this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root,this.egg.group);this.model.root.visible=false;
   // A small contact shadow follows the pet without re-rendering the island shadow map.
   const shadow=this.shadow=new T.Mesh(new T.CircleGeometry(.48,12),new T.MeshBasicMaterial({color:'#705536',transparent:true,opacity:.24,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.8,1);shadow.position.y=.005;this.group.add(shadow);
@@ -72,6 +74,24 @@ export class PetWalker {
  update(dt:number,reduced=false){
   this.age+=dt;this.spawn=Math.min(1,this.spawn+dt/.32);this.group.scale.setScalar(reduced?1:1-Math.pow(1-this.spawn,3));
   this.motion.update(dt);
+  if(this.motion.hatchRemaining>0){
+    const t=1.8-this.motion.hatchRemaining,crack=Math.max(0,Math.min(1,(t-.9)/.25)),open=Math.max(0,Math.min(1,(t-1.1)/.55));
+    this.wake.visible=false;this.egg.group.visible=true;
+    this.egg.group.rotation.z=reduced?0:Math.sin(t*24)*Math.sin(Math.min(1,t/1.1)*Math.PI)*.15;
+    this.egg.parts.forEach((part,i)=>{
+      part.position.set(reduced?0:(i===0?1:-1)*open*.7,reduced?.7:.7+(i===0?Math.sin(open*Math.PI)*.65+open*.15:-open*.45)+crack*(i===0?.025:-.025),0);
+      part.rotation.z=reduced?0:(i===0?-1:1)*open*1.3;
+      (part.material as T.MeshStandardMaterial).opacity=1-open;
+    });
+    this.egg.chips.forEach((chip,i)=>{chip.visible=open>0&&!reduced;const angle=i*Math.PI*.5+.4;chip.position.set(Math.cos(angle)*open*.85,.55+Math.sin(open*Math.PI)*.45-open*.5,Math.sin(angle)*open*.85);chip.rotation.set(open*4+i,open*3,open*2);chip.scale.setScalar(1-open);(chip.material as T.MeshStandardMaterial).opacity=1-open;});
+    const emerge=Math.max(0,Math.min(1,(t-1.1)/.5));this.model.root.visible=emerge>0;
+    this.model.body.scale.setScalar(.45+emerge*.55);
+    this.model.body.position.y=reduced?0:Math.sin(emerge*Math.PI)*.28;
+    this.model.head.rotation.x=reduced?0:-Math.sin(emerge*Math.PI)*.22;
+    this.model.tail.rotation.y=reduced?0:Math.sin(t*15)*emerge*.18;
+    return;
+  }
+  this.egg.group.visible=false;this.model.root.visible=true;
   const walking=this.motion.next!==null;
   const targetSwim=this.motion.onOwnLiquid&&this.motion.planting===0?1:0;
   this.swim+=(targetSwim-this.swim)*Math.min(1,dt*9);
@@ -102,15 +122,5 @@ export class PetWalker {
   }else{this.model.body.scale.setScalar(1);this.model.tail.rotation.x=0;}
   const blink=this.age%5.3;this.model.eyes.forEach(eye=>eye.scale.y=blink>4.95&&blink<5.08?.12:1);
  }
- dispose(){const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();this.group.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m));}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());this.model.textures.forEach(t=>t.dispose());this.group.removeFromParent();}
-}
-const icons:Partial<Record<Element,string>>={};
-export function petIcon(element:Element='lava'){
- if(icons[element])return icons[element]!;
- const renderer=new T.WebGLRenderer({alpha:true,antialias:false});renderer.setSize(128,128);renderer.setPixelRatio(1);
- const scene=new T.Scene(),model=createPetModel(element);model.body.rotation.y=-.45;scene.add(model.root,new T.HemisphereLight('#fff0ce','#654739',2));
- const light=new T.DirectionalLight('#fff2d5',3);light.position.set(-3,5,-4);scene.add(light);
- const camera=new T.PerspectiveCamera(32,1,.1,20);camera.position.set(1.0,1.3,-2.35);camera.lookAt(0,.4,0);
- renderer.render(scene,camera);const icon=renderer.domElement.toDataURL();icons[element]=icon;
- const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();model.root.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);materials.add(o.material as T.Material);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());model.textures.forEach(t=>t.dispose());renderer.dispose();renderer.forceContextLoss();return icon;
+ dispose(){const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();this.group.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m));}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());this.model.textures.forEach(t=>t.dispose());this.egg.texture.dispose();this.group.removeFromParent();}
 }

@@ -70,7 +70,7 @@ export class Game {
       const first:Element=this.random()<.5?'water':'lava';
       const petElement:Element=this.random()<.5?'lava':'water';
       const shape=()=>SHAPES[Math.floor(this.random()*SHAPES.length)];
-      return [{tile:first,shape:shape()},{tile:'pet',petElement,shape:{id:`${petElement}-pet`,name:petElement==='lava'?'Lava Pet':'Water Pet',width:1,height:1,cells:[[0,0]]}},{tile:first==='water'?'lava':'water',shape:shape()}];
+      return [{tile:first,shape:shape()},{tile:'pet',petElement,shape:{id:'pet-egg',name:'Mystery Egg',width:1,height:1,cells:[[0,0]]}},{tile:first==='water'?'lava':'water',shape:shape()}];
     }
     const majority: Element = this.random() < .5 ? 'water' : 'lava';
     const minoritySlot = Math.floor(this.random() * 3);
@@ -115,7 +115,7 @@ export class Game {
     const piece = this.inventory[slot];
     if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
     this.moves++;
-    if(piece.tile==='pet'){this.petPlaced=true;this.pet=new PetMotion(anchor,piece.petElement??'lava',this.board,cell=>this.plantPetTile(cell,piece.petElement??'lava'),this.random);}
+    if(piece.tile==='pet'){this.petPlaced=true;this.pet=new PetMotion(anchor,piece.petElement??'lava',this.board,cell=>this.plantPetTile(cell,piece.petElement??'lava'),this.random);this.pet.startHatch();}
     else {
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;

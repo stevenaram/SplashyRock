@@ -1,6 +1,8 @@
 import type {Element, Tile} from './game';
 
 export class PetMotion {
+  hatchRemaining=0;
+  startHatch(){this.hatchRemaining=1.8;this.revision++;}
   queued=0; // Ready abilities, not walking steps.
   completed=0;
   revision=0;
@@ -44,8 +46,9 @@ export class PetMotion {
     return null;
   }
   // Cosmetic wandering must never keep a lost run alive indefinitely.
-  get busy(){return this.planting>0||(this.queued>0&&this.sandRoute()!==null);}
+  get busy(){return this.hatchRemaining>0||this.planting>0||(this.queued>0&&this.sandRoute()!==null);}
   update(dt:number){
+    if(this.hatchRemaining>0){const used=Math.min(dt,this.hatchRemaining);this.hatchRemaining-=used;dt-=used;if(this.hatchRemaining===0)this.revision++;}
     while(dt>0){
       if(this.planting>0){
         const before=this.planting,used=Math.min(dt,.56-before);this.planting+=used;dt-=used;
