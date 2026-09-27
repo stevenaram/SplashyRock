@@ -1,4 +1,3 @@
-import {endEmblem} from './end-emblem';
 import {SoundEngine} from './sound';
 import {Tutorial} from './tutorial';
 import {EGG_GOALS,MAX_PETS} from './egg-goals';
@@ -15,10 +14,10 @@ const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
 host.innerHTML = `<header id="run-hud"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div><div id="egg-goal" role="progressbar"><img alt=""/><div class="egg-track"><i></i></div><strong></strong><span class="egg-pending"></span></div></header><section id="board" aria-label="Eight by eight board"></section>
   <div id="egg-unlocked" role="status" hidden><img alt=""/><strong>Egg Unlocked</strong></div>
-  <nav id="tray" aria-label="Available tiles"></nav>
+  <nav id="tray" aria-label="Available tiles"></nav><p id="inventory-end-note">No space left.</p>
   <div id="ghost" aria-hidden="true" hidden></div>
   <p id="status" role="status" class="sr-only"></p>
-  <aside id="game-over" hidden aria-labelledby="end-title">${endEmblem}<h1 id="end-title">Game Over</h1><div class="end-scores"><p><span>Score</span><strong id="final-score">0</strong></p><i aria-hidden="true"></i><p><span>Best</span><strong id="best-score">0</strong></p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↻</span></button></aside>`;
+  <aside id="game-over" hidden aria-labelledby="end-title"><h1 id="end-title">Game Over</h1><div class="end-scores"><p><span>Score</span><strong id="final-score">0</strong></p><i aria-hidden="true"></i><p><span>Best</span><strong id="best-score">0</strong></p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↻</span></button></aside>`;
 const sound=new SoundEngine();
 const soundButton=document.createElement('button');soundButton.id='sound-toggle';soundButton.type='button';
 soundButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="sound-waves" d="M16 8q5 4 0 8m3-11q8 7 0 14"/><path class="sound-off" d="m16 9 6 6m0-6-6 6"/></svg>';
