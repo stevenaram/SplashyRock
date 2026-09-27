@@ -194,3 +194,8 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 #sound-toggle.muted {color:#99b7b9}
 #sound-toggle:hover {background:#17465acf}
 #sound-toggle:focus-visible {outline:2px solid #fff0c5;outline-offset:3px}
+#tutorial .tutorial-close {width:58px;height:58px;top:7px;right:7px;border:1px solid #d4eee080;border-radius:17px;background:linear-gradient(145deg,#306878f5,#153e50f5);box-shadow:inset 0 1px #eef6cc33,0 3px 0 #092c3b70,0 5px 12px #10344735;transition:background .15s,transform .15s,box-shadow .15s}
+#tutorial .tutorial-close svg {width:29px;height:29px;fill:none;stroke:#fff0c5;stroke-width:2.5;stroke-linecap:round}
+#tutorial .tutorial-close:hover {background:#3d7787;box-shadow:inset 0 1px #eef6cc55,0 3px 0 #092c3b70,0 5px 14px #10344740}
+#tutorial .tutorial-close:active {transform:translateY(2px);box-shadow:inset 0 1px #eef6cc33,0 1px 0 #092c3b70}
+@media(prefers-reduced-motion:reduce){#tutorial .tutorial-close{transition:none}}

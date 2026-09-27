@@ -1,3 +1,4 @@
+import type {SoundCue} from './sound';
 import {TutorialScene} from './tutorial-scene';
 import {eggIcon} from './egg';
 
@@ -11,11 +12,11 @@ export class Tutorial {
   private timer:ReturnType<typeof setTimeout>|undefined;
   private hintTimer:ReturnType<typeof setTimeout>|undefined;
   private readonly events=new AbortController();
-  constructor(board:HTMLElement,goal:HTMLElement){
+  constructor(board:HTMLElement,goal:HTMLElement,onSound:(cue:SoundCue)=>void){
     this.panel=document.createElement('aside');this.panel.id='tutorial';
     this.panel.setAttribute('aria-label','Drag shapes onto empty sand. Sand between water and lava becomes stone. Stone clears itself, then its horizontal and vertical neighbors.');
-    this.panel.innerHTML=`<div class="demo-live"></div><div class="demo-controls"><div class="demo-dots">${[0,1,2].map(n=>`<button data-phase="${n}" aria-label="Tutorial step ${n+1}">${n+1}</button>`).join('')}</div><button class="tutorial-close" aria-label="Close tutorial"><span aria-hidden="true">×</span></button></div>`;
-    this.demo=new TutorialScene(this.panel.querySelector<HTMLElement>('.demo-live')!,phase=>{this.phase=phase;this.setPhase();});
+    this.panel.innerHTML=`<div class="demo-live"></div><div class="demo-controls"><div class="demo-dots">${[0,1,2].map(n=>`<button data-phase="${n}" aria-label="Tutorial step ${n+1}">${n+1}</button>`).join('')}</div><button class="tutorial-close" aria-label="Close tutorial"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>`;
+    this.demo=new TutorialScene(this.panel.querySelector<HTMLElement>('.demo-live')!,phase=>{this.phase=phase;this.setPhase();},onSound);
     this.panel.addEventListener('pointerdown',event=>event.stopPropagation(),{signal:this.events.signal});
     this.panel.querySelectorAll<HTMLButtonElement>('[data-phase]').forEach(button=>button.addEventListener('click',()=>{this.demo.show(Number(button.dataset.phase));},{signal:this.events.signal}));
     board.append(this.panel);

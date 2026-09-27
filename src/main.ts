@@ -103,7 +103,7 @@ const game = new Game();
 world.game=game;world.onPetChange=settled;world.onSound=(cue,cell)=>sound.play(cue,1,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
-const tutorial=new Tutorial(board,goal);
+const tutorial=new Tutorial(board,goal,cue=>sound.play(cue));
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;
