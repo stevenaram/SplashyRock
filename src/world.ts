@@ -6,6 +6,7 @@ import { createIsland, rock } from './island';
 import { ConnectedSurface } from './surface';
 import { Effects } from './effects';
 import {PetWalker} from './pet';
+import {PetBatch} from './pet-batch';
 import { PixelRenderer } from './pixel-renderer';
 
 export class World {
@@ -19,10 +20,11 @@ export class World {
   private readonly pixels = new PixelRenderer();
   private arrivals: {group: THREE.Group;age:number}[] = [];
   private departures: {group:THREE.Group;age:number}[]=[];
-  private pet:PetWalker|null=null;
+  private pets:PetWalker[]=[];
+  private readonly petBatch=new PetBatch();
   game:Game|null=null;
   onPetChange:()=>void=()=>{};
-  removePet(){this.pet?.dispose();this.pet=null;}
+  removePet(){this.petBatch.clear();this.pets.forEach(p=>p.dispose());this.pets=[];}
   private frame = 0;
   private previousTime = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -46,7 +48,7 @@ export class World {
     sun.shadow.normalBias = .035; sun.shadow.bias = -.0001;
     this.island = createIsland();
     this.scene.add(sun, this.island, this.surface.mesh, this.effects.group, this.stones);
-    this.scene.add(createMap());
+    this.scene.add(createMap(),this.petBatch.group);
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     host.append(this.renderer.domElement);
     this.observer = new ResizeObserver(() => this.resize());
@@ -61,14 +63,17 @@ export class World {
     const dt=Math.min((ms-this.previousTime)/1000,.05);this.previousTime=ms;
     const time=this.reducedMotion.matches?0:ms/1000;
     this.surface.update(ms/1000,this.reducedMotion.matches);
-    if(this.pet){
-      const revision=this.pet.motion.revision,busy=this.pet.motion.busy;
-      this.pet.update(dt,this.reducedMotion.matches);
-      if(this.game)for(const cell of this.game.petTileEvents.splice(0)){
-        const tile=this.game.board[cell];if(tile==='water'||tile==='lava')this.addPiece(cell,{tile,shape:{id:'pet-drop',name:'Pet tile',width:1,height:1,cells:[[0,0]]}});
-      }
-      if(revision!==this.pet.motion.revision||busy!==this.pet.motion.busy)this.onPetChange();
+    this.petBatch.prepare();
+    let petsChanged=false;
+    if(!this.game?.won)for(const pet of this.pets){
+      const revision=pet.motion.revision,busy=pet.motion.busy;pet.update(dt,this.reducedMotion.matches);
+      if(revision!==pet.motion.revision||busy!==pet.motion.busy)petsChanged=true;
     }
+    if(this.game)for(const cell of this.game.petTileEvents.splice(0)){
+      const tile=this.game.board[cell];if(tile==='water'||tile==='lava')this.addPiece(cell,{tile,shape:{id:'pet-drop',name:'Pet tile',width:1,height:1,cells:[[0,0]]}});
+    }
+    this.petBatch.sync(this.pets.map(p=>p.group));
+    if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {
       this.effects.update(dt);
       if(this.arrivals.length||this.departures.length)this.renderer.shadowMap.needsUpdate=true;
@@ -161,7 +166,7 @@ export class World {
   }
 
   addPiece(cell: number, piece: Piece) {
-    if(piece.tile==='pet'){this.removePet();this.pet=this.game?.pet?new PetWalker(this.game.pet):null;if(this.pet)this.scene.add(this.pet.group);this.render();return;}
+    if(piece.tile==='pet'){if(this.game?.pet){const pet=new PetWalker(this.game.pet);this.pets.push(pet);this.scene.add(pet.group);}this.render();return;}
     for(const [x,y] of footprint(piece,cell)) {
       const index=y*8+x;this.effects.cancelEvaporation(index);this.surface.set(index,piece.tile);
       if(!this.reducedMotion.matches)this.effects.burst(index,piece.tile);

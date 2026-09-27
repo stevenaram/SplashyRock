@@ -19,9 +19,9 @@ test('pet placement consumes its slot without occupying the board or earning poi
  assert.deepEqual(game.board,before);assert.deepEqual(game.versions,versions);assert.equal(game.score,score);
  assert.equal(game.canPlace({tile:'water',shape:single},27),true);
 });
-test('pet reward is once per run and resets on replay',()=>{
+test('successive egg rewards unlock and reset on replay',()=>{
  const game=new Game(()=>.7);game.score=5000;finishTray(game);assert.equal(game.inventory[1]?.tile,'pet');
- game.place(1,27);game.score=15000;finishTray(game);assert.ok(game.inventory.every(p=>p?.tile!=='pet'));
+ game.place(1,27);game.score=15000;finishTray(game);assert.equal(game.inventory[1]?.tile,'pet');assert.equal(game.rewardsDealt,2);
  game.restart();assert.equal(game.petPlaced,false);assert.equal(game.petRewardDealt,false);
  game.score=5000;finishTray(game);assert.equal(game.inventory[1]?.tile,'pet');
 });

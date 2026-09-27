@@ -1,3 +1,5 @@
+import {EGG_GOALS,MAX_PETS} from './egg-goals';
+import {eggIcon} from './egg';
 import {Aftermath} from './aftermath';
 import './style.css';
 import { ComboCallout } from './combo-callout';
@@ -8,7 +10,7 @@ import { StoneReactions, SandSweeps } from './reactions';
 
 const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
-host.innerHTML = `<section id="board" aria-label="Eight by eight board"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div></section>
+host.innerHTML = `<section id="board" aria-label="Eight by eight board"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div><div id="egg-goal" role="progressbar"><img alt=""/><div class="egg-track"><i></i></div><strong></strong><span class="egg-pending"></span></div></section>
   <nav id="tray" aria-label="Available tiles"></nav>
   <div id="ghost" aria-hidden="true" hidden></div>
   <p id="status" role="status" class="sr-only"></p>
@@ -20,6 +22,8 @@ const status = document.querySelector<HTMLElement>('#status')!;
 const scoreLabel=document.querySelector<HTMLElement>('#score')!;
 const gainLabel=document.querySelector<HTMLElement>('#score-gain')!;
 const endDialog=document.querySelector<HTMLElement>('#game-over')!;
+const goal=document.querySelector<HTMLElement>('#egg-goal')!;
+(goal.querySelector('img') as HTMLImageElement).src=eggIcon();
 let shownCombo=0;
 const again=document.querySelector<HTMLButtonElement>('#play-again')!;
 let shownScore=0;
@@ -30,8 +34,21 @@ function updateScore(){
   const gain=game.score-shownScore;scoreLabel.textContent=game.score.toLocaleString();
   if(gain>0){gainLabel.textContent=`+${gain}`;gainLabel.getAnimations().forEach(a=>a.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-14px)'}],{duration:750,fill:'forwards',easing:'cubic-bezier(.2,.7,.3,1)'});}
   shownScore=game.score;
+  const earned=game.earnedEggs,index=Math.min(earned,MAX_PETS-1),target=EGG_GOALS[index],previous=index?EGG_GOALS[index-1]:0;
+  const progress=earned===MAX_PETS?1:Math.max(0,Math.min(1,(game.score-previous)/(target-previous)));
+  goal.style.setProperty('--progress',String(progress));goal.querySelector('strong')!.textContent=earned===MAX_PETS?'64 / 64':target.toLocaleString();
+  const pending=Math.max(0,earned-game.rewardsDealt);goal.classList.toggle('ready',pending>0);
+  goal.querySelector('.egg-pending')!.textContent=pending?`+${pending}`:'';
+  goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===MAX_PETS?'All egg rewards earned':`Next egg at ${target.toLocaleString()} points`);
+}
+function showEnd(won=false){
+  best=Math.max(best,game.score);try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
+  document.querySelector('#end-title')!.textContent=won?'The game is beat!':'Game Over';
+  document.querySelector('#final-score')!.textContent=game.score.toLocaleString();document.querySelector('#best-score')!.textContent=best.toLocaleString();
+  endDialog.hidden=false;host!.classList.add('ended');host!.classList.toggle('won',won);
 }
 function settled(){
+  if(!game.won&&game.finishIfWon()){clearTimeout(endTimer);aftermaths.forEach(a=>a.cancel());aftermaths.clear();reactions.dispose();sweeps.dispose();updateScore();showEnd(true);return;}
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
   if (!game.over) reactions.schedule();
@@ -43,15 +60,11 @@ function settled(){
   updateScore();
   updateTrayWarnings();
   clearTimeout(endTimer);
-  if(game.over||reactions.busy||sweeps.busy||aftermaths.size>0||game.pet?.busy||game.hasLegalMove())return;
+  if(game.over||reactions.busy||sweeps.busy||aftermaths.size>0||game.petsBusy||game.hasLegalMove())return;
   endTimer=setTimeout(()=>{
-    if(!game.finishIfBlocked(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.pet?.busy))return;
+    if(!game.finishIfBlocked(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy))return;
     world.removePet();
-    best=Math.max(best,game.score);
-    try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
-    document.querySelector('#final-score')!.textContent=game.score.toLocaleString();
-    document.querySelector('#best-score')!.textContent=best.toLocaleString();
-    endDialog.hidden=false;host!.classList.add('ended');
+    showEnd();
     status.textContent=`Game Over. Final score ${game.score}. You can still try the remaining pieces, or play again.`;
   },400);
 }
@@ -85,7 +98,7 @@ const reactions = new StoneReactions(game, (cell,owner) => {
 again.addEventListener('click',()=>{
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
   clearTimeout(endTimer);reactions.dispose();sweeps.dispose();cancel();
-  world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended');
+  world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won');
   shownCombo=0;combo.reset();
   shownScore=0;gainLabel.textContent='';updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
@@ -134,10 +147,10 @@ function updateTarget(x: number, y: number) {
 function place() {
   if (game.over || selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
+  const pets=[...game.pets];
   if (!game.place(selected, target)) return false;
   world.addPiece(target, piece);
-  const pet=game.pet;
-  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(piece.tile!=='pet'&&pet&&game.pet===pet&&!game.over)pet.queueAbility();settled();});
+  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(piece.tile!=='pet'&&!game.over)for(const pet of pets)if(game.pets.includes(pet))pet.queueAbility();settled();});
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
@@ -197,5 +210,5 @@ tray.addEventListener('click', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (button && !button.disabled) { selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
-renderTray();
+updateScore();renderTray();
 if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer); combo.dispose(); world.dispose(); });

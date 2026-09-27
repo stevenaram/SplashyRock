@@ -14,7 +14,8 @@ export class PetMotion {
   heading=0;
   private retreating=false;
   private recent:number[]=[];
-  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number)=>boolean|void,private readonly random:()=>number=Math.random){this.x=cell%8;this.y=Math.floor(cell/8);}
+  private routeCache:{key:string;value:number|null}|null=null;
+  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
   queueAbility(){this.queued++;this.revision++;}
   private allowed(cell:number){
@@ -34,6 +35,11 @@ export class PetMotion {
     return result;
   }
   private sandRoute(){
+    const key=this.boardVersion?`${this.cell}:${this.boardVersion()}`:null;
+    if(key&&this.routeCache?.key===key)return this.routeCache.value;
+    const value=this.findSandRoute();if(key)this.routeCache={key,value};return value;
+  }
+  private findSandRoute(){
     // Dijkstra chooses the nearest reachable sand by actual walking distance.
     const distance=Array<number>(64).fill(Infinity),first=Array<number>(64).fill(-1),visited=new Set<number>();distance[this.cell]=0;
     for(let i=0;i<64;i++){

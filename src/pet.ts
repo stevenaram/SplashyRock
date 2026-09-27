@@ -6,20 +6,23 @@ import type {PetMotion} from './pet-motion';
 
 function skinTexture(stone=false,water=false){
  const canvas=document.createElement('canvas');canvas.width=canvas.height=32;
- const ctx=canvas.getContext('2d')!;let seed=stone?81:31;
- const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)|0;return(seed>>>0)/4294967296;};
- ctx.fillStyle=water?(stone?'#356b83':'#39aabe'):(stone?'#543e46':'#e5632c');ctx.fillRect(0,0,32,32);
- for(let i=0;i<130;i++){ctx.fillStyle=water?(stone?(i%2?'#4b91a1':'#28546f'):(i%3?'#79d0cd':'#26869f')):(stone?(i%2?'#65535a':'#40333c'):(i%3?'#f88c36':'#bb482d'));ctx.fillRect(Math.floor(random()*32),Math.floor(random()*32),2,2);}
- if(stone){ctx.strokeStyle=water?'#a8ede1':'#ffb957';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,27);ctx.lineTo(8,24);ctx.lineTo(12,29);ctx.lineTo(22,25);ctx.lineTo(32,28);ctx.stroke();}
- else{ctx.fillStyle=water?'#a8ede1':'#ffb957';ctx.fillRect(0,24,32,8);ctx.fillStyle=water?'#dcfff0':'#ffe097';ctx.fillRect(0,29,32,3);}
- const texture=new T.CanvasTexture(canvas);texture.magFilter=texture.minFilter=T.NearestFilter;texture.colorSpace=T.SRGBColorSpace;texture.generateMipmaps=false;return texture;
+ const ctx=canvas.getContext('2d')!;
+ const base=water?(stone?'#205b70':'#248ab2'):(stone?'#54333a':'#e5632c');
+ const shade=water?(stone?'#17465a':'#26758b'):(stone?'#261f27':'#bb482d');
+ const light=water?(stone?'#26758b':'#72c9cf'):(stone?'#655347':'#ffb957');
+ ctx.fillStyle=base;ctx.fillRect(0,0,32,32);
+ ctx.fillStyle=shade;ctx.fillRect(0,23,32,9);ctx.fillRect(0,20,9,3);ctx.fillRect(24,19,8,4);
+ ctx.fillStyle=light;ctx.beginPath();ctx.moveTo(5,5);ctx.lineTo(18,5);ctx.lineTo(23,10);ctx.lineTo(20,13);ctx.lineTo(7,11);ctx.closePath();ctx.fill();
+ if(stone){ctx.fillStyle=water?'#72c9cf':'#ffb957';for(const [x,y] of [[2,25],[6,24],[10,26],[14,25],[18,23],[22,24],[26,25]])ctx.fillRect(x,y,4,1);}
+ else{ctx.fillStyle=water?'#a3ded7':'#ffe097';ctx.fillRect(0,28,32,4);}
+ const texture=new T.CanvasTexture(canvas);texture.magFilter=texture.minFilter=T.NearestFilter;texture.colorSpace=T.SRGBColorSpace;texture.generateMipmaps=false;texture.name=`pet-${water?'water':'lava'}-${stone?'shell':'body'}`;return texture;
 }
 export function createPetModel(element:Element='lava'){
  const water=element==='water';
  const root=new T.Group(),body=new T.Group();root.add(body);
  const skins=[skinTexture(false,water),skinTexture(true,water)];
- const orange=new T.MeshStandardMaterial({map:skins[0],roughness:1,flatShading:true});
- const charcoal=new T.MeshStandardMaterial({map:skins[1],roughness:1,flatShading:true});
+ const orange=new T.MeshBasicMaterial({map:skins[0]});
+ const charcoal=new T.MeshBasicMaterial({map:skins[1]});
  const gold=new T.MeshBasicMaterial({color:water?'#a8ede1':'#ffb957'}),black=new T.MeshBasicMaterial({color:'#261f27'}),cream=new T.MeshBasicMaterial({color:'#fff0c5'});
  const mesh=(geo:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1,parent:T.Group=body)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);parent.add(m);return m;};
  mesh(new T.SphereGeometry(1,12,8),orange,0,.38,.08,.45,.31,.52);
@@ -81,9 +84,9 @@ export class PetWalker {
     this.egg.parts.forEach((part,i)=>{
       part.position.set(reduced?0:(i===0?1:-1)*open*.7,reduced?.7:.7+(i===0?Math.sin(open*Math.PI)*.65+open*.15:-open*.45)+crack*(i===0?.025:-.025),0);
       part.rotation.z=reduced?0:(i===0?-1:1)*open*1.3;
-      (part.material as T.MeshStandardMaterial).opacity=1-open;
+      (part.material as T.MeshBasicMaterial).opacity=1-open;
     });
-    this.egg.chips.forEach((chip,i)=>{chip.visible=open>0&&!reduced;const angle=i*Math.PI*.5+.4;chip.position.set(Math.cos(angle)*open*.85,.55+Math.sin(open*Math.PI)*.45-open*.5,Math.sin(angle)*open*.85);chip.rotation.set(open*4+i,open*3,open*2);chip.scale.setScalar(1-open);(chip.material as T.MeshStandardMaterial).opacity=1-open;});
+    this.egg.chips.forEach((chip,i)=>{chip.visible=open>0&&!reduced;const angle=i*Math.PI*.5+.4;chip.position.set(Math.cos(angle)*open*.85,.55+Math.sin(open*Math.PI)*.45-open*.5,Math.sin(angle)*open*.85);chip.rotation.set(open*4+i,open*3,open*2);chip.scale.setScalar(1-open);(chip.material as T.MeshBasicMaterial).opacity=1-open;});
     const emerge=Math.max(0,Math.min(1,(t-1.1)/.5));this.model.root.visible=emerge>0;
     this.model.body.scale.setScalar(.45+emerge*.55);
     this.model.body.position.y=reduced?0:Math.sin(emerge*Math.PI)*.28;
@@ -113,7 +116,7 @@ export class PetWalker {
   this.model.tail.rotation.y+=reduced?0:Math.sin(this.age*7)*this.swim*.23;
   const planting=this.motion.planting;
   const charge=planting>0?(planting<.3?planting/.3:Math.max(0,1-(planting-.3)/.26)):0;
-  this.model.glowMaterials.forEach(material=>{material.emissive.set(this.motion.element==='water'?'#258ddb':'#ff731b');material.emissiveIntensity=reduced?charge*.25:charge*.9;});
+  this.model.glowMaterials.forEach(material=>{const glow=charge>.66?.7:charge>.25?.3:0;material.color.setRGB(1+glow*(this.motion.element==='lava'?1:.2),1+glow*.5,1+glow*(this.motion.element==='water'?1:.1));});
   if(planting>0&&!reduced){
     const release=Math.max(0,(planting-.3)/.26);
     this.model.body.scale.set(1+charge*.07,1-charge*.15,1+charge*.07);

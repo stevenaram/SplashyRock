@@ -1,3 +1,4 @@
+import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
 import { SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
@@ -18,9 +19,16 @@ export class Game {
   boardRevision = 0;
   score = 0;
   over = false;
-  petRewardDealt=false;
-  petPlaced=false;
-  pet:PetMotion|null=null;
+  won=false;
+  rewardsDealt=0;
+  boardChange=0;
+  readonly pets:PetMotion[]=[];
+  get pet(){return this.pets.at(-1)??null;}
+  get petPlaced(){return this.pets.length>0;}
+  get petRewardDealt(){return this.rewardsDealt>0;}
+  get earnedEggs(){return earnedEggs(this.score);}
+  get petsBusy(){return this.pets.some(p=>p.busy);}
+  finishIfWon(){if(this.pets.length===MAX_PETS&&this.pets.every(p=>p.hatchRemaining===0)){this.won=true;this.over=true;}return this.won;}
   moves=0;
   readonly petTileEvents:number[]=[];
   combo = 0;
@@ -31,7 +39,7 @@ export class Game {
     this.inventory = this.deal();
   }
   private write(cell: number, tile: Tile | null) {
-    if (this.board[cell] !== tile) { this.board[cell] = tile; this.versions[cell]++; }
+    if (this.board[cell] !== tile) { this.board[cell] = tile; this.versions[cell]++;this.boardChange++; }
   }
   neighbors(cell: number): number[] {
     const x=cell%SIZE,y=Math.floor(cell/SIZE);
@@ -56,17 +64,17 @@ export class Game {
     return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
   }
   finishIfBlocked(pending: boolean): boolean {
-    if(!pending&&!this.pet?.busy&&!this.hasLegalMove())this.over=true;
+    if(!pending&&!this.petsBusy&&!this.hasLegalMove())this.over=true;
     return this.over;
   }
   restart() {
-    this.pet=null;this.petTileEvents.length=0;this.moves=0;
+    this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
-    this.score=0;this.over=false;this.petRewardDealt=false;this.petPlaced=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
+    this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   private deal(): Piece[] {
-    if(this.score>=5000&&!this.petRewardDealt){
-      this.petRewardDealt=true;
+    if(this.rewardsDealt<MAX_PETS&&this.score>=EGG_GOALS[this.rewardsDealt]){
+      this.rewardsDealt++;
       const first:Element=this.random()<.5?'water':'lava';
       const petElement:Element=this.random()<.5?'lava':'water';
       const shape=()=>SHAPES[Math.floor(this.random()*SHAPES.length)];
@@ -80,6 +88,7 @@ export class Game {
     }));
   }
   canPlace(piece: Piece, anchor: number): boolean {
+    if(piece.tile==='pet'&&this.pets.length>=MAX_PETS)return false;
     if (!Number.isInteger(anchor) || anchor < 0 || anchor >= SIZE * SIZE) return false;
     return footprint(piece, anchor).every(([x, y]) =>
       x >= 0 && x < SIZE && y >= 0 && y < SIZE && this.board[y * SIZE + x] === null);
@@ -115,7 +124,7 @@ export class Game {
     const piece = this.inventory[slot];
     if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
     this.moves++;
-    if(piece.tile==='pet'){this.petPlaced=true;this.pet=new PetMotion(anchor,piece.petElement??'lava',this.board,cell=>this.plantPetTile(cell,piece.petElement??'lava'),this.random);this.pet.startHatch();}
+    if(piece.tile==='pet'){const pet=new PetMotion(anchor,piece.petElement??'lava',this.board,cell=>this.plantPetTile(cell,piece.petElement??'lava'),this.random,()=>this.boardChange);pet.startHatch();this.pets.push(pet);}
     else {
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;

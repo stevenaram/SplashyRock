@@ -69,3 +69,17 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 .slot.blocked .fit-warning { opacity:1; transform:none; }
 @keyframes danger-breathe { 0%,100% { opacity:.55; } 50% { opacity:1; } }
 @media(prefers-reduced-motion:reduce) { .slot.blocked::before { animation:none; } .slot::before,.fit-warning { transition:none; } }
+
+#egg-goal { position:absolute; top:calc(max(12px, env(safe-area-inset-top)) + 50px); left:14px; z-index:2; width:190px; height:32px; display:flex; align-items:center; gap:7px; padding:4px 8px 4px 3px; background:#17465ae8; border:1px solid #72c9cf70; box-shadow:0 2px 0 #10344750; pointer-events:none; color:#f0dfb1; }
+#egg-goal img { width:27px; height:29px; object-fit:contain; image-rendering:pixelated; }
+.egg-track { position:relative; flex:1; height:7px; background:#103447; border:1px solid #72c9cf55; overflow:hidden; }
+.egg-track i { display:block; width:100%; height:100%; background:#a3b573; box-shadow:inset 0 2px #d4eee0; transform:scaleX(var(--progress,0)); transform-origin:left; transition:transform .45s cubic-bezier(.2,.7,.3,1); }
+#egg-goal strong { font:700 10px ui-monospace,monospace; white-space:nowrap; }
+.egg-pending { position:absolute; top:-5px; left:19px; color:#ffe097; font:700 9px ui-monospace,monospace; text-shadow:1px 1px #103447; }
+#egg-goal.ready { border-color:#ffb957; }
+#game.won #board canvas { filter:none; }
+@media(max-width:450px) { #egg-goal { top:calc(max(12px, env(safe-area-inset-top)) + 46px); width:174px; } }
+@media(prefers-reduced-motion:reduce) { .egg-track i { transition:none; } }
+
+#game-over > div { min-width:0; }
+#game-over p { overflow-wrap:anywhere; }
