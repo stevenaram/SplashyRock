@@ -157,8 +157,7 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 .demo-dots {display:flex;gap:8px}
 .demo-dots button {width:27px;height:27px;border:1px solid #a2c8bf60;border-radius:50%;background:transparent;color:#afc9c2;font:700 12px ui-monospace,monospace;cursor:pointer}
 .demo-dots button[aria-pressed=true] {background:#e6d9ae;color:#17465a;border-color:#fff1c5}
-#tutorial .tutorial-close {position:static;width:46px;height:32px;border-radius:8px;background:#e6d9ae;color:#17465a;opacity:1;display:grid;place-items:center}
-.tutorial-close svg {width:22px!important;height:22px;fill:currentColor}
+#tutorial .tutorial-close {position:absolute;top:2px;right:2px;z-index:2;width:32px;height:32px;border-radius:8px;background:#17465ae6;color:#f0dfb1;opacity:1;display:grid;place-items:center}
 .demo-step[data-step="0"] .demo-drop,.demo-step[data-step="0"] .demo-finger {animation:demo-place 3.2s infinite}
 .demo-step[data-step="1"] .demo-stone {animation:demo-form 3.2s infinite}
 .demo-step[data-step="2"] .demo-stone {animation:demo-bury 3.2s infinite}
@@ -171,7 +170,7 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 @keyframes demo-sweep {0%,35%{opacity:1}53%,100%{opacity:0}}
 @keyframes demo-steam {0%,32%{opacity:0;transform:translateY(0)}42%{opacity:1}65%,100%{opacity:0;transform:translateY(-13px)}}
 @keyframes demo-empty {0%,60%{opacity:0}75%,100%{opacity:1}}
-@media(min-aspect-ratio:6/5){#tutorial{width:min(88cqw,calc((100cqh - 68px)*3),960px);bottom:8px;padding:8px 12px}.demo-step{display:block!important}.demo-panels{gap:22px}.demo-step:not(:last-child)::after{content:'›';position:absolute;right:-18px;top:40%;font:28px monospace;color:#f0dfb1}.demo-step>svg:first-of-type{max-height:calc(100cqh - 90px)}#tutorial .demo-caption{height:20px}.demo-controls{padding-top:3px}.demo-dots button{width:23px;height:23px}#tutorial .tutorial-close{height:28px}}
+@media(min-aspect-ratio:6/5){#tutorial{width:min(88cqw,calc((100cqh - 68px)*3),960px);bottom:8px;padding:8px 12px}.demo-step{display:block!important}.demo-panels{gap:22px}.demo-step:not(:last-child)::after{content:'›';position:absolute;right:-18px;top:40%;font:28px monospace;color:#f0dfb1}.demo-step>svg:first-of-type{max-height:calc(100cqh - 90px)}#tutorial .demo-caption{height:20px}.demo-controls{padding-top:3px}.demo-dots button{width:23px;height:23px}}
 @media(prefers-reduced-motion:reduce){.demo-step *{animation:none!important}.demo-step[data-step="2"] .demo-stone,.demo-step[data-step="2"] .demo-neighbors{opacity:0}.demo-step[data-step="2"] .demo-empty{opacity:1}}
 
 .world-canvas{transition:filter 450ms ease}.ended .world-canvas{filter:brightness(.76) saturate(.88)}.won .world-canvas{filter:none}

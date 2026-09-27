@@ -29,7 +29,7 @@ export class Tutorial {
       </svg>
       <svg class="demo-caption" viewBox="0 0 160 26" aria-hidden="true">${step===0?'<path fill="#bb482d" stroke="#ffb957" stroke-width="2" d="M35 3h20v20H35z"/><path d="M65 13h28m-7-6 7 6-7 6"/><path stroke-dasharray="3 2" d="M104 3h20v20h-20z"/>':step===1?'<path d="M28 13h28m-7-6 7 6-7 6M132 13h-28m7-6-7 6 7 6"/><path fill="#e8d2b4" d="m69 7 10-4 12 10-5 10H72z"/>':'<path d="M20 13h28m-7-6 7 6-7 6"/><path fill="#d2b982" d="M84 1h12v7h8v12h-8v6H84v-6h-8V8h8z"/><path d="m126 13 5 5 10-12"/>'}</svg>
     </div>`).join('')}</div>
-    <div class="demo-controls"><div class="demo-dots">${[0,1,2].map(n=>`<button data-phase="${n}" aria-label="Tutorial step ${n+1}">${n+1}</button>`).join('')}</div><button class="tutorial-close" aria-label="Start playing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg></button></div>`;
+    <div class="demo-controls"><div class="demo-dots">${[0,1,2].map(n=>`<button data-phase="${n}" aria-label="Tutorial step ${n+1}">${n+1}</button>`).join('')}</div><button class="tutorial-close" aria-label="Close tutorial"><span aria-hidden="true">×</span></button></div>`;
     this.panel.addEventListener('pointerdown',event=>event.stopPropagation(),{signal:this.events.signal});
     this.panel.querySelectorAll<HTMLButtonElement>('[data-phase]').forEach(button=>button.addEventListener('click',()=>{this.phase=Number(button.dataset.phase);this.setPhase();},{signal:this.events.signal}));
     board.append(this.panel);
