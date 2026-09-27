@@ -57,23 +57,40 @@ export function createPetModel(element:Element='lava'){
 export class PetWalker {
  readonly group=new T.Group();
  private readonly model:ReturnType<typeof createPetModel>;
- private age=0;private spawn=0;
+ private age=0;private spawn=0;private swim=0;
+ private readonly wake=new T.Group();
+ private readonly wakeMaterial:T.ShaderMaterial;
+ private readonly shadow:T.Mesh;
  constructor(readonly motion:PetMotion){this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root);
   // A small contact shadow follows the pet without re-rendering the island shadow map.
-  const shadow=new T.Mesh(new T.CircleGeometry(.48,12),new T.MeshBasicMaterial({color:'#705536',transparent:true,opacity:.24,depthWrite:false}));
+  const shadow=this.shadow=new T.Mesh(new T.CircleGeometry(.48,12),new T.MeshBasicMaterial({color:'#705536',transparent:true,opacity:.24,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.8,1);shadow.position.y=.005;this.group.add(shadow);
+  this.wakeMaterial=new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{color:{value:new T.Color(motion.element==='water'?'#a3ded7':'#ffb957')},alpha:{value:0},bounds:{value:new T.Vector4()}},vertexShader:`varying vec2 ground;void main(){vec4 p=modelMatrix*vec4(position,1.);ground=p.xz;gl_Position=projectionMatrix*viewMatrix*p;}`,fragmentShader:`varying vec2 ground;uniform vec3 color;uniform float alpha;uniform vec4 bounds;void main(){if(ground.x<bounds.x||ground.y<bounds.y||ground.x>bounds.z||ground.y>bounds.w)discard;gl_FragColor=vec4(color,alpha);#include <colorspace_fragment>}`.replace(';#include',';\n#include')});
+  for(let i=0;i<2;i++){const ring=new T.Mesh(new T.RingGeometry(.91,1,24,1,.25,Math.PI*1.5),this.wakeMaterial);ring.rotation.x=-Math.PI/2;ring.position.set(0,.012,i*.30);ring.scale.set(.55+i*.08,.33+i*.05,1);this.wake.add(ring);}
+  this.group.add(this.wake);
  }
  update(dt:number,reduced=false){
   this.age+=dt;this.spawn=Math.min(1,this.spawn+dt/.32);this.group.scale.setScalar(reduced?1:1-Math.pow(1-this.spawn,3));
   this.motion.update(dt);
   const walking=this.motion.next!==null;
+  const targetSwim=this.motion.onOwnLiquid&&this.motion.planting===0?1:0;
+  this.swim+=(targetSwim-this.swim)*Math.min(1,dt*9);
+  this.shadow.visible=this.swim<.15;
+  this.wake.visible=this.swim>.02&&this.motion.onOwnLiquid;
+  this.wake.rotation.y=this.model.body.rotation.y;
+  this.wakeMaterial.uniforms.alpha.value=this.swim*(walking?.48:.23);
+  const cx=gridWorld(Math.round(this.motion.x)),cz=gridWorld(Math.round(this.motion.y));this.wakeMaterial.uniforms.bounds.value.set(cx-1,cz-1,cx+1,cz+1);
+  this.wake.scale.setScalar(reduced?1:1+Math.sin(this.age*5)*.045);
   this.group.position.x=gridWorld(this.motion.x);this.group.position.z=gridWorld(this.motion.y);
   const delta=Math.atan2(Math.sin(this.motion.heading-this.model.body.rotation.y),Math.cos(this.motion.heading-this.model.body.rotation.y));this.model.body.rotation.y+=delta*Math.min(1,dt*12);
   const stride=walking?Math.sin(this.age*11):0;
-  this.model.legs.forEach((leg,i)=>{leg.rotation.x=reduced?0:stride*(i===0||i===3?1:-1)*.30;});
+  this.model.legs.forEach((leg,i)=>{leg.rotation.x=reduced?0:stride*(i===0||i===3?1:-1)*.30*(1-this.swim);leg.rotation.z=reduced?0:Math.sin(this.age*7+i*Math.PI/2)*this.swim*.24;});
   this.model.body.position.y=reduced?0:walking?Math.abs(stride)*.035:Math.sin(this.age*2)*.012;
   this.model.tail.rotation.y=reduced?0:Math.sin(this.age*(walking?5:2))*.12;
   this.model.head.rotation.x=reduced?0:Math.sin(this.age*2.4)*.035;
+  this.model.body.position.y-=this.swim*.19;
+  this.model.body.rotation.z=reduced?0:Math.sin(this.age*5)*this.swim*.045;
+  this.model.tail.rotation.y+=reduced?0:Math.sin(this.age*7)*this.swim*.23;
   const planting=this.motion.planting;
   const charge=planting>0?(planting<.3?planting/.3:Math.max(0,1-(planting-.3)/.26)):0;
   this.model.glowMaterials.forEach(material=>{material.emissive.set(this.motion.element==='water'?'#258ddb':'#ff731b');material.emissiveIntensity=reduced?charge*.25:charge*.9;});

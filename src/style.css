@@ -58,3 +58,14 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 
 .slot.pet[data-pet=water] { background:radial-gradient(ellipse,#71d9ec20,transparent 70%); }
 .slot.pet[data-pet=water] .pet-label { color:#a8ede1; }
+
+/* Keep the original element colors readable; danger is a soft surrounding glow. */
+.slot { position:relative; isolation:isolate; }
+.slot::before { content:""; position:absolute; inset:3px; border-radius:16px; background:radial-gradient(ellipse,#ef665537,transparent 72%); opacity:0; transition:opacity .25s ease; pointer-events:none; z-index:-1; }
+.slot.blocked::before { opacity:1; animation:danger-breathe 2.8s ease-in-out infinite; }
+.slot.blocked .shape-icon { filter:drop-shadow(0 0 4px #ed6655a0); }
+.fit-warning { position:absolute; right:0; top:0; width:19px; height:19px; fill:#e46b59; stroke:#ffc1a0; stroke-width:1.25; opacity:0; transform:translateY(3px) scale(.85); transition:opacity .22s ease,transform .22s ease; pointer-events:none; filter:drop-shadow(0 2px 1px #103447); }
+.warning-mark { fill:#173e4d; stroke:none; }
+.slot.blocked .fit-warning { opacity:1; transform:none; }
+@keyframes danger-breathe { 0%,100% { opacity:.55; } 50% { opacity:1; } }
+@media(prefers-reduced-motion:reduce) { .slot.blocked::before { animation:none; } .slot::before,.fit-warning { transition:none; } }

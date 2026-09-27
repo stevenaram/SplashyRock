@@ -13,6 +13,7 @@ export class PetMotion {
   private retreating=false;
   private recent:number[]=[];
   constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number)=>boolean|void,private readonly random:()=>number=Math.random){this.x=cell%8;this.y=Math.floor(cell/8);}
+  get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
   queueAbility(){this.queued++;this.revision++;}
   private allowed(cell:number){
     if(this.board[cell]===this.element)return true;

@@ -37,3 +37,7 @@ test('a newly filled cell during charge does not consume or overwrite the abilit
 test('pet placement itself does not grant an ability; planting does not grant another one',()=>{
  const g=new Game(()=>.2);const shape={id:'single',name:'single',width:1,height:1,cells:[[0,0] as const]};g.inventory=[{tile:'pet',petElement:'water',shape},null,null];g.place(0,27);assert.equal(g.pet?.queued,0);g.pet!.queueAbility();g.pet!.update(.35);assert.equal(g.board[27],'water');assert.equal(g.pet?.queued,0);assert.deepEqual(g.petTileEvents,[27]);g.restart();assert.equal(g.pet,null);
 });
+
+test('swimming follows the actual liquid under the pet and switches at tile boundaries',()=>{
+ for(const element of ['water','lava'] as const){const b=board(),p=new PetMotion(0,element,b,()=>{},()=>0);assert.equal(p.onOwnLiquid,false);b[1]=element;p.x=.49;assert.equal(p.onOwnLiquid,false);p.x=.51;assert.equal(p.onOwnLiquid,true);b[1]=element==='water'?'lava':'water';assert.equal(p.onOwnLiquid,false);b[1]=null;assert.equal(p.onOwnLiquid,false);}
+});

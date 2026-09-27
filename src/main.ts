@@ -12,7 +12,7 @@ host.innerHTML = `<section id="board" aria-label="Eight by eight board"><div id=
   <nav id="tray" aria-label="Available tiles"></nav>
   <div id="ghost" aria-hidden="true" hidden></div>
   <p id="status" role="status" class="sr-only"></p>
-  <aside id="game-over" hidden aria-labelledby="end-title"><div><h1 id="end-title">No more moves</h1><p><span id="final-score">0</span> points · Best <span id="best-score">0</span></p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↗</span></button></aside>`;
+  <aside id="game-over" hidden aria-labelledby="end-title"><div><h1 id="end-title">Game Over</h1><p><span id="final-score">0</span> points · Best <span id="best-score">0</span></p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↗</span></button></aside>`;
 const board = document.querySelector<HTMLElement>('#board')!;
 const tray = document.querySelector<HTMLElement>('#tray')!;
 const ghost = document.querySelector<HTMLElement>('#ghost')!;
@@ -41,6 +41,7 @@ function settled(){
     shownCombo=0;
   }
   updateScore();
+  updateTrayWarnings();
   clearTimeout(endTimer);
   if(game.over||reactions.busy||sweeps.busy||aftermaths.size>0||game.pet?.busy||game.hasLegalMove())return;
   endTimer=setTimeout(()=>{
@@ -51,7 +52,7 @@ function settled(){
     document.querySelector('#final-score')!.textContent=game.score.toLocaleString();
     document.querySelector('#best-score')!.textContent=best.toLocaleString();
     endDialog.hidden=false;host!.classList.add('ended');
-    status.textContent=`No more moves. Final score ${game.score}. You can still try the remaining pieces, or play again.`;
+    status.textContent=`Game Over. Final score ${game.score}. You can still try the remaining pieces, or play again.`;
   },400);
 }
 const world = new World(board);
@@ -91,13 +92,20 @@ again.addEventListener('click',()=>{
 }, {signal:events.signal});
 
 
+function updateTrayWarnings(){
+  tray.querySelectorAll<HTMLButtonElement>('.slot').forEach((button,index)=>{
+    const piece=game.inventory[index],blocked=!!piece&&!game.pieceFits(piece);
+    button.classList.toggle('blocked',blocked);
+    button.setAttribute('aria-label',piece?`${piece.tile} ${piece.shape.name}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
+  });
+}
 function renderTray() {
   const markup = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
     data-pet="${piece?.petElement??''}" data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
-    ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece) : ''}</button>`).join('');
+    ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece)+'<svg class="fit-warning" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path class="warning-mark" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>' : ''}</button>`).join('');
   const fresh=game.inventory.map((piece,i)=>!!piece&&piece!==trayPieces[i]);
-  if(markup===trayMarkup&&!fresh.some(Boolean))return;
-  trayMarkup=markup;tray.innerHTML=markup;trayPieces=[...game.inventory];
+  if(markup===trayMarkup&&!fresh.some(Boolean)){updateTrayWarnings();return;}
+  trayMarkup=markup;tray.innerHTML=markup;trayPieces=[...game.inventory];updateTrayWarnings();
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
     tray.querySelectorAll<HTMLElement>('.slot').forEach((slot,i)=>{
       if(fresh[i])slot.animate([{opacity:0,transform:'translateY(14px) scale(.88)'},{opacity:1,transform:'translateY(-2px) scale(1.025)',offset:.72},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:320,delay:i*55,easing:'cubic-bezier(.2,.7,.3,1)',fill:'backwards'});

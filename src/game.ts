@@ -51,8 +51,9 @@ export class Game {
     this.score+=bonus;this.combo=0;this.chainPoints=0;
     return bonus;
   }
+  pieceFits(piece:Piece):boolean {return this.board.some((_,cell)=>this.canPlace(piece,cell));}
   hasLegalMove(): boolean {
-    return this.inventory.some(piece=>piece!==null&&this.board.some((_,cell)=>this.canPlace(piece,cell)));
+    return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
   }
   finishIfBlocked(pending: boolean): boolean {
     if(!pending&&!this.pet?.busy&&!this.hasLegalMove())this.over=true;
