@@ -33,6 +33,7 @@ function updateScore(){
 function settled(){
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
+  world.syncPetMarks();
   if (!game.over) reactions.schedule();
   if(!reactions.busy&&!sweeps.busy&&game.combo>0){
     const multiplier=game.combo;const bonus=game.finishChain();
@@ -41,9 +42,9 @@ function settled(){
   }
   updateScore();
   clearTimeout(endTimer);
-  if(game.over||reactions.busy||sweeps.busy||game.hasLegalMove())return;
+  if(game.over||reactions.busy||sweeps.busy||game.pet?.busy||game.hasLegalMove())return;
   endTimer=setTimeout(()=>{
-    if(!game.finishIfBlocked(reactions.busy||sweeps.busy))return;
+    if(!game.finishIfBlocked(reactions.busy||sweeps.busy||!!game.pet?.busy))return;
     world.removePet();
     best=Math.max(best,game.score);
     try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
@@ -56,6 +57,7 @@ function settled(){
 const world = new World(board);
 const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
 const game = new Game();
+world.game=game;world.onPetChange=settled;
 const events = new AbortController();
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
@@ -72,6 +74,7 @@ const sweeps = new SandSweeps(game, (cells, origin, phase, depth) => {
   refreshPreview();
 },settled);
 const reactions = new StoneReactions(game, cell => {
+  world.syncPetMarks();
   world.addStone(cell);
   if(game.combo>=2&&game.combo>shownCombo){shownCombo=game.combo;combo.show(game.combo,cell);}
   sweeps.schedule();
@@ -80,7 +83,7 @@ const reactions = new StoneReactions(game, cell => {
 
 again.addEventListener('click',()=>{
   clearTimeout(endTimer);reactions.dispose();sweeps.dispose();cancel();
-  world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended');
+  world.removePet();game.restart();world.syncPetMarks();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended');
   shownCombo=0;combo.reset();
   shownScore=0;gainLabel.textContent='';updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
@@ -89,7 +92,7 @@ again.addEventListener('click',()=>{
 
 function renderTray() {
   const markup = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
-    data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
+    data-pet="${piece?.petElement??''}" data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
     ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece) : ''}</button>`).join('');
   const fresh=game.inventory.map((piece,i)=>!!piece&&piece!==trayPieces[i]);
   if(markup===trayMarkup&&!fresh.some(Boolean))return;

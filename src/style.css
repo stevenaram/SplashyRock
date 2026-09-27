@@ -55,3 +55,6 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 .pet-label { position:absolute; bottom:0; left:0; right:0; color:#ffcf85; font:700 9px ui-monospace,monospace; letter-spacing:1px; text-align:center; pointer-events:none; }
 #ghost .pet-label { display:none; }
 @media(max-height:500px) { .pet-icon { width:68px; height:68px; } .pet-label { bottom:-4px; font-size:8px; } }
+
+.slot.pet[data-pet=water] { background:radial-gradient(ellipse,#71d9ec20,transparent 70%); }
+.slot.pet[data-pet=water] .pet-label { color:#a8ede1; }

@@ -11,7 +11,7 @@ test('5000-point reward arrives in the next fresh tray, with pet in the middle a
  assert.deepEqual(new Set([game.inventory[0]?.tile,game.inventory[2]?.tile]),new Set(['water','lava']));
  assert.deepEqual(game.inventory[1]?.shape.cells,[[0,0]]);
 });
-test('pet is cosmetic, consumes its slot, and does not block subsequent pieces or earn points',()=>{
+test('pet placement consumes its slot without occupying the board or earning points',()=>{
  const game=new Game(()=>.2);game.score=5000;finishTray(game);const pet=game.inventory[1]!;
  game.board[9]='lava';assert.equal(game.canPlace(pet,9),false);assert.equal(game.place(1,-1),false);
  const before=[...game.board],score=game.score,versions=[...game.versions];

@@ -1,7 +1,8 @@
+import {PetMotion} from './pet-motion';
 import { SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
 export type Tile = Element | 'stone';
-export interface Piece { tile: Element | 'pet'; shape: Shape }
+export interface Piece { tile: Element | 'pet'; shape: Shape; petElement?: Element }
 export const SIZE = 8;
 
 // The pointer anchors the center cell of a shape's bounding box. Holes remain
@@ -19,6 +20,9 @@ export class Game {
   over = false;
   petRewardDealt=false;
   petPlaced=false;
+  pet:PetMotion|null=null;
+  moves=0;
+  readonly petMarks:({element:Element;expires:number}|null)[]=Array(64).fill(null);
   combo = 0;
   chainPoints = 0;
   readonly stoneDepth: number[] = Array(64).fill(0);
@@ -27,6 +31,7 @@ export class Game {
     this.inventory = this.deal();
   }
   private write(cell: number, tile: Tile | null) {
+    this.petMarks[cell]=null;
     if (this.board[cell] !== tile) { this.board[cell] = tile; this.versions[cell]++; }
   }
   neighbors(cell: number): number[] {
@@ -35,7 +40,7 @@ export class Game {
   }
   clearCells(cells: readonly number[]): number[] {
     const removed: number[]=[];
-    for(const cell of new Set(cells)) if(this.board[cell]!==null){this.write(cell,null);removed.push(cell);}
+    for(const cell of new Set(cells)){this.petMarks[cell]=null;if(this.board[cell]!==null){this.write(cell,null);removed.push(cell);}}
     this.score+=removed.length*10;
     if(this.combo>0)this.chainPoints+=removed.length*10;
     return removed;
@@ -51,10 +56,11 @@ export class Game {
     return this.inventory.some(piece=>piece!==null&&this.board.some((_,cell)=>this.canPlace(piece,cell)));
   }
   finishIfBlocked(pending: boolean): boolean {
-    if(!pending&&!this.hasLegalMove())this.over=true;
+    if(!pending&&!this.pet?.busy&&!this.hasLegalMove())this.over=true;
     return this.over;
   }
   restart() {
+    this.pet=null;this.moves=0;this.petMarks.fill(null);
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
     this.score=0;this.over=false;this.petRewardDealt=false;this.petPlaced=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
@@ -62,8 +68,9 @@ export class Game {
     if(this.score>=5000&&!this.petRewardDealt){
       this.petRewardDealt=true;
       const first:Element=this.random()<.5?'water':'lava';
+      const petElement:Element=this.random()<.5?'lava':'water';
       const shape=()=>SHAPES[Math.floor(this.random()*SHAPES.length)];
-      return [{tile:first,shape:shape()},{tile:'pet',shape:{id:'lava-pet',name:'Lava pet',width:1,height:1,cells:[[0,0]]}},{tile:first==='water'?'lava':'water',shape:shape()}];
+      return [{tile:first,shape:shape()},{tile:'pet',petElement,shape:{id:`${petElement}-pet`,name:petElement==='lava'?'Lava Pet':'Water Pet',width:1,height:1,cells:[[0,0]]}},{tile:first==='water'?'lava':'water',shape:shape()}];
     }
     const majority: Element = this.random() < .5 ? 'water' : 'lava';
     const minoritySlot = Math.floor(this.random() * 3);
@@ -88,7 +95,12 @@ export class Game {
         if (tile) neighbors.push(tile);
       }
     }
-    return neighbors.includes('water') && neighbors.includes('lava');
+    const mark=this.petMarks[cell]?.element;
+    return (mark==='water'||neighbors.includes('water')) && (mark==='lava'||neighbors.includes('lava'));
+  }
+  leavePetMark(cell:number,element:Element):boolean {
+    if(this.over||this.board[cell]!==null||this.petMarks[cell]||this.neighbors(cell).some(n=>this.board[n]===element))return false;
+    this.petMarks[cell]={element,expires:this.moves+3};return true;
   }
   stoneCandidates(): number[] {
     return this.board.flatMap((_, cell) => this.canFormStone(cell) ? [cell] : []);
@@ -103,11 +115,14 @@ export class Game {
   place(slot: number, anchor: number): boolean {
     const piece = this.inventory[slot];
     if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
-    if(piece.tile==='pet')this.petPlaced=true;
+    this.moves++;
+    this.petMarks.forEach((mark,cell)=>{if(mark&&mark.expires<=this.moves)this.petMarks[cell]=null;});
+    if(piece.tile==='pet'){this.petPlaced=true;this.pet=new PetMotion(anchor,piece.petElement??'lava',this.board,cell=>this.leavePetMark(cell,piece.petElement??'lava'),this.random);}
     else {
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;
     }
+    this.pet?.addMove();
     this.inventory[slot] = null;
     if (this.inventory.every(item => item === null)) this.inventory = this.deal();
     return true;
