@@ -120,48 +120,58 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 #goal-hint button,.tutorial-close {appearance:none;border:0;background:none;color:inherit;font:22px/1 monospace;cursor:pointer;width:32px;height:32px;position:absolute;right:0;top:0;opacity:.7}
 #goal-hint button:focus-visible,.tutorial-close:focus-visible {outline:2px solid #a2c8bf;outline-offset:-3px;opacity:1}
 #goal-hint[hidden],#tutorial[hidden] {display:none}
-#tutorial {position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:3;width:260px;padding:12px 14px 10px;background:#17465af5;border:1px solid #8cbab7;border-radius:12px;box-shadow:0 5px #10344750,0 12px 26px #10344728;color:#e8e6be;pointer-events:none}
-.tutorial-close {pointer-events:auto;top:2px;right:2px;z-index:1}
-#tutorial svg {display:block;width:100%;overflow:visible;shape-rendering:crispEdges}
-.lesson-sand rect {fill:#ceb97e;stroke:#b39c64;stroke-width:1}
-.lesson-water {fill:#298fb2;stroke:#9bddd5;stroke-width:2}
-.lesson-ripple {fill:none;stroke:#9bddd5;stroke-width:2}
-.lesson-lava {fill:#c15530;stroke:#ffbd67;stroke-width:2}
-.lesson-crack {fill:none;stroke:#ffc675;stroke-width:2}
-.lesson-target {fill:#e9e4b82b;stroke:#f5ebc4;stroke-dasharray:4 4;stroke-width:2}
-.lesson-link {stroke:#fff5cf;stroke-width:3;fill:none}
-.lesson-stone {fill:#e8d2b4;stroke:#a99079;stroke-width:2;transform-origin:130px 84px}
-.lesson-clear {fill:#edd9a2;opacity:0}
-.lesson-steam {fill:none;stroke:#f0ecd0;stroke-width:3;opacity:0}
-.lesson-hand {fill:#fff0cc;stroke:#365463;stroke-width:2;filter:drop-shadow(0 2px #143c4a44)}
-.lesson-tray rect {fill:#278caf;stroke:#9edbd2;stroke-width:2}
-.lesson-tray rect:last-child {fill:#c15530;stroke:#ffc675}
-.lesson-check {fill:none;stroke:#5e8055;stroke-width:4;opacity:0}
-.lesson-stages {display:flex;gap:5px;margin:5px 24px 0}
-.lesson-stages i {height:3px;flex:1;background:#47717a;border-radius:2px}
-.playing .lesson-lava {animation:lesson-place 7s infinite}
-.playing .lesson-hand {animation:lesson-hand 7s infinite}
-.playing .lesson-water {animation:lesson-neighbor 7s infinite}
-.playing .lesson-stone {animation:lesson-stone 7s infinite}
-.playing .lesson-target,.playing .lesson-link {animation:lesson-link 7s infinite}
-.playing .lesson-clear {animation:lesson-clear 7s infinite}
-.playing .lesson-steam {animation:lesson-steam 7s infinite}
-.playing .lesson-check {animation:lesson-check 7s infinite}
-.playing .lesson-stages i {animation:lesson-progress 7s infinite}
-.playing .lesson-stages i:nth-child(2) {animation-delay:2s}
-.playing .lesson-stages i:nth-child(3) {animation-delay:4s}
-@keyframes lesson-place {0%,8%{transform:translateY(104px) scale(.7);transform-origin:174px 83px;opacity:1}25%,65%{transform:translateY(0) scale(1);opacity:1}74%,100%{transform:translateY(0) scale(.9);opacity:0}}
-@keyframes lesson-hand {0%,8%{transform:translateY(104px);opacity:0}12%{opacity:1}25%,29%{transform:translateY(0);opacity:1}35%,100%{opacity:0}}
-@keyframes lesson-neighbor {0%,65%{opacity:1}74%,100%{opacity:0}}
-@keyframes lesson-stone {0%,34%{opacity:0;transform:scale(.65)}42%,56%{opacity:1;transform:scale(1)}64%,100%{opacity:0;transform:scale(.7)}}
-@keyframes lesson-link {0%,25%{opacity:.6}34%{opacity:1}42%,100%{opacity:0}}
-@keyframes lesson-clear {0%,56%{opacity:0}66%{opacity:.7}79%,100%{opacity:0}}
-@keyframes lesson-steam {0%,60%{opacity:0;transform:translateY(0)}69%{opacity:.8}82%,100%{opacity:0;transform:translateY(-14px)}}
-@keyframes lesson-check {0%,78%{opacity:0}86%,96%{opacity:1}100%{opacity:0}}
-@keyframes lesson-progress {0%,28%{background:#ebdcaa}32%,100%{background:#47717a}}
 @media(max-height:500px){#game{grid-template-rows:62px minmax(0,1fr) clamp(88px,24dvh,110px)}#run-hud{padding-block:5px}#egg-goal{height:48px;max-width:340px}#tutorial{left:14px;bottom:10px;transform:none;width:190px;padding:8px 10px}#goal-hint{width:250px;top:calc(100% + 9px)}#score{font-size:22px}}
 @media(max-width:360px){#run-hud{gap:4px;padding-inline:7px}#hud{padding-inline:3px}#score{font-size:21px}#egg-goal{gap:6px;padding-right:8px}#egg-goal > strong{font-size:13px}#egg-goal > img{width:32px}#tutorial{width:230px}}
-@media(prefers-reduced-motion:reduce){#goal-hint{animation:none}.playing .lesson-lava,.playing .lesson-hand,.playing .lesson-water,.playing .lesson-stone,.playing .lesson-target,.playing .lesson-link,.playing .lesson-clear,.playing .lesson-steam,.playing .lesson-check,.playing .lesson-stages i{animation:none}.lesson-hand{display:none}.lesson-stone{opacity:1}.lesson-clear{opacity:0}.lesson-link{opacity:1}}
-#tutorial .lesson-summary {display:none}
-@media(prefers-reduced-motion:reduce){#tutorial .lesson-summary{display:block;height:32px}.lesson-stages{display:none}}
+@media(prefers-reduced-motion:reduce){#goal-hint{animation:none}}
 #game-over {z-index:7}
+
+/* One continuous island scene underneath floating controls. */
+#game > .world-canvas {position:fixed;inset:0;width:100vw;height:100dvh;z-index:0}
+#board {container-type:size}
+#run-hud,#tray {background:transparent;box-shadow:none}
+#tray {position:relative;z-index:2}
+#hud {text-shadow:0 2px 0 #103447,0 0 8px #10344799}
+#hud > span:first-child {color:#d4eee0}
+#egg-goal {background:#1034478c;border-color:#d4eee057;box-shadow:0 3px 12px #10344720,inset 0 1px #e7efc619}
+#tray .shape-icon {filter:drop-shadow(0 3px 0 #10344765) drop-shadow(0 6px 8px #10344735)}
+#tray .slot {background:radial-gradient(ellipse,#10344725,transparent 70%)}
+#tray .slot.pet:not(.blocked) {background:radial-gradient(ellipse,#fff2b96b 0%,#e9ffba24 46%,transparent 72%)}
+#tutorial {position:absolute;z-index:3;box-shadow:0 5px #10344750,0 12px 26px #10344728;color:#e8e6be;width:min(330px,86cqw);max-height:calc(100cqh - 16px);left:50%;bottom:8px;transform:translateX(-50%);padding:10px 12px;background:#17465aeb;border-color:#b6d6c898;border-radius:16px;pointer-events:auto}
+#tutorial svg{display:block;width:100%;overflow:visible;shape-rendering:crispEdges}
+.demo-panels {display:flex;gap:16px;align-items:center}
+.demo-step {display:none;position:relative;flex:1;min-width:0}
+#tutorial[data-phase="0"] .demo-step[data-step="0"],#tutorial[data-phase="1"] .demo-step[data-step="1"],#tutorial[data-phase="2"] .demo-step[data-step="2"] {display:block}
+.demo-step > svg:first-of-type {max-height:calc(100cqh - 100px)}
+.demo-number {position:absolute;top:6%;left:6%;border-radius:50%;background:#17465a;color:#fff0c5;width:21px;height:21px;text-align:center;font:700 12px/21px ui-monospace,monospace;transform:translate(-50%,-50%);z-index:1}
+.demo-sand rect {fill:#d2b982;stroke:#ad955f;stroke-width:1}
+.demo-tile rect {fill:var(--fill);stroke:var(--edge);stroke-width:2}
+.demo-tile path {fill:none;stroke:var(--edge);stroke-width:2}
+.demo-stone {fill:#e8d2b4;stroke:#a99079;stroke-width:2;transform-origin:100px 100px}
+.demo-footprint {fill:#fff3b526;stroke:#fff1b5;stroke-width:2.5;stroke-dasharray:5 3}
+.demo-target {fill:none;stroke:#fff4ce;stroke-width:2;stroke-dasharray:4 3}
+.demo-finger {fill:#fff0cc;stroke:#365463;stroke-width:2}
+.demo-steam {fill:none;stroke:#f6efcf;stroke-width:3;opacity:0}
+.demo-empty {fill:none;stroke:#657d4f;stroke-width:3;opacity:0}
+#tutorial .demo-caption {height:25px;margin-top:3px;fill:none;stroke:#f0dfb1;stroke-width:2}
+.demo-controls {display:flex;align-items:center;justify-content:space-between;padding:5px 6px 0}
+.demo-dots {display:flex;gap:8px}
+.demo-dots button {width:27px;height:27px;border:1px solid #a2c8bf60;border-radius:50%;background:transparent;color:#afc9c2;font:700 12px ui-monospace,monospace;cursor:pointer}
+.demo-dots button[aria-pressed=true] {background:#e6d9ae;color:#17465a;border-color:#fff1c5}
+#tutorial .tutorial-close {position:static;width:46px;height:32px;border-radius:8px;background:#e6d9ae;color:#17465a;opacity:1;display:grid;place-items:center}
+.tutorial-close svg {width:22px!important;height:22px;fill:currentColor}
+.demo-step[data-step="0"] .demo-drop,.demo-step[data-step="0"] .demo-finger {animation:demo-place 3.2s infinite}
+.demo-step[data-step="1"] .demo-stone {animation:demo-form 3.2s infinite}
+.demo-step[data-step="2"] .demo-stone {animation:demo-bury 3.2s infinite}
+.demo-step[data-step="2"] .demo-neighbors {animation:demo-sweep 3.2s infinite}
+.demo-step[data-step="2"] .demo-steam {animation:demo-steam 3.2s infinite}
+.demo-step[data-step="2"] .demo-empty {animation:demo-empty 3.2s infinite}
+@keyframes demo-place {0%,10%{transform:translate(0,38px);opacity:0}20%{opacity:1}45%,100%{transform:translate(0,0);opacity:1}}
+@keyframes demo-form {0%,15%{opacity:0;transform:scale(.5)}30%,100%{opacity:1;transform:scale(1)}}
+@keyframes demo-bury {0%,12%{opacity:1;transform:scale(1)}26%,100%{opacity:0;transform:scale(.6)}}
+@keyframes demo-sweep {0%,35%{opacity:1}53%,100%{opacity:0}}
+@keyframes demo-steam {0%,32%{opacity:0;transform:translateY(0)}42%{opacity:1}65%,100%{opacity:0;transform:translateY(-13px)}}
+@keyframes demo-empty {0%,60%{opacity:0}75%,100%{opacity:1}}
+@media(min-aspect-ratio:6/5){#tutorial{width:min(88cqw,calc((100cqh - 68px)*3),960px);bottom:8px;padding:8px 12px}.demo-step{display:block!important}.demo-panels{gap:22px}.demo-step:not(:last-child)::after{content:'›';position:absolute;right:-18px;top:40%;font:28px monospace;color:#f0dfb1}.demo-step>svg:first-of-type{max-height:calc(100cqh - 90px)}#tutorial .demo-caption{height:20px}.demo-controls{padding-top:3px}.demo-dots button{width:23px;height:23px}#tutorial .tutorial-close{height:28px}}
+@media(prefers-reduced-motion:reduce){.demo-step *{animation:none!important}.demo-step[data-step="2"] .demo-stone,.demo-step[data-step="2"] .demo-neighbors{opacity:0}.demo-step[data-step="2"] .demo-empty{opacity:1}}
+
+.world-canvas{transition:filter 450ms ease}.ended .world-canvas{filter:brightness(.76) saturate(.88)}.won .world-canvas{filter:none}

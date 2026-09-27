@@ -50,7 +50,8 @@ export class World {
     this.scene.add(sun, this.island, this.surface.mesh, this.effects.group, this.stones);
     this.scene.add(createMap(),this.petBatch.group);
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
-    host.append(this.renderer.domElement);
+    this.renderer.domElement.classList.add('world-canvas');
+    host.parentElement!.append(this.renderer.domElement);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(host);
     this.resize();
@@ -87,15 +88,17 @@ export class World {
 
   cellScreen(cell:number) {
     const point=new THREE.Vector3(gridWorld(cell%SIZE),.6,gridWorld(Math.floor(cell/SIZE))).project(this.camera);
-    return {x:(point.x+1)*this.host.clientWidth/2,y:(1-point.y)*this.host.clientHeight/2};
+    const view=this.renderer.domElement.getBoundingClientRect(),board=this.host.getBoundingClientRect();
+    return {x:(point.x+1)*view.width/2+view.left-board.left,y:(1-point.y)*view.height/2+view.top-board.top};
   }
 
   cellAt(clientX: number, clientY: number): number | null {
     const rect = this.host.getBoundingClientRect();
     if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+    const view=this.renderer.domElement.getBoundingClientRect();
     this.raycaster.setFromCamera(new THREE.Vector2(
-      (clientX - rect.left) / rect.width * 2 - 1,
-      1 - (clientY - rect.top) / rect.height * 2,
+      (clientX - view.left) / view.width * 2 - 1,
+      1 - (clientY - view.top) / view.height * 2,
     ), this.camera);
     const point = this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
     if (!point) return null;
@@ -190,10 +193,12 @@ export class World {
   private render() { this.pixels.render(this.renderer, this.scene, this.camera); }
 
   private resize() {
-    const { width, height } = this.host.getBoundingClientRect();
+    const { width, height, left:boardLeft, top:boardTop } = this.host.getBoundingClientRect();
+    const fullWidth=document.documentElement.clientWidth,fullHeight=window.innerHeight;
     if (!width || !height) return;
     this.renderer.setPixelRatio(1);
-    this.renderer.setSize(width, height, false);
+    this.renderer.setSize(fullWidth, fullHeight, false);
+    this.camera.clearViewOffset();
     this.camera.aspect = width / height;
     this.camera.zoom = 1;
     this.camera.updateProjectionMatrix();
@@ -231,9 +236,12 @@ export class World {
       (1 - 24 / height) / Math.max(...points.map(p => Math.abs(p.y))),
     );
     this.camera.updateProjectionMatrix();
+    // Expand the same fitted camera beyond the playable viewport: the actual
+    // ocean continues behind the HUD/tray without shrinking or moving the map.
+    this.camera.setViewOffset(width,height,-boardLeft,-boardTop,fullWidth,fullHeight);
     const left=new THREE.Vector3(-8,0,0).project(this.camera);
     const right=new THREE.Vector3(8,0,0).project(this.camera);
-    this.pixels.resize(width,height,(right.x-left.x)*width/2);
+    this.pixels.resize(fullWidth,fullHeight,(right.x-left.x)*fullWidth/2);
     this.render();
   }
 

@@ -4,46 +4,52 @@ import {eggIcon} from './egg';
 export class Tutorial {
   private readonly panel:HTMLElement;
   private readonly goalHint:HTMLElement;
+  private phase=0;
+  private phaseTimer:ReturnType<typeof setInterval>|undefined;
+  private setPhase(){this.panel.dataset.phase=String(this.phase);this.panel.querySelectorAll<HTMLButtonElement>('[data-phase]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.phase)===this.phase)));}
   private timer:ReturnType<typeof setTimeout>|undefined;
   private hintTimer:ReturnType<typeof setTimeout>|undefined;
   private readonly events=new AbortController();
   constructor(board:HTMLElement,goal:HTMLElement){
     this.panel=document.createElement('aside');this.panel.id='tutorial';
     this.panel.setAttribute('aria-label','Drag shapes onto empty sand. Sand between water and lava becomes stone. Stone clears itself, then its horizontal and vertical neighbors.');
-    const cells=Array.from({length:15},(_,i)=>`<rect x="${20+i%5*44}" y="${17+Math.floor(i/5)*44}" width="44" height="44"/>`).join('');
-    this.panel.innerHTML=`<button class="tutorial-close" aria-label="Dismiss tutorial">×</button>
-      <svg viewBox="0 0 260 205" aria-hidden="true">
-        <g class="lesson-sand">${cells}</g>
-        <g class="lesson-water"><path d="M65 62h42v42H65z"/><path class="lesson-ripple" d="M72 77h11m7 12h10"/></g>
-        <g class="lesson-target"><path d="M152 62h44v44h-44z"/></g>
-        <g class="lesson-lava"><path d="M153 62h42v42h-42z"/><path class="lesson-crack" d="m159 64 8 13 11-4 7 17 8 4"/></g>
-        <g class="lesson-link"><path d="M105 83h8m34 0h8"/></g>
-        <g class="lesson-stone"><path d="m117 71 15-6 12 13-3 18-21 3-6-13z"/><path d="m117 71 12 12 15-5m-15 5-9 16"/></g>
-        <g class="lesson-clear"><path d="M108 61h44v44h-44z"/><path d="M108 17h44v44h-44zM64 61h44v44H64zM152 61h44v44h-44zM108 105h44v44h-44z"/></g>
-        <g class="lesson-steam"><path d="m80 81-3-7 3-7m47 17-3-8 3-8m49 15-3-7 3-7"/></g>
-        <g class="lesson-hand"><path d="M177 94v-12a3 3 0 0 1 6 0v7l3-1 8 4v10l-7 8h-6l-9-10a3 3 0 0 1 4-4l1 1"/></g>
-        <g class="lesson-tray"><rect x="66" y="174" width="18" height="18"/><rect x="120" y="174" width="18" height="18"/><rect x="174" y="174" width="18" height="18"/></g>
-        <g class="lesson-check"><path d="m122 79 7 7 13-17"/></g>
+    const cells=Array.from({length:25},(_,i)=>`<rect x="${10+i%5*36}" y="${10+Math.floor(i/5)*36}" width="36" height="36"/>`).join('');
+    const tile=(x:number,y:number,kind:string,extra='')=>`<g class="demo-tile ${kind} ${extra}"><rect x="${11+x*36}" y="${11+y*36}" width="34" height="34"/><path d="M${17+x*36} ${23+y*36}h9m3 10h9"/></g>`;
+    const cross='M82 46h36v36h36v36h-36v36H82v-36H46V82h36Z';
+    this.panel.innerHTML=`<div class="demo-panels">${[0,1,2].map(step=>`<div class="demo-step" data-step="${step}">
+      <span class="demo-number">${step+1}</span>
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <g class="demo-sand">${cells}</g>
+        ${tile(0,0,'water','untouched')}${tile(4,4,'lava','untouched')}${tile(3,1,'lava','untouched')}${tile(3,3,'lava','untouched')}
+        <g class="demo-neighbors">${tile(1,2,'water')}${tile(2,1,'water')}${tile(2,3,'water')}${tile(3,2,'lava',step===0?'demo-drop':'')}</g>
+        ${step===0?'<path class="demo-target" d="M118 82h36v36h-36z"/><path class="demo-finger" d="M137 109V96a3 3 0 0 1 6 0v7l10 2v12l-7 6h-5l-9-10a3 3 0 0 1 4-4z"/>':''}
+        ${step>0?'<g class="demo-stone"><path d="m87 89 13-5 12 10-2 16-19 4-8-12z"/><path d="m87 89 11 10 14-5m-14 5-7 15"/></g>':''}
+        ${step>0?`<path class="demo-footprint" d="${cross}"/>`:''}
+        ${step===2?'<g class="demo-steam"><path d="m64 96-3-6 3-6m35-19-3-6 3-6m36 41-3-6 3-6m-33 41-3-6 3-6"/></g><path class="demo-empty" d="m91 100 7 7 14-17"/>':''}
       </svg>
-      <svg class="lesson-summary" viewBox="0 0 240 42" aria-hidden="true"><path fill="#e8d2b4" stroke="#a99079" stroke-width="2" d="m45 10 14-5 12 12-3 17-20 2-6-13z"/><path fill="none" stroke="#e8e6be" stroke-width="3" d="M87 21h30m-8-7 8 7-8 7"/><path fill="#ceb97e" stroke="#ebd9a4" stroke-width="2" d="M160 3h18v12h12v14h-12v12h-18V29h-12V15h12z"/></svg>
-      <div class="lesson-stages" aria-hidden="true"><i></i><i></i><i></i></div>`;
-    this.panel.querySelector('button')!.addEventListener('pointerdown',event=>event.stopPropagation(),{signal:this.events.signal});
+      <svg class="demo-caption" viewBox="0 0 160 26" aria-hidden="true">${step===0?'<path fill="#bb482d" stroke="#ffb957" stroke-width="2" d="M35 3h20v20H35z"/><path d="M65 13h28m-7-6 7 6-7 6"/><path stroke-dasharray="3 2" d="M104 3h20v20h-20z"/>':step===1?'<path d="M28 13h28m-7-6 7 6-7 6M132 13h-28m7-6-7 6 7 6"/><path fill="#e8d2b4" d="m69 7 10-4 12 10-5 10H72z"/>':'<path d="M20 13h28m-7-6 7 6-7 6"/><path fill="#d2b982" d="M84 1h12v7h8v12h-8v6H84v-6h-8V8h8z"/><path d="m126 13 5 5 10-12"/>'}</svg>
+    </div>`).join('')}</div>
+    <div class="demo-controls"><div class="demo-dots">${[0,1,2].map(n=>`<button data-phase="${n}" aria-label="Tutorial step ${n+1}">${n+1}</button>`).join('')}</div><button class="tutorial-close" aria-label="Start playing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg></button></div>`;
+    this.panel.addEventListener('pointerdown',event=>event.stopPropagation(),{signal:this.events.signal});
+    this.panel.querySelectorAll<HTMLButtonElement>('[data-phase]').forEach(button=>button.addEventListener('click',()=>{this.phase=Number(button.dataset.phase);this.setPhase();},{signal:this.events.signal}));
     board.append(this.panel);
     this.goalHint=document.createElement('div');this.goalHint.id='goal-hint';
     this.goalHint.innerHTML=`<img src="${eggIcon()}" alt=""/><p>Earn <strong>5,000</strong> score<br/>to hatch a pet</p><button aria-label="Dismiss pet goal">×</button>`;
     goal.append(this.goalHint);
-    this.panel.querySelector('button')!.addEventListener('click',()=>this.dismiss(),{signal:this.events.signal});
+    this.panel.querySelector('.tutorial-close')!.addEventListener('click',()=>this.dismiss(),{signal:this.events.signal});
     this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal(),{signal:this.events.signal});
   }
   start(){
     clearTimeout(this.timer);clearTimeout(this.hintTimer);
     this.panel.hidden=false;this.goalHint.hidden=false;
+    clearInterval(this.phaseTimer);this.phase=0;this.setPhase();
+    this.phaseTimer=setInterval(()=>{this.phase=(this.phase+1)%3;this.setPhase();},3200);
     this.panel.classList.remove('playing');void this.panel.offsetWidth;this.panel.classList.add('playing');
-    this.timer=setTimeout(()=>this.dismiss(),14000);
+    this.timer=setTimeout(()=>this.dismiss(),19200);
     this.hintTimer=setTimeout(()=>this.dismissGoal(),20000);
   }
-  dismiss(){clearTimeout(this.timer);this.panel.hidden=true;}
+  dismiss(){clearInterval(this.phaseTimer);clearTimeout(this.timer);this.panel.hidden=true;}
   dismissGoal(){clearTimeout(this.hintTimer);this.goalHint.hidden=true;}
   played(){this.dismiss();clearTimeout(this.hintTimer);this.hintTimer=setTimeout(()=>this.dismissGoal(),4500);}
-  dispose(){clearTimeout(this.timer);clearTimeout(this.hintTimer);this.events.abort();this.panel.remove();this.goalHint.remove();}
+  dispose(){clearInterval(this.phaseTimer);clearTimeout(this.timer);clearTimeout(this.hintTimer);this.events.abort();this.panel.remove();this.goalHint.remove();}
 }
