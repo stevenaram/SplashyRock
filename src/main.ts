@@ -1,3 +1,4 @@
+import {endEmblem} from './end-emblem';
 import {SoundEngine} from './sound';
 import {Tutorial} from './tutorial';
 import {EGG_GOALS,MAX_PETS} from './egg-goals';
@@ -17,7 +18,7 @@ host.innerHTML = `<header id="run-hud"><div id="hud"><span>SCORE</span><strong i
   <nav id="tray" aria-label="Available tiles"></nav>
   <div id="ghost" aria-hidden="true" hidden></div>
   <p id="status" role="status" class="sr-only"></p>
-  <aside id="game-over" hidden aria-labelledby="end-title"><div><h1 id="end-title">Game Over</h1><p><span id="final-score">0</span> points · Best <span id="best-score">0</span></p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↗</span></button></aside>`;
+  <aside id="game-over" hidden aria-labelledby="end-title">${endEmblem}<h1 id="end-title">Game Over</h1><div class="end-scores"><p><span>Score</span><strong id="final-score">0</strong></p><i aria-hidden="true"></i><p><span>Best</span><strong id="best-score">0</strong></p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↻</span></button></aside>`;
 const sound=new SoundEngine();
 const soundButton=document.createElement('button');soundButton.id='sound-toggle';soundButton.type='button';
 soundButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="sound-waves" d="M16 8q5 4 0 8m3-11q8 7 0 14"/><path class="sound-off" d="m16 9 6 6m0-6-6 6"/></svg>';
@@ -30,6 +31,7 @@ const status = document.querySelector<HTMLElement>('#status')!;
 const scoreLabel=document.querySelector<HTMLElement>('#score')!;
 const gainLabel=document.querySelector<HTMLElement>('#score-gain')!;
 const endDialog=document.querySelector<HTMLElement>('#game-over')!;
+board.append(endDialog);
 const goal=document.querySelector<HTMLElement>('#egg-goal')!;
 (goal.querySelector('img') as HTMLImageElement).src=eggIcon();
 const unlock=document.querySelector<HTMLElement>('#egg-unlocked')!;
@@ -215,7 +217,7 @@ tray.addEventListener('pointerdown', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (!button || button.disabled) return;
   event.preventDefault();
-  tutorial.beginDrag();sound.play('pick');
+  host!.classList.add('dragging');tutorial.beginDrag();sound.play('pick');
   selected = Number(button.dataset.slot);
   tutorial.showFitWarning(game.inventory[selected]);
   // Capture on the persistent tray so replacing its buttons cannot lose the drag.
@@ -239,12 +241,12 @@ window.addEventListener('pointerup', event => {
     selected = null;
   }
   drag = null;
-  tutorial.endDrag();
+  host!.classList.remove('dragging');tutorial.endDrag();
   clearPreview();
   renderTray();
 }, { signal: events.signal });
 function cancel() {
-  tutorial.endDrag();
+  host!.classList.remove('dragging');tutorial.endDrag();
   drag = null;
   selected = null;
   clearPreview();
