@@ -52,7 +52,7 @@ export function createPetModel(element:Element='lava'){
  }
  root.updateMatrixWorld(true);const box=new T.Box3().setFromObject(root),size=box.getSize(new T.Vector3());
  const scale=1.4/Math.max(size.x,size.z);root.scale.setScalar(scale);root.position.y=-box.min.y*scale;
- return {root,body,head,tail,legs,eyes,textures:skins};
+ return {root,body,head,tail,legs,eyes,glowMaterials:[orange,charcoal],textures:skins};
 }
 export class PetWalker {
  readonly group=new T.Group();
@@ -66,7 +66,7 @@ export class PetWalker {
  update(dt:number,reduced=false){
   this.age+=dt;this.spawn=Math.min(1,this.spawn+dt/.32);this.group.scale.setScalar(reduced?1:1-Math.pow(1-this.spawn,3));
   this.motion.update(dt);
-  const walking=this.motion.busy;
+  const walking=this.motion.next!==null;
   this.group.position.x=gridWorld(this.motion.x);this.group.position.z=gridWorld(this.motion.y);
   const delta=Math.atan2(Math.sin(this.motion.heading-this.model.body.rotation.y),Math.cos(this.motion.heading-this.model.body.rotation.y));this.model.body.rotation.y+=delta*Math.min(1,dt*12);
   const stride=walking?Math.sin(this.age*11):0;
@@ -74,6 +74,15 @@ export class PetWalker {
   this.model.body.position.y=reduced?0:walking?Math.abs(stride)*.035:Math.sin(this.age*2)*.012;
   this.model.tail.rotation.y=reduced?0:Math.sin(this.age*(walking?5:2))*.12;
   this.model.head.rotation.x=reduced?0:Math.sin(this.age*2.4)*.035;
+  const planting=this.motion.planting;
+  const charge=planting>0?(planting<.3?planting/.3:Math.max(0,1-(planting-.3)/.26)):0;
+  this.model.glowMaterials.forEach(material=>{material.emissive.set(this.motion.element==='water'?'#258ddb':'#ff731b');material.emissiveIntensity=reduced?charge*.25:charge*.9;});
+  if(planting>0&&!reduced){
+    const release=Math.max(0,(planting-.3)/.26);
+    this.model.body.scale.set(1+charge*.07,1-charge*.15,1+charge*.07);
+    this.model.body.position.y=planting<.3?-charge*.04:Math.sin(release*Math.PI)*.22;
+    this.model.head.rotation.x=-charge*.12;this.model.tail.rotation.x=-charge*.3;
+  }else{this.model.body.scale.setScalar(1);this.model.tail.rotation.x=0;}
   const blink=this.age%5.3;this.model.eyes.forEach(eye=>eye.scale.y=blink>4.95&&blink<5.08?.12:1);
  }
  dispose(){const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();this.group.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m));}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());this.model.textures.forEach(t=>t.dispose());this.group.removeFromParent();}

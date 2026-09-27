@@ -22,6 +22,7 @@ export class Game {
   petPlaced=false;
   pet:PetMotion|null=null;
   moves=0;
+  readonly petTileEvents:number[]=[];
   readonly petMarks:({element:Element;expires:number}|null)[]=Array(64).fill(null);
   combo = 0;
   chainPoints = 0;
@@ -60,7 +61,7 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.pet=null;this.moves=0;this.petMarks.fill(null);
+    this.pet=null;this.petTileEvents.length=0;this.moves=0;this.petMarks.fill(null);
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
     this.score=0;this.over=false;this.petRewardDealt=false;this.petPlaced=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
@@ -98,6 +99,13 @@ export class Game {
     const mark=this.petMarks[cell]?.element;
     return (mark==='water'||neighbors.includes('water')) && (mark==='lava'||neighbors.includes('lava'));
   }
+  plainSand(cell:number):boolean {
+    return this.board[cell]===null&&!this.petMarks[cell]&&!this.neighbors(cell).some(n=>this.board[n]==='lava'||this.board[n]==='water');
+  }
+  plantPetTile(cell:number,element:Element):boolean {
+    if(this.over||this.board[cell]!==null)return false;
+    this.write(cell,element);this.petTileEvents.push(cell);return true;
+  }
   leavePetMark(cell:number,element:Element):boolean {
     if(this.over||this.board[cell]!==null||this.petMarks[cell]||this.neighbors(cell).some(n=>this.board[n]===element))return false;
     this.petMarks[cell]={element,expires:this.moves+3};return true;
@@ -117,7 +125,7 @@ export class Game {
     if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
     this.moves++;
     this.petMarks.forEach((mark,cell)=>{if(mark&&mark.expires<=this.moves)this.petMarks[cell]=null;});
-    if(piece.tile==='pet'){this.petPlaced=true;this.pet=new PetMotion(anchor,piece.petElement??'lava',this.board,cell=>this.leavePetMark(cell,piece.petElement??'lava'),this.random);}
+    if(piece.tile==='pet'){this.petPlaced=true;this.pet=new PetMotion(anchor,piece.petElement??'lava',this.board,cell=>this.plantPetTile(cell,piece.petElement??'lava'),this.random,cell=>this.plainSand(cell),cell=>this.leavePetMark(cell,piece.petElement??'lava'));}
     else {
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;

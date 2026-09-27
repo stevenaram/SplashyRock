@@ -55,3 +55,12 @@ test('stone removes decorations immediately and burial does not regrow them befo
  s.set(26,'water');s.update(.5,true);assert.equal(data[109],255);
  s.texture.dispose();s.mesh.geometry.dispose();s.material.dispose();
 });
+
+test('pet trails feed exactly the same visual influence channels as normal neighbors',()=>{
+ for(const element of ['water','lava'] as const){
+  const regular=new ConnectedSurface(),pet=new ConnectedSurface();regular.set(26,element);const marks=Array(64).fill(null);marks[27]={element};pet.petMarks=marks;
+  for(let time=0;time<.5;time+=.05){regular.update(time);pet.update(time);assert.deepEqual(Array.from(pet.texture.image.data.slice(27*4,27*4+4)),Array.from(regular.texture.image.data.slice(27*4,27*4+4)));}
+  pet.set(27,element);pet.update(.5);assert.equal(pet.texture.image.data[27*4+1],0);assert.equal(pet.texture.image.data[27*4+2],0);
+  for(const s of [regular,pet]){s.texture.dispose();s.mesh.geometry.dispose();s.material.dispose();}
+ }
+});

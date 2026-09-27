@@ -8,7 +8,7 @@ const board=()=>Array<Tile|null>(64).fill(null);
 test('movement is linear, continuous across tile boundaries, and stops after exactly three steps',()=>{
  const b=board(),arrivals:number[]=[];const p=new PetMotion(0,'lava',b,c=>arrivals.push(c),()=>0);
  p.addMove();p.update(.2);const x=p.x;p.update(.2);assert.ok(Math.abs(p.x-2*x)<1e-8);
- p.update(3*2/1.7-.4);assert.equal(p.completed,3);assert.equal(p.queued,0);assert.equal(arrivals.length,1);
+ p.update(3*2/1.7-.4);assert.equal(p.completed,3);assert.equal(p.queued,0);assert.equal(arrivals.length,0);p.update(.56);assert.equal(arrivals.length,1);
  const position=[p.x,p.y];p.update(100);assert.deepEqual([p.x,p.y],position);
 });
 test('moves queue during travel and each three-step sequence earns one footprint',()=>{
@@ -22,7 +22,7 @@ for(const element of ['water','lava'] as const)test(`${element} crosses its own 
 test('blocked pet keeps queued steps and resumes when a route becomes available',()=>{
  const b=Array<Tile|null>(64).fill('water');b[0]=null;const p=new PetMotion(0,'lava',b,()=>{},()=>0);p.addMove();p.update(50);
  assert.equal(p.busy,false);assert.equal(p.queued,3);assert.equal(p.completed,0);
- b[1]=null;p.update(10);assert.equal(p.completed,3);
+ b[1]=null;b[2]=null;b[3]=null;p.update(10);assert.equal(p.completed,3);
 });
 test('new opposing tile during travel causes a linear retreat without spending the step',()=>{
  const b=board(),p=new PetMotion(0,'lava',b,()=>{},()=>0);p.addMove();p.update(.4);assert.equal(p.next,1);const x=p.x;b[1]='water';p.update(.2);
@@ -54,4 +54,25 @@ test('random rewards include both named pet types, in the middle slot',()=>{
 test('a blocked inventory waits for usable pet steps but not a trapped pet',()=>{
  const g=new Game();g.inventory=[{tile:'lava',shape:single}];g.board.fill('lava');g.pet=new PetMotion(0,'lava',g.board,()=>{},()=>0);g.pet.addMove();assert.equal(g.finishIfBlocked(false),false);g.pet.update(10);assert.equal(g.finishIfBlocked(false),true);
  g.over=false;g.board.fill('water');g.pet=new PetMotion(0,'lava',g.board,()=>{},()=>0);g.pet.addMove();assert.equal(g.finishIfBlocked(false),true);
+});
+
+test('each path reaches three distinct new tiles without backtracking, even with deterministic randomness',()=>{
+ const b=board(),landings:number[]=[];const p=new PetMotion(27,'lava',b,c=>landings.push(c),()=>0,c=>b[c]===null,c=>landings.push(c));p.addMove();p.update(10);
+ assert.equal(landings.length,3);assert.equal(new Set([27,...landings]).size,4);
+});
+test('route heads toward nearest plain sand then stays on plain sand when available',()=>{
+ const b=Array<Tile|null>(64).fill('lava');for(const c of [3,4,5,6])b[c]=null;
+ const landed:number[]=[];const p=new PetMotion(0,'lava',b,c=>landed.push(c),()=>.99,c=>b[c]===null,c=>landed.push(c));p.addMove();p.update(10);assert.deepEqual(landed,[1,2,3]);
+ p.addMove();p.update(10);assert.deepEqual(landed.slice(3),[4,5,6]);
+});
+test('route avoids a dead end that would require a repeated tile to complete three steps',()=>{
+ const b=Array<Tile|null>(64).fill('water');for(const c of [9,1,17,25,33])b[c]=null;
+ const landed:number[]=[];const p=new PetMotion(9,'lava',b,c=>landed.push(c),()=>0,c=>b[c]===null,c=>landed.push(c));p.addMove();p.update(10);assert.deepEqual(landed,[17,25,33]);
+});
+test('third-step planting charges before creating an element, retains queued work, and cannot overwrite a new piece',()=>{
+ const g=new Game(()=>0);g.inventory=[{tile:'pet',petElement:'lava',shape:single},null,null];g.place(0,0);const pet=g.pet!;
+ pet.update(3*2/1.7+.05);assert.equal(pet.completed,3);assert.equal(g.board[pet.cell],null);assert.equal(g.petMarks.filter(Boolean).length,2);assert.ok(pet.busy);
+ pet.update(.3);assert.equal(g.board[pet.cell],'lava');assert.deepEqual(g.petTileEvents,[pet.cell]);assert.equal(g.petMarks[pet.cell],null);
+ pet.addMove();pet.update(.3);assert.ok(pet.queued>0);
+ assert.equal(g.plantPetTile(0,'water'),true);assert.equal(g.plantPetTile(0,'lava'),false);assert.equal(g.board[0],'water');
 });

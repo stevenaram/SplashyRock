@@ -22,22 +22,7 @@ export class World {
   private pet:PetWalker|null=null;
   game:Game|null=null;
   onPetChange:()=>void=()=>{};
-  private readonly pawMarks=new Map<number,THREE.Group>();
-  syncPetMarks(){
-    for(const [cell,group] of this.pawMarks)if(!this.game?.petMarks[cell]){disposeGroup(group);this.pawMarks.delete(cell);}
-    this.game?.petMarks.forEach((mark,cell)=>{
-      if(!mark||this.pawMarks.has(cell))return;
-      const group=new THREE.Group();group.position.set(gridWorld(cell%8),.085,gridWorld(Math.floor(cell/8)));
-      const wet=mark.element==='water';
-      const material=new THREE.MeshBasicMaterial({color:wet?'#49b9c5':'#d76a32'});
-      const highlight=new THREE.MeshBasicMaterial({color:wet?'#b8eee1':'#ffce73'});
-      for(const [x,z,r] of [[0,.09,.18],[-.19,-.14,.085],[0,-.23,.095],[.19,-.14,.085]]){
-        const pad=new THREE.Mesh(new THREE.CircleGeometry(r,8),material);pad.rotation.x=-Math.PI/2;pad.position.set(x,0,z);group.add(pad);
-        const shine=new THREE.Mesh(new THREE.PlaneGeometry(r*.7,r*.28),highlight);shine.rotation.x=-Math.PI/2;shine.position.set(x-r*.2,.003,z-r*.3);group.add(shine);
-      }
-      group.scale.setScalar(.1);group.userData.age=0;this.pawMarks.set(cell,group);this.scene.add(group);
-    });
-  }
+  syncPetMarks(){if(this.game)this.surface.petMarks=this.game.petMarks;}
   removePet(){this.pet?.dispose();this.pet=null;}
   private frame = 0;
   private previousTime = 0;
@@ -77,8 +62,14 @@ export class World {
     const dt=Math.min((ms-this.previousTime)/1000,.05);this.previousTime=ms;
     const time=this.reducedMotion.matches?0:ms/1000;
     this.surface.update(ms/1000,this.reducedMotion.matches);
-    if(this.pet){const completed=this.pet.motion.completed,busy=this.pet.motion.busy;this.pet.update(dt,this.reducedMotion.matches);if(completed!==this.pet.motion.completed||busy!==this.pet.motion.busy)this.onPetChange();}
-    this.pawMarks.forEach(group=>{group.userData.age+=dt;group.scale.setScalar(this.reducedMotion.matches?1:Math.min(1,group.userData.age/.18));});
+    if(this.pet){
+      const revision=this.pet.motion.revision,busy=this.pet.motion.busy;
+      this.pet.update(dt,this.reducedMotion.matches);
+      if(this.game)for(const cell of this.game.petTileEvents.splice(0)){
+        const tile=this.game.board[cell];if(tile==='water'||tile==='lava')this.addPiece(cell,{tile,shape:{id:'pet-drop',name:'Pet tile',width:1,height:1,cells:[[0,0]]}});
+      }
+      if(revision!==this.pet.motion.revision||busy!==this.pet.motion.busy)this.onPetChange();
+    }
     if (!this.reducedMotion.matches) {
       this.effects.update(dt);
       if(this.arrivals.length||this.departures.length)this.renderer.shadowMap.needsUpdate=true;
@@ -244,7 +235,6 @@ export class World {
 
   dispose() {
     this.removePet();
-    this.pawMarks.forEach(disposeGroup);this.pawMarks.clear();
     cancelAnimationFrame(this.frame);
     this.pixels.dispose();
     this.effects.dispose();
