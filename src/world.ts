@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
 import { SIZE, footprint, type Piece, type Tile, type Game } from './game';
 import { createTile, disposeGroup } from './tiles';
-import { createIsland, rock } from './island';
+import { createIsland, stoneCluster } from './island';
 import { ConnectedSurface } from './surface';
 import { Effects } from './effects';
 import {PetWalker} from './pet';
@@ -120,10 +120,7 @@ export class World {
 
   addStone(cell: number, animate = true) {
     this.surface.set(cell,'stone');
-    const group=new THREE.Group();group.position.set(gridWorld(cell%8),.07,gridWorld(Math.floor(cell/8)));
-    for(const [x,z,size] of [[-.25,.1,.64],[.40,.25,.35],[.1,-.4,.36]]) {
-      const boulder=rock('#bca471',cell+Math.round(size*100));boulder.scale.set(size,size*.85,size);boulder.position.set(x,size*.35,z);group.add(boulder);
-    }
+    const group=stoneCluster(cell);
     group.userData.cell=cell;
     this.stones.add(group);
     if(animate&&!this.reducedMotion.matches){group.scale.y=.05;this.arrivals.push({group,age:0});}

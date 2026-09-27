@@ -1,3 +1,4 @@
+import {gridWorld} from './map';
 import * as T from 'three';
 
 export const PIXELS_PER_UNIT = 32;
@@ -53,6 +54,13 @@ export function rock(color = '#ac9c80', seed = 1) {
   for(let i=0;i<p.count;i++) { const x=p.getX(i),y=p.getY(i),z=p.getZ(i);p.setXYZ(i,x*(.85+rng()*.12),Math.max(-.48,y)*.8,z*(.8+rng()*.15)); }
   geo.computeVertexNormals();
   const mesh=new T.Mesh(geo,new T.MeshStandardMaterial({color,flatShading:true,roughness:1}));mesh.castShadow=true;mesh.receiveShadow=true;return mesh;
+}
+export function stoneCluster(cell:number){
+  const group=new T.Group();group.position.set(gridWorld(cell%8),.07,gridWorld(Math.floor(cell/8)));
+  for(const [x,z,size] of [[-.25,.1,.64],[.40,.25,.35],[.1,-.4,.36]]){
+    const boulder=rock('#bca471',cell+Math.round(size*100));boulder.scale.set(size,size*.85,size);boulder.position.set(x,size*.35,z);group.add(boulder);
+  }
+  return group;
 }
 function palm(x:number,z:number,scale:number,rotation:number) {
   const palm=new T.Group();palm.position.set(x,-.13,z);palm.scale.setScalar(scale);palm.rotation.y=rotation;
