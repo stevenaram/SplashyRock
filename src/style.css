@@ -203,3 +203,17 @@ canvas { image-rendering: pixelated; display: block; width: 100%; height: 100%; 
 
 @media(max-aspect-ratio:1/1){#sound-toggle{bottom:max(8px,env(safe-area-inset-bottom))}#tray{padding-bottom:max(62px,env(safe-area-inset-bottom))}}
 @media(prefers-reduced-motion:reduce){#sound-toggle{transition:none}}
+/* Close control belongs to the frame; the footer provides the primary action. */
+#tutorial .tutorial-close {width:44px;height:44px;top:3px;right:3px;border:0;border-radius:0 12px 0 10px;background:#17465ae8;box-shadow:none}
+#tutorial .tutorial-close svg {width:30px;height:30px;stroke:#e8e6be;stroke-width:2;}
+#tutorial .tutorial-close:hover {background:#2b5968;box-shadow:none}
+#tutorial .tutorial-close:active {background:#103447;box-shadow:none;transform:translateY(1px)}
+.tutorial-footer {padding:9px 6px 3px;border-top:1px solid #a3ded72b;margin-top:8px;}
+.tutorial-footer p {margin:0 0 12px;color:#e9e8ce;font:500 13px/1.55 system-ui,sans-serif;text-align:center;text-wrap:balance}
+.tutorial-done {display:block;width:100%;height:42px;border:1px solid #fff1c480;border-radius:9px;background:#e4d6ab;color:#173e4d;font:750 14px system-ui,sans-serif;cursor:pointer;box-shadow:inset 0 1px #fff4d8,0 3px #0e32418c;transition:background .15s,transform .15s}
+.tutorial-done:hover {background:#f0e4bf}.tutorial-done:active {transform:translateY(2px)}
+.tutorial-done:focus-visible {outline:2px solid #fff0c5;outline-offset:3px}
+.demo-live {height:min(48cqh,300px)}
+@media(min-aspect-ratio:6/5){.demo-live{height:calc(100cqh - 112px);max-height:370px}.tutorial-footer{display:flex;align-items:center;gap:18px;padding-top:7px;margin-top:5px}.tutorial-footer p{flex:1;margin:0;text-align:left;font-size:13px;line-height:1.4}.tutorial-done{width:98px;flex:none;height:38px}}
+@media(max-height:600px) and (max-aspect-ratio:6/5){.demo-live{height:calc(100cqh - 162px)}.tutorial-footer p{font-size:12px;margin-bottom:8px}}
+@media(prefers-reduced-motion:reduce){.tutorial-done{transition:none}}

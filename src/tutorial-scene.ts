@@ -40,9 +40,9 @@ export class TutorialScene {
   private reset(){this.effects.clear();this.removeRock();for(let i=0;i<64;i++)this.surface.set(i,null);for(const c of [29,45])this.surface.set(c,'lava');this.surface.resetInfluences();this.stage=0;this.time=0;this.onPhase(0);}
   private advance(audible=true){
     const play=(cue:SoundCue)=>{if(audible)this.onSound(cue);};
-    if(this.stage===0){for(const c of [35,28,44]){this.surface.set(c,'water');this.effects.burst(c,'water');}play('water');play('water-neighbor');}
-    if(this.stage===1){this.surface.set(37,'lava');this.effects.burst(37,'lava');play('lava');play('lava-neighbor');}
-    if(this.stage===2){this.surface.set(this.center,'stone');this.rock=stoneCluster(this.center);this.scene.add(this.rock);this.effects.burst(this.center,'stone');this.onPhase(1);play('quench');play('stone');}
+    if(this.stage===0){for(const c of [35,28,44]){this.surface.set(c,'water');this.effects.burst(c,'water');}play('water');}
+    if(this.stage===1){this.surface.set(37,'lava');this.effects.burst(37,'lava');play('lava');}
+    if(this.stage===2){this.surface.set(this.center,'stone');this.rock=stoneCluster(this.center);this.scene.add(this.rock);this.effects.burst(this.center,'stone');this.onPhase(1);play('stone');}
     if(this.stage===3){this.surface.set(this.center,null);this.effects.sand(this.center);this.effects.sandWave(this.center);this.onPhase(2);play('sand');}
     if(this.stage===4){for(const c of this.neighbors){const tile=this.surface.board[c];this.surface.set(c,null);if(tile==='water'||tile==='lava')this.effects.evaporate(c,tile);}this.surface.finishBurial(this.center);play('steam');}
     this.stage++;

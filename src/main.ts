@@ -253,6 +253,6 @@ tray.addEventListener('click', event => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (button && !button.disabled) { sound.play('pick');selected = Number(button.dataset.slot); renderTray(); }
 }, { signal: events.signal });
-document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
+document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 updateScore();renderTray();tutorial.start();
 if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();sound.dispose();tutorial.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });

@@ -70,8 +70,6 @@ export class World {
     let petsChanged=false;
     if(!this.game?.won)for(const pet of this.pets){
       const revision=pet.motion.revision,busy=pet.motion.busy,hatch=pet.motion.hatchRemaining,charge=pet.motion.planting;pet.update(dt,this.reducedMotion.matches);
-      if(hatch>1.35&&pet.motion.hatchRemaining<=1.35)this.onSound('shell',pet.motion.cell);
-      if(hatch>.15&&pet.motion.hatchRemaining<=.15)this.onSound(pet.motion.element==='lava'?'hatch-lava':'hatch-water',pet.motion.cell);
       if(hatch>.65&&pet.motion.hatchRemaining<=.65)this.onSound('hatch',pet.motion.cell);
       if(charge===0&&pet.motion.planting>0)this.onSound('charge',pet.motion.cell);
       if(revision!==pet.motion.revision||busy!==pet.motion.busy)petsChanged=true;
@@ -125,7 +123,7 @@ export class World {
   }
 
   addStone(cell: number, animate = true) {
-    if(animate){this.onSound('quench',cell);this.onSound('stone',cell);}
+    if(animate)this.onSound('stone',cell);
     this.surface.set(cell,'stone');
     const group=stoneCluster(cell);
     group.userData.cell=cell;
@@ -175,11 +173,8 @@ export class World {
 
   addPiece(cell: number, piece: Piece) {
     this.onSound(piece.tile==='pet'?'egg':piece.tile,cell);
-    if(piece.shape.id==='pet-drop')this.onSound(piece.tile==='lava'?'pet-lava':'pet-water',cell);
     if(piece.tile==='pet'){if(this.game?.pet){const pet=new PetWalker(this.game.pet);this.pets.push(pet);this.scene.add(pet.group);}this.render();return;}
     const placed=footprint(piece,cell);
-    const occupied=new Set(placed.map(([x,y])=>y*8+x));
-    if(placed.some(([x,y])=>[[x-1,y],[x+1,y],[x,y-1],[x,y+1]].some(([nx,ny])=>nx>=0&&nx<8&&ny>=0&&ny<8&&!occupied.has(ny*8+nx)&&this.surface.board[ny*8+nx]===null)))this.onSound(piece.tile==='water'?'water-neighbor':'lava-neighbor',cell);
     for(const [x,y] of placed) {
       const index=y*8+x;this.effects.cancelEvaporation(index);this.surface.set(index,piece.tile);
       if(!this.reducedMotion.matches)this.effects.burst(index,piece.tile);
