@@ -31,6 +31,9 @@ export class Game {
   get petsBusy(){return this.pets.some(p=>p.busy);}
   finishIfWon(){if(this.over)return this.won;if(this.pets.length===MAX_PETS&&this.pets.every(p=>p.hatchRemaining===0)){this.won=true;this.over=true;}return this.won;}
   moves=0;
+  maxCombo=0;
+  tilesCleared=0;
+  reviving=false;
   readonly petTileEvents:number[]=[];
   combo = 0;
   chainPoints = 0;
@@ -50,8 +53,8 @@ export class Game {
   clearCells(cells: readonly number[]): number[] {
     const removed: number[]=[];
     for(const cell of new Set(cells)){if(this.board[cell]!==null){this.write(cell,null);removed.push(cell);}}
-    this.score+=removed.length*10;
-    if(this.combo>0)this.chainPoints+=removed.length*10;
+    if(!this.reviving){this.tilesCleared+=removed.length;this.score+=removed.length*10;
+    if(this.combo>0)this.chainPoints+=removed.length*10;}
     this.claimEggRewards();
     return removed;
   }
@@ -72,10 +75,24 @@ export class Game {
     return this.over;
   }
   restart() {
+    this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
     this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
+  reviveTargets():number[]{
+    const cells=new Set<number>();
+    this.board.forEach((tile,cell)=>{if(tile==='water'||tile==='lava')for(const n of this.neighbors(cell))cells.add(n);});
+    return [...cells];
+  }
+  beginRevive():number[]{
+    if(!this.over||this.won||this.reviving)return [];
+    const cells=this.reviveTargets();if(!cells.length)return [];
+    this.reviving=true;this.combo=0;this.chainPoints=0;
+    for(const cell of cells){this.write(cell,'stone');this.stoneDepth[cell]=1;}
+    return cells;
+  }
+  finishRevive(){if(!this.reviving)return;this.reviving=false;this.over=false;}
   private deal(): Piece[] {
     const occupied=this.board.filter(Boolean).length;
     const water=this.board.filter(t=>t==='water').length;
@@ -132,6 +149,7 @@ export class Game {
   formStone(cell: number, depth = 1): boolean {
     if (!this.canFormStone(cell)) return false;
     this.write(cell, 'stone');
+    this.maxCombo=Math.max(this.maxCombo,depth);
     this.score += 20;
     this.stoneDepth[cell]=depth;this.combo=Math.max(this.combo,depth);this.chainPoints+=20;
     this.claimEggRewards();

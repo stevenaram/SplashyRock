@@ -1,0 +1,3 @@
+// A split elemental crystal: cool water facets, molten seams, and an obsidian heart.
+export const gemIcon=`<svg class="gem-icon" viewBox="0 0 40 48" aria-hidden="true"><path d="M20 2 36 26 20 46 4 26Z" fill="#243345" stroke="#b9dfd5" stroke-width="1.2" stroke-linejoin="round"/><path d="M20 3 5 26 20 21Z" fill="#70d5dc"/><path d="m20 3 15 23-15-5Z" fill="#ffad61"/><path d="m5 26 15-5-4 17Z" fill="#228caa"/><path d="m35 26-15-5 4 17Z" fill="#c75b3b"/><path d="m5 26 11 12 4 7Z" fill="#3c617a"/><path d="m35 26-11 12-4 7Z" fill="#66404c"/><path d="m20 8-3 13 3 19 3-19Z" fill="#343148"/><path d="m20 8-3 13-10 4 12-2 1 17 2-18 11 3-10-5Z" fill="#fff0bc"/><path d="m12 15-3 6 4-3Z" fill="#d9fff2"/></svg>`;
+export const REVIVE_COST=10;

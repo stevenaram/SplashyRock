@@ -39,6 +39,7 @@ export class Tutorial {
     else seenTips.mark('intro');
     this.refresh();
   }
+  get guiding(){return this.phase<=2;}
   private destination(){
     if(this.phase===0)return 27;
     const x=this.firstCell%8,y=Math.floor(this.firstCell/8);
