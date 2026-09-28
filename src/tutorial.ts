@@ -1,3 +1,4 @@
+import {seenTips} from './seen-tips';
 import {eggIcon} from './egg';
 import {pieceIcon} from './piece-icon';
 import type {Game,Piece,Element} from './game';
@@ -13,7 +14,6 @@ export class Tutorial {
   private tip=document.createElement('div');
   private petTip=document.createElement('div');
   private warningTip=document.createElement('div');
-  private warningShown=false;
   private warningTimer:ReturnType<typeof setTimeout>|undefined;
   private petTimer:ReturnType<typeof setTimeout>|undefined;
   private goalHint=document.createElement('div');
@@ -34,7 +34,9 @@ export class Tutorial {
     this.tip.querySelector('button')!.addEventListener('click',()=>this.showGoal());this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal());
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
-  start(){this.warningShown=false;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+  start(){clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+    if(seenTips.has('intro')){this.phase=3;this.showClearingTip();}
+    else seenTips.mark('intro');
     this.refresh();
   }
   private destination(){
@@ -55,8 +57,16 @@ export class Tutorial {
     else if(this.phase===1)this.phase=2;
     this.paused=false;this.refresh();
   }
-  settled(ready:boolean){if(this.phase===2&&ready){this.phase=3;this.tip.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.showGoal(),TOOLTIP_DURATION);}}
-  private showGoal(){if(this.phase!==3)return;clearTimeout(this.timer);this.phase=4;this.tip.hidden=true;this.goalHint.hidden=false;this.timer=setTimeout(()=>this.dismissGoal(),TOOLTIP_DURATION);}
+  settled(ready:boolean){if(this.phase===2&&ready){this.phase=3;this.showClearingTip();}}
+  private showClearingTip(){
+    if(seenTips.has('clearing')){this.showGoal();return;}
+    seenTips.mark('clearing');this.tip.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.showGoal(),TOOLTIP_DURATION);
+  }
+  private showGoal(){
+    if(this.phase!==3)return;clearTimeout(this.timer);this.phase=4;this.tip.hidden=true;
+    if(seenTips.has('egg-goal'))return;
+    seenTips.mark('egg-goal');this.goalHint.hidden=false;this.timer=setTimeout(()=>this.dismissGoal(),TOOLTIP_DURATION);
+  }
   beginDrag(){this.paused=true;this.refresh();}
   endDrag(){this.paused=false;this.refresh();}
   refresh(){cancelAnimationFrame(this.frame);this.frame=requestAnimationFrame(()=>this.layout());}
@@ -75,11 +85,13 @@ export class Tutorial {
     this.animation=this.hand.animate([{transform:from,opacity:0},{transform:from,opacity:1,offset:.15},{transform:to,opacity:1,offset:.66},{transform:to,opacity:1,offset:.8},{transform:to,opacity:0}],{duration:2300,iterations:Infinity,easing:'cubic-bezier(.3,.1,.25,1)'});
   }
   showFitWarning(piece:Piece|undefined|null){
-    if(this.warningShown||!piece||piece.tile==='pet'||this.game.pieceFits(piece))return;
-    this.warningShown=true;this.dismissGoal();this.tip.hidden=true;this.petTip.hidden=true;
+    if(seenTips.has('blocked-shape')||!piece||piece.tile==='pet'||this.game.pieceFits(piece))return;
+    seenTips.mark('blocked-shape');this.dismissGoal();this.tip.hidden=true;this.petTip.hidden=true;
     this.warningTip.hidden=false;clearTimeout(this.warningTimer);this.warningTimer=setTimeout(()=>{this.warningTip.hidden=true;},TOOLTIP_DURATION);
   }
   showPetAbility(element:Element){
+    if(seenTips.has('pet-ability'))return;
+    seenTips.mark('pet-ability');
     this.warningTip.hidden=true;
     this.dismissGoal();this.tip.hidden=true;
     this.petTip.querySelector('p')!.textContent=`Your ${element} pet places 1 ${element} tile each time you place a shape.`;
