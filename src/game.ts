@@ -143,7 +143,7 @@ export class Game {
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');
-      const pet=new PetMotion(anchor,element,this.board,cell=>this.plantPetTile(cell,element),this.random,()=>this.boardChange);
+      const pet=new PetMotion(anchor,element,this.board,cell=>this.plantPetTile(cell,element),this.random,()=>this.boardChange,()=>this.pets);
       pet.startHatch();this.pets.push(pet);
     }
     else {

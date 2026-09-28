@@ -18,9 +18,16 @@ export class PetMotion {
   private escapeCache:{key:string;value:number|null}|null=null;
   private recent:number[]=[];
   private routeCache:{key:string;value:number|null}|null=null;
-  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number){this.x=cell%8;this.y=Math.floor(cell/8);}
+  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[]){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
   queueAbility(){this.queued++;this.revision++;}
+  // Moving pets reserve their destination, not the tile they are leaving.
+  // Resting, hatching, and charging pets hold the tile underneath them.
+  private available(cell:number){return !this.peers?.().some(p=>p!==this&&(p.next??p.cell)===cell);}
+  private routingKey(){
+    return this.boardVersion?`${this.cell}:${this.boardVersion()}:${this.peers?.().filter(p=>p!==this).map(p=>p.next??p.cell).join(',')??''}`:null;
+  }
+  private pick<T>(items:readonly T[]):T{return items[Math.min(items.length-1,Math.floor(this.random()*items.length))];}
   private allowed(cell:number){
     if(this.board[cell]===this.element)return true;
     if(this.board[cell]!==null)return false;
@@ -41,7 +48,7 @@ export class PetMotion {
   // cardinal escape across hostile liquid/shoreline to the nearest safe tile.
   // Stones remain obstacles; normal wandering never uses this exception.
   private escapeRoute():number|null {
-    const key=this.boardVersion?`${this.cell}:${this.boardVersion()}`:null;
+    const key=this.routingKey();
     if(key&&this.escapeCache?.key===key)return this.escapeCache.value;
     const queue=[this.cell],first=Array<number>(64).fill(-1),seen=new Set(queue);
     let result:number|null=null;
@@ -50,7 +57,7 @@ export class PetMotion {
       if(c!==this.cell&&this.allowed(c)){result=first[c];break;}
       const x=c%8,y=Math.floor(c/8);
       for(const n of [x>0?c-1:-1,x<7?c+1:-1,y>0?c-8:-1,y<7?c+8:-1]){
-        if(n<0||seen.has(n)||this.board[n]==='stone')continue;
+        if(n<0||seen.has(n)||this.board[n]==='stone'||!this.available(n))continue;
         seen.add(n);first[n]=c===this.cell?n:first[c];queue.push(n);
       }
     }
@@ -58,7 +65,7 @@ export class PetMotion {
     return result;
   }
   private sandRoute(){
-    const key=this.boardVersion?`${this.cell}:${this.boardVersion()}`:null;
+    const key=this.routingKey();
     if(key&&this.routeCache?.key===key)return this.routeCache.value;
     const value=this.findSandRoute();if(key)this.routeCache={key,value};return value;
   }
@@ -66,11 +73,16 @@ export class PetMotion {
     // Dijkstra chooses the nearest reachable sand by actual walking distance.
     const distance=Array<number>(64).fill(Infinity),first=Array<number>(64).fill(-1),visited=new Set<number>();distance[this.cell]=0;
     for(let i=0;i<64;i++){
-      let c=-1;for(let n=0;n<64;n++)if(!visited.has(n)&&(c<0||distance[n]<distance[c]))c=n;
+      let nearest=Infinity;const tied:number[]=[];
+      for(let n=0;n<64;n++)if(!visited.has(n)&&Number.isFinite(distance[n])){
+        if(distance[n]<nearest-1e-9){nearest=distance[n];tied.length=0;tied.push(n);}
+        else if(Math.abs(distance[n]-nearest)<1e-9)tied.push(n);
+      }
+      const c=tied.length===1?tied[0]:tied.length?this.pick(tied):-1;
       if(c<0||!Number.isFinite(distance[c]))break;
-      if(this.board[c]===null&&this.allowed(c))return c===this.cell?this.cell:first[c];
+      if(this.board[c]===null&&this.allowed(c)&&this.available(c))return c===this.cell?this.cell:first[c];
       visited.add(c);
-      for(const n of this.neighbors(c)){const d=distance[c]+Math.hypot(n%8-c%8,Math.floor(n/8)-Math.floor(c/8));if(d<distance[n]){distance[n]=d;first[n]=c===this.cell?n:first[c];}}
+      for(const n of this.neighbors(c).filter(n=>this.available(n))){const d=distance[c]+Math.hypot(n%8-c%8,Math.floor(n/8)-Math.floor(c/8));if(d<distance[n]){distance[n]=d;first[n]=c===this.cell?n:first[c];}}
     }
     return null;
   }
@@ -92,7 +104,7 @@ export class PetMotion {
         if(unsafe&&target===null)break;
         this.escapingStep=unsafe;
         if(target===this.cell){this.planting=.000001;this.revision++;continue;}
-        let choices=this.neighbors(this.cell);
+        let choices=this.neighbors(this.cell).filter(n=>this.available(n));
         if(target!==null)choices=[target];
         else{const fresh=choices.filter(n=>!this.recent.includes(n));if(fresh.length)choices=fresh;}
         if(!choices.length)break;

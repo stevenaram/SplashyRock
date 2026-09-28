@@ -81,3 +81,47 @@ test('hostile liquid under a charging pet cancels charge and preserves the abili
  p.queueAbility();p.update(.1);b[27]='water';p.update(.2);
  assert.equal(p.planting,0);assert.equal(p.queued,1);assert.equal(planted,0);assert.ok(p.x<3);
 });
+
+test('pets reserve distinct wandering destinations and can follow a departing pet',()=>{
+ const b=board(),pets:PetMotion[]=[];
+ const add=(cell:number)=>{const p=new PetMotion(cell,'lava',b,()=>{},()=>0,()=>0,()=>pets);pets.push(p);return p;};
+ const first=add(0),second=add(2),follower=add(8);
+ first.update(.1);assert.equal(first.next,1);
+ second.update(.1);assert.notEqual(second.next,1);
+ follower.update(.1);assert.equal(follower.next,0);
+ const destinations=pets.map(p=>p.next??p.cell);assert.equal(new Set(destinations).size,pets.length);
+});
+test('hatching and charging pets hold their tiles against incoming pets',()=>{
+ const b=board(),pets:PetMotion[]=[];
+ const hatching=new PetMotion(1,'lava',b,()=>{},()=>0,()=>0,()=>pets);pets.push(hatching);hatching.startHatch();
+ const walker=new PetMotion(0,'lava',b,()=>{},()=>0,()=>0,()=>pets);pets.push(walker);
+ walker.update(.1);assert.notEqual(walker.next,1);
+ hatching.hatchRemaining=0;hatching.queueAbility();hatching.update(.1);assert.ok(hatching.planting>0);
+ assert.notEqual(walker.next,hatching.cell);
+});
+test('equally nearest ability destinations vary with randomness',()=>{
+ const destinations=new Set<number>();
+ for(const random of [()=>0,()=>.3,()=>.6,()=>.99]){
+  const b=Array<Tile|null>(64).fill('lava');for(const c of [19,26,28,35])b[c]=null;
+  const p=new PetMotion(27,'lava',b,()=>{},random);p.queueAbility();p.update(.1);
+  assert.ok([19,26,28,35].includes(p.next!));destinations.add(p.next!);
+ }
+ assert.ok(destinations.size>=3);
+});
+test('ability routing invalidates a cached choice when another pet reserves it',()=>{
+ const b=Array<Tile|null>(64).fill('lava');b[1]=null;b[8]=null;const pets:PetMotion[]=[];
+ const p=new PetMotion(0,'lava',b,()=>{},()=>0,()=>0,()=>pets);pets.push(p);p.queueAbility();assert.equal(p.busy,true);
+ const other=new PetMotion(2,'lava',b,()=>{},()=>0,()=>0,()=>pets);pets.push(other);other.next=1;
+ p.update(.1);assert.equal(p.next,8);
+});
+test('crowded wandering keeps all next destinations unique over many updates',()=>{
+ const b=board(),pets:PetMotion[]=[];let seed=19;
+ const random=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
+ for(let i=0;i<24;i++)pets.push(new PetMotion(i,'water',b,()=>{},random,()=>0,()=>pets));
+ for(let step=0;step<600;step++){
+  for(const p of pets)p.update(1/30);
+  const reserved=pets.map(p=>p.next??p.cell);
+  assert.equal(new Set(reserved).size,pets.length);
+ }
+ assert.ok(pets.every(p=>p.completed>0));
+});
