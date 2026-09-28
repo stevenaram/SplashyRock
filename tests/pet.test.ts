@@ -43,7 +43,7 @@ test('game over waits for pending reactions and reachable pet abilities, then st
  g.inventory=[{tile:'water',shape:SHAPES.find(s=>s.width===3&&s.height===3)!}];
  g.board.fill('lava');g.board[0]=null;g.pet!.queueAbility();
  assert.equal(g.finishIfBlocked(true),false);assert.equal(g.finishIfBlocked(false),false);
- g.pet!.update(.6);assert.equal(g.finishIfBlocked(false),true);
+ g.pet!.update(.7);assert.equal(g.finishIfBlocked(false),true);
  g.board.fill(null);assert.equal(g.finishIfBlocked(false),true);assert.equal(g.place(0,27),false);
  const completed=g.pet!.completed;g.pet!.update(5);assert.ok(g.pet!.completed>completed);
 });

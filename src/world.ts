@@ -70,15 +70,13 @@ export class World {
     this.petBatch.prepare();
     let petsChanged=false;
     if(!this.game?.won)for(const pet of this.pets){
-      const revision=pet.motion.revision,busy=pet.motion.busy,hatch=pet.motion.hatchRemaining,charge=pet.motion.planting,used=pet.motion.abilitiesUsed;pet.update(dt,this.reducedMotion.matches);
+      const revision=pet.motion.revision,busy=pet.motion.busy,hatch=pet.motion.hatchRemaining,charge=pet.motion.leaping,used=pet.motion.abilitiesUsed;pet.update(dt,this.reducedMotion.matches);
       if(used===0&&pet.motion.abilitiesUsed>0&&pet.motion===this.game?.pets[0])this.onFirstPetAbility(pet.motion.element);
       if(hatch>.65&&pet.motion.hatchRemaining<=.65)this.onSound('hatch',pet.motion.cell);
-      if(charge===0&&pet.motion.planting>0)this.onSound('charge',pet.motion.cell);
+      if(!charge&&pet.motion.leaping)this.onSound('charge',pet.motion.cell);
       if(revision!==pet.motion.revision||busy!==pet.motion.busy)petsChanged=true;
     }
-    if(this.game)for(const cell of this.game.petTileEvents.splice(0)){
-      const tile=this.game.board[cell];if(tile==='water'||tile==='lava')this.addPiece(cell,{tile,shape:{id:'pet-drop',name:'Pet tile',width:1,height:1,cells:[[0,0]]}});
-    }
+    this.flushPetTiles();
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {
@@ -92,6 +90,11 @@ export class World {
     this.render();
   };
 
+  private flushPetTiles(){
+    if(this.game)for(const cell of this.game.petTileEvents.splice(0)){
+      const tile=this.game.board[cell];if(tile==='water'||tile==='lava')this.addPiece(cell,{tile,shape:{id:'pet-drop',name:'Pet tile',width:1,height:1,cells:[[0,0]]}});
+    }
+  }
   cellScreen(cell:number,height=.6) {
     const point=new THREE.Vector3(gridWorld(cell%SIZE),height,gridWorld(Math.floor(cell/SIZE))).project(this.camera);
     const view=this.renderer.domElement.getBoundingClientRect(),board=this.host.getBoundingClientRect();

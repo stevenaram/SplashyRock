@@ -95,10 +95,13 @@ export class PetWalker {
     return;
   }
   this.egg.group.visible=false;this.model.root.visible=true;
-  const walking=this.motion.next!==null;
-  const targetSwim=this.motion.onOwnLiquid&&this.motion.planting===0?1:0;
+  const leaping=this.motion.leaping,walking=this.motion.next!==null&&!leaping;
+  const targetSwim=this.motion.onOwnLiquid&&!leaping&&this.motion.planting===0?1:0;
   this.swim+=(targetSwim-this.swim)*Math.min(1,dt*9);
-  this.shadow.visible=this.swim<.15;
+  this.shadow.visible=leaping||this.swim<.15;
+  const height=leaping?Math.sin(this.motion.leapProgress*Math.PI)*1.65:0;
+  this.shadow.scale.set(1+height*.16,.8+height*.12,1);
+  (this.shadow.material as T.MeshBasicMaterial).opacity=.24-height*.045;
   this.wake.visible=this.swim>.02&&this.motion.onOwnLiquid;
   this.wake.rotation.y=this.model.body.rotation.y;
   this.wakeMaterial.uniforms.alpha.value=this.swim*(walking?.48:.23);
@@ -115,14 +118,18 @@ export class PetWalker {
   this.model.body.rotation.z=reduced?0:Math.sin(this.age*5)*this.swim*.045;
   this.model.tail.rotation.y+=reduced?0:Math.sin(this.age*7)*this.swim*.23;
   const planting=this.motion.planting;
-  const charge=planting>0?(planting<.3?planting/.3:Math.max(0,1-(planting-.3)/.26)):0;
-  this.model.glowMaterials.forEach(material=>{const glow=charge>.66?.7:charge>.25?.3:0;material.color.setRGB(1+glow*(this.motion.element==='lava'?1:.2),1+glow*.5,1+glow*(this.motion.element==='water'?1:.1));});
-  if(planting>0&&!reduced){
-    const release=Math.max(0,(planting-.3)/.26);
-    this.model.body.scale.set(1+charge*.07,1-charge*.15,1+charge*.07);
-    this.model.body.position.y=planting<.3?-charge*.04:Math.sin(release*Math.PI)*.22;
-    this.model.head.rotation.x=-charge*.12;this.model.tail.rotation.x=-charge*.3;
-  }else{this.model.body.scale.setScalar(1);this.model.tail.rotation.x=0;}
+  const charge=leaping?Math.sin(this.motion.leapProgress*Math.PI):planting>0?1-planting/.18:0;
+  this.model.glowMaterials.forEach(material=>{const glow=charge>.66?.55:charge>.25?.25:0;material.color.setRGB(1+glow*(this.motion.element==='lava'?1:.2),1+glow*.5,1+glow*(this.motion.element==='water'?1:.1));});
+  this.model.body.scale.setScalar(1);this.model.tail.rotation.x=0;
+  if(leaping&&!reduced){
+    this.model.body.position.y=height;this.model.body.scale.set(1-charge*.08,1+charge*.13,1-charge*.08);
+    this.model.head.rotation.x=-Math.sin(this.motion.leapProgress*Math.PI*2)*.16;this.model.tail.rotation.x=-charge*.4;
+    this.model.legs.forEach(leg=>{leg.rotation.x=-charge*.65;leg.rotation.z=0;});
+  }else if(planting>0&&!reduced){
+    const squash=Math.sin((planting/.18)*Math.PI);
+    this.model.body.scale.set(1+squash*.18,1-squash*.3,1+squash*.18);
+    this.model.body.position.y=-squash*.07;this.model.head.rotation.x=squash*.12;
+  }
   const blink=this.age%5.3;this.model.eyes.forEach(eye=>eye.scale.y=blink>4.95&&blink<5.08?.12:1);
  }
  dispose(){const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();this.group.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m));}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());this.model.textures.forEach(t=>t.dispose());this.egg.texture.dispose();this.group.removeFromParent();}

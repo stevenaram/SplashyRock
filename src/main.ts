@@ -204,7 +204,8 @@ function place() {
   if (!game.place(selected, target)){sound.play('reject');return false;}
   tutorial.placed(piece,target);
   world.addPiece(target, piece);
-  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);if(piece.tile!=='pet'&&!game.over)for(const pet of pets)if(game.pets.includes(pet))pet.queueAbility();settled();});
+  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();});
+  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility();
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;

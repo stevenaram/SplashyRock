@@ -1,6 +1,13 @@
 import type {Element, Tile} from './game';
 
+export const PET_LEAP_MIN=.5;
+export const PET_LEAP_MAX=1.28;
+export const PET_LEAP_SPEED=15; // World units per second, bounded by the stone reaction beats.
+
 export class PetMotion {
+  leaping=false;
+  leapProgress=0;
+  private flight:{x:number;y:number;target:number;age:number;duration:number}|null=null;
   hatchRemaining=0;
   startHatch(){this.hatchRemaining=1.8;this.revision++;}
   abilitiesUsed=0;
@@ -17,10 +24,34 @@ export class PetMotion {
   private escapingStep=false;
   private escapeCache:{key:string;value:number|null}|null=null;
   private recent:number[]=[];
-  private routeCache:{key:string;value:number|null}|null=null;
   constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[]){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
   queueAbility(){this.queued++;this.revision++;}
+  private leapTarget(){
+    let distance=Infinity;const choices:number[]=[];
+    for(let c=0;c<64;c++){
+      if(this.board[c]!==null||!this.allowed(c)||!this.available(c))continue;
+      const d=Math.hypot(c%8-this.x,Math.floor(c/8)-this.y);
+      if(d<distance-1e-9){distance=d;choices.length=0;choices.push(c);}
+      else if(Math.abs(d-distance)<1e-9)choices.push(c);
+    }
+    return choices.length===1?choices[0]:choices.length?this.pick(choices):null;
+  }
+  private startLeap(){
+    const target=this.leapTarget();if(target===null)return false;
+    const distance=Math.hypot(target%8-this.x,Math.floor(target/8)-this.y)*2;
+    const duration=Math.max(PET_LEAP_MIN,Math.min(PET_LEAP_MAX,distance/PET_LEAP_SPEED));
+    this.flight={x:this.x,y:this.y,target,age:0,duration};this.next=target;this.progress=0;this.leaping=true;this.leapProgress=0;this.retreating=false;
+    const dx=target%8-this.x,dy=Math.floor(target/8)-this.y;if(dx||dy)this.heading=Math.atan2(-dx,-dy);
+    this.revision++;return true;
+  }
+  private land(){
+    const flight=this.flight;if(!flight)return;
+    this.cell=flight.target;this.x=this.cell%8;this.y=Math.floor(this.cell/8);this.next=null;this.progress=0;
+    this.flight=null;this.leaping=false;this.leapProgress=0;this.planting=.000001;this.revision++;
+    if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell)!==false){this.queued--;this.abilitiesUsed++;}
+    // A changed landing tile never consumes the action: retry after recovery.
+  }
   // Moving pets reserve their destination, not the tile they are leaving.
   // Resting, hatching, and charging pets hold the tile underneath them.
   private available(cell:number){return !this.peers?.().some(p=>p!==this&&(p.next??p.cell)===cell);}
@@ -64,46 +95,25 @@ export class PetMotion {
     if(key)this.escapeCache={key,value:result};
     return result;
   }
-  private sandRoute(){
-    const key=this.routingKey();
-    if(key&&this.routeCache?.key===key)return this.routeCache.value;
-    const value=this.findSandRoute();if(key)this.routeCache={key,value};return value;
-  }
-  private findSandRoute(){
-    // Dijkstra chooses the nearest reachable sand by actual walking distance.
-    const distance=Array<number>(64).fill(Infinity),first=Array<number>(64).fill(-1),visited=new Set<number>();distance[this.cell]=0;
-    for(let i=0;i<64;i++){
-      let nearest=Infinity;const tied:number[]=[];
-      for(let n=0;n<64;n++)if(!visited.has(n)&&Number.isFinite(distance[n])){
-        if(distance[n]<nearest-1e-9){nearest=distance[n];tied.length=0;tied.push(n);}
-        else if(Math.abs(distance[n]-nearest)<1e-9)tied.push(n);
-      }
-      const c=tied.length===1?tied[0]:tied.length?this.pick(tied):-1;
-      if(c<0||!Number.isFinite(distance[c]))break;
-      if(this.board[c]===null&&this.allowed(c)&&this.available(c))return c===this.cell?this.cell:first[c];
-      visited.add(c);
-      for(const n of this.neighbors(c).filter(n=>this.available(n))){const d=distance[c]+Math.hypot(n%8-c%8,Math.floor(n/8)-Math.floor(c/8));if(d<distance[n]){distance[n]=d;first[n]=c===this.cell?n:first[c];}}
-    }
-    return null;
-  }
   // Cosmetic wandering must never keep a lost run alive indefinitely.
-  get busy(){return this.hatchRemaining>0||this.planting>0||(this.queued>0&&(this.allowed(this.cell)?this.sandRoute():this.escapeRoute())!==null);}
+  get busy(){return this.hatchRemaining>0||this.leaping||this.planting>0||(this.queued>0&&this.leapTarget()!==null);}
   update(dt:number){
     if(this.hatchRemaining>0){const used=Math.min(dt,this.hatchRemaining);this.hatchRemaining-=used;dt-=used;if(this.hatchRemaining===0)this.revision++;}
     while(dt>0){
-      if(this.planting>0&&!this.allowed(this.cell)){this.planting=0;this.revision++;}
-      if(this.planting>0){
-        const before=this.planting,used=Math.min(dt,.56-before);this.planting+=used;dt-=used;
-        if(before<.3&&this.planting>=.3){if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell)!==false){this.queued--;this.abilitiesUsed++;}this.revision++;}
-        if(this.planting>=.56){this.planting=0;this.revision++;}
+      if(this.flight){
+        const f=this.flight,used=Math.min(dt,Math.max(0,f.duration-f.age));f.age+=used;dt-=used;
+        const t=this.leapProgress=Math.min(1,f.age/f.duration);
+        this.x=f.x+(f.target%8-f.x)*t;this.y=f.y+(Math.floor(f.target/8)-f.y)*t;
+        if(t===1)this.land();
         continue;
       }
+      if(this.planting>0){const used=Math.min(dt,.18-this.planting);this.planting+=used;dt-=used;if(this.planting>=.18){this.planting=0;this.revision++;}continue;}
+      if(this.queued>0&&this.startLeap())continue;
       if(this.next===null){
         const unsafe=!this.allowed(this.cell);
-        const target=unsafe?this.escapeRoute():this.queued>0?this.sandRoute():null;
+        const target=unsafe?this.escapeRoute():null;
         if(unsafe&&target===null)break;
         this.escapingStep=unsafe;
-        if(target===this.cell){this.planting=.000001;this.revision++;continue;}
         let choices=this.neighbors(this.cell).filter(n=>this.available(n));
         if(target!==null)choices=[target];
         else{const fresh=choices.filter(n=>!this.recent.includes(n));if(fresh.length)choices=fresh;}

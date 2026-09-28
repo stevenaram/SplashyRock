@@ -19,12 +19,12 @@ test('large score jumps immediately preserve every egg without replacing shapes'
 });
 test('five pets keep independent abilities and can plant five tiles',()=>{
  const g=new Game(()=>.2);for(const cell of [0,7,27,56,63]){g.inventory=[egg,null,null];assert.ok(g.place(0,cell));}
- assert.equal(g.pets.length,5);g.pets.forEach(p=>{p.update(1.8);assert.equal(p.queued,0);p.queueAbility();});g.pets.forEach(p=>p.update(.35));
+ assert.equal(g.pets.length,5);g.pets.forEach(p=>{p.update(1.8);assert.equal(p.queued,0);p.queueAbility();});g.pets.forEach(p=>p.update(.1));g.pets.forEach(p=>p.update(.401));
  assert.equal(g.board.filter(Boolean).length,5);assert.ok(g.pets.every(p=>p.queued===0));
 });
 test('competing pets never overwrite each other and retain an ability until they find another cell',()=>{
  const g=new Game(()=>.2);for(let i=0;i<2;i++){const pet=new PetMotion(27,'water',g.board,c=>g.plantPetTile(c,'water'),()=>.2,()=>g.boardChange);pet.startHatch();g.pets.push(pet);}
- g.pets.forEach(p=>{p.update(1.8);p.queueAbility();});g.pets.forEach(p=>p.update(.35));assert.equal(g.board.filter(Boolean).length,1);assert.equal(g.pets[1].queued,1);
+ g.pets.forEach(p=>{p.update(1.8);p.queueAbility();});g.pets.forEach(p=>p.update(.1));g.pets.forEach(p=>p.update(.401));assert.equal(g.board.filter(Boolean).length,1);assert.equal(g.pets[1].queued,1);
  for(let i=0;i<200;i++)g.pets.forEach(p=>p.update(.05));assert.equal(g.board.filter(Boolean).length,2);assert.ok(g.pets.every(p=>p.queued===0));
 });
 test('victory requires all 64 eggs to hatch, caps further eggs, and restart resets the entire collection',()=>{
