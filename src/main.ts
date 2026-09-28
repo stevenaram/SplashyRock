@@ -1,3 +1,4 @@
+import {seenTips} from './seen-tips';
 import {SoundEngine} from './sound';
 import {Tutorial} from './tutorial';
 import {EGG_GOALS,MAX_PETS} from './egg-goals';
@@ -101,7 +102,8 @@ function settled(){
 }
 const world = new World(board);
 const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
-const game = new Game();
+// The clearing explanation also recognizes players who finished before completion tracking.
+const game = new Game(Math.random,()=>seenTips.has('intro-complete')||seenTips.has('clearing'));
 world.game=game;world.onPetChange=settled;world.onSound=(cue,cell)=>sound.play(cue,1,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();

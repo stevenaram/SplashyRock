@@ -122,3 +122,25 @@ test('opening hands ramp from singles to threes to unrestricted shapes, and rese
   g.restart();assert.deepEqual(sizes(),[1,1,3]);next();assert.deepEqual(sizes().slice(0,2),[3,3]);assert.ok(sizes()[2]>3);
  }
 });
+
+test('returning players use the full shape pool immediately and preserve mixed elements',()=>{
+ for(let i=0;i<SHAPES.length;i++){
+  const value=(i+.5)/SHAPES.length;
+  const g=new Game(()=>value,()=>true);
+  for(let run=0;run<2;run++){
+   assert.ok(g.inventory.every(p=>p!.shape===SHAPES[i]));
+   assert.equal(new Set(g.inventory.map(p=>p!.tile)).size,2);
+   g.board.fill(null);g.inventory=[piece('single'),null,null];g.place(0,0);
+   assert.ok(g.inventory.every(p=>p!.shape===SHAPES[i]));
+   g.restart();
+  }
+ }
+});
+test('finishing the tutorial switches subsequent runs to unrestricted hands',()=>{
+ let completed=false;
+ const g=new Game(()=>0,()=>completed);
+ assert.deepEqual(g.inventory.map(p=>p!.shape.cells.length),[1,1,3]);
+ completed=true;g.restart();
+ assert.ok(g.inventory.every(p=>p!.shape===SHAPES[0]));
+ assert.equal(new Set(g.inventory.map(p=>p!.tile)).size,2);
+});

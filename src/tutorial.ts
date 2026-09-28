@@ -57,7 +57,7 @@ export class Tutorial {
     else if(this.phase===1)this.phase=2;
     this.paused=false;this.refresh();
   }
-  settled(ready:boolean){if(this.phase===2&&ready){this.phase=3;this.showClearingTip();}}
+  settled(ready:boolean){if(this.phase===2&&ready){seenTips.mark('intro-complete');this.phase=3;this.showClearingTip();}}
   private showClearingTip(){
     if(seenTips.has('clearing')){this.showGoal();return;}
     seenTips.mark('clearing');this.tip.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.showGoal(),TOOLTIP_DURATION);

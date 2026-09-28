@@ -36,7 +36,8 @@ export class Game {
   chainPoints = 0;
   readonly stoneDepth: number[] = Array(64).fill(0);
   readonly versions: number[] = Array(64).fill(0);
-  constructor(private readonly random: () => number = Math.random) {
+  constructor(private readonly random: () => number = Math.random, private readonly tutorialCompleted:()=>boolean=()=>false) {
+    this.handsDealt=this.tutorialCompleted()?2:0;
     this.inventory = this.deal();
   }
   private write(cell: number, tile: Tile | null) {
@@ -73,7 +74,7 @@ export class Game {
   restart() {
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
-    this.handsDealt=0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
+    this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   private deal(): Piece[] {
     const occupied=this.board.filter(Boolean).length;
