@@ -27,7 +27,7 @@ test('water and lava bosses coexist and keep separate territory',()=>{
  const lava=g.bosses.find(b=>b.element==='lava')!;g.clearCells([...g.bosses.find(b=>b.element==='water')!.remaining]);assert.equal(lava.deathRemaining,0);
 });
 test('growth happens immediately once per placement without locking the next placement',()=>{
- const g=fixture();g.trySpawnBoss();g.inventory=[single,single,single];assert.equal(g.place(0,63),true);assert.equal(g.board[9],'water');assert.equal(g.boss!.maxTiles,36);
+ const g=fixture();g.trySpawnBoss();g.inventory=[single,single,single];assert.equal(g.place(0,63),true);assert.equal(g.board[9],null);assert.equal(g.boss!.maxTiles,32);
  assert.equal(g.place(1,62),true);assert.equal(g.shapeMoves,2);assert.ok(g.boss!.remaining.size>16);
 });
 test('dying bosses keep exactly four liquid tiles until animation ends then emit stone',()=>{
@@ -61,7 +61,7 @@ test('full boss surges can refill recently cleared cells of either checkerboard 
  g.clearCells([18,19]);assert.equal(g.place(0,63),true);
  assert.equal(g.board[18],'water');assert.equal(g.board[19],'water');
  assert.equal(g.board[63],'lava');assert.equal(g.board[0],null);
- assert.equal(g.place(1,62),true);assert.equal(g.board[7],'water');assert.equal(g.board[62],'lava');
+ assert.equal(g.place(1,62),true);assert.equal(g.board[4],'water');assert.equal(g.board[62],'lava');
 });
 
 test('splitting a pool removes detached tiles from health and cannot rescue a stranded boss',()=>{
@@ -89,15 +89,15 @@ test('death never converts a detached same-element pool to stone',()=>{
  assert.ok(g.bossStoneEvents.every(c=>!detached.includes(c)));
 });
 
-test('each full surge fills every empty cardinal and diagonal neighbor, exactly one layer',()=>{
+test('each full surge fills every empty cardinal neighbor but no diagonal corners, exactly one layer',()=>{
  for(const element of ['water','lava'] as Element[]){
   const g=fixture();for(const c of block(18))g.board[c]=element;g.trySpawnBoss();g.inventory=[single,single,single];
   for(const [turn,anchor] of [63,62].entries()){
    const before=new Set(g.boss!.remaining),expected:number[]=[];g.bossGrowthEvents.length=0;
-   for(let cell=0;cell<64;cell++)if(cell!==anchor&&g.board[cell]===null&&[...before].some(c=>Math.max(Math.abs(c%8-cell%8),Math.abs(Math.floor(c/8)-Math.floor(cell/8)))===1))expected.push(cell);
+   for(let cell=0;cell<64;cell++)if(cell!==anchor&&g.board[cell]===null&&[...before].some(c=>Math.abs(c%8-cell%8)+Math.abs(Math.floor(c/8)-Math.floor(cell/8))===1))expected.push(cell);
    assert.equal(g.place(turn,anchor),true);
    assert.deepEqual(g.bossGrowthEvents.map(e=>e.cell).sort((a,b)=>a-b),expected);
-   if(turn===0){assert.equal(g.board[9],element);assert.equal(g.board[54],element);assert.equal(g.board[0],null);}
+   if(turn===0){assert.equal(g.board[9],null);assert.equal(g.board[54],null);assert.equal(g.board[0],null);}
   }
  }
 });

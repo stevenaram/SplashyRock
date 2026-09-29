@@ -93,9 +93,8 @@ export class Game {
     for(const b of this.bosses)if(b.regionRevision!==this.boardChange)this.reconcileBossRegion(b);
     // Snapshot every frontier first so a surge never grows more than one layer.
     const proposals=this.bosses.filter(b=>!b.deathRemaining).map(b=>{
-      const cells=new Set<number>();for(const c of b.remaining)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
-        const x=c%8+dx,y=Math.floor(c/8)+dy;
-        if(x>=0&&x<8&&y>=0&&y<8&&this.board[y*8+x]===null)cells.add(y*8+x);
+      const cells=new Set<number>();for(const c of b.remaining)for(const n of this.neighbors(c)){
+        if(this.board[n]===null)cells.add(n);
       }return {b,cells};
     });
     for(const {b,cells} of proposals){for(const c of cells)if(this.board[c]===null){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});}
