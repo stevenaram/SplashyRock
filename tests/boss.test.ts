@@ -49,3 +49,11 @@ test('death hold does not double-count cleared tiles and ignores unrelated sweep
  const g=fixture();g.trySpawnBoss();const b=g.boss!;const removed=g.clearCells([...b.remaining]);assert.equal(removed.length,12);assert.equal(g.tilesCleared,12);
  assert.equal(g.clearCells([...b.remaining]).length,0);g.updateBoss(1.2);g.clearCells([...b.remaining]);assert.equal(g.tilesCleared,16);
 });
+
+test('recent clears survive rapid boss growth and the first growth after aftermath settles',()=>{
+ const g=fixture();g.trySpawnBoss();g.clearCells([18]);g.settleExpansionProtection(true);
+ g.inventory=[single,single,single];assert.equal(g.place(0,63),true);assert.equal(g.board[18],null);
+ g.settleExpansionProtection(false);assert.equal(g.place(1,62),true);assert.equal(g.board[18],null);
+ g.clearCells([63]);assert.equal(g.place(2,63),true);assert.equal(g.board[18],'water');
+ g.restart();for(const c of block(18))g.board[c]='water';g.trySpawnBoss();g.inventory=[single];g.place(0,63);assert.equal(g.board[9],'water');
+});

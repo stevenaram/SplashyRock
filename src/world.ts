@@ -83,7 +83,7 @@ export class World {
     if(this.game){
       if(this.game.updateBoss(dt))petsChanged=true;
       for(const [id,view] of this.bossViews)if(!this.game.bosses.some(b=>b.id===id)){view.dispose();this.bossViews.delete(id);}
-      for(const boss of this.game.bosses){let view=this.bossViews.get(boss.id);if(!view){view=new BossView(this.scene,this.host,(cell,height)=>this.cellScreen(cell,height));this.bossViews.set(boss.id,view);}view.update(this.game,dt,this.reducedMotion.matches,boss);}
+      for(const boss of this.game.bosses){let view=this.bossViews.get(boss.id);if(!view){view=new BossView(this.scene,this.host,(x,y,height)=>this.gridScreen(x,y,height));this.bossViews.set(boss.id,view);}view.update(this.game,dt,this.reducedMotion.matches,boss);}
     }
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
@@ -104,7 +104,10 @@ export class World {
     }
   }
   cellScreen(cell:number,height=.6) {
-    const point=new THREE.Vector3(gridWorld(cell%SIZE),height,gridWorld(Math.floor(cell/SIZE))).project(this.camera);
+    return this.gridScreen(cell%SIZE,Math.floor(cell/SIZE),height);
+  }
+  gridScreen(x:number,y:number,height:number){
+    const point=new THREE.Vector3(gridWorld(x),height,gridWorld(y)).project(this.camera);
     const view=this.renderer.domElement.getBoundingClientRect(),board=this.host.getBoundingClientRect();
     return {x:(point.x+1)*view.width/2+view.left-board.left,y:(1-point.y)*view.height/2+view.top-board.top};
   }

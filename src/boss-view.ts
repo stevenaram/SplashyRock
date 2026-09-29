@@ -16,9 +16,9 @@ export class BossView {
  private notice=document.createElement('div');
  private id=0;private age=0;private hitAge=10;private hits=0;private exiting=0;private noticeAge=10;
 
- constructor(private scene:T.Scene,private host:HTMLElement,private project:(cell:number,height:number)=>{x:number;y:number}){
+ constructor(private scene:T.Scene,private host:HTMLElement,private project:(x:number,y:number,height:number)=>{x:number;y:number}){
   this.root.add(this.body,this.halo,this.death);scene.add(this.root);
-  this.bar.className='boss-health';this.bar.hidden=true;this.bar.innerHTML='<strong></strong><div class="territory-track" role="progressbar" aria-label="Boss territory" aria-valuemin="0" aria-valuemax="64"><em></em><i></i><span class="health-ticks"></span></div>';host.append(this.bar);
+  this.bar.className='boss-health';this.bar.hidden=true;this.bar.innerHTML='<div class="territory-track" role="progressbar" aria-label="Boss territory" aria-valuemin="0" aria-valuemax="64"><em></em><i></i><span class="health-ticks"></span></div>';host.append(this.bar);
   this.notice.className='boss-notice';this.notice.hidden=true;this.notice.setAttribute('role','status');host.append(this.notice);
  }
  private clear(){const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();this.body.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.death.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.halo.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());this.body.clear();this.halo.clear();this.death.clear();}
@@ -72,7 +72,7 @@ export class BossView {
   this.body.rotation.z=reduced?0:Math.sin(this.hitAge*30)*hit*.22;
   this.body.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshBasicMaterial).color.copy(o.userData.baseColor).lerp(this.hitColor,hit*.65);});
   this.bar.hidden=false;this.bar.dataset.element=b.element;
-  this.bar.querySelector('strong')!.textContent=b.element==='water'?'Water Boss':'Lava Boss';
+  this.bar.setAttribute('aria-label',b.element==='water'?'Water boss health':'Lava boss health');
   const target=b.remaining.size/b.maxTiles;
   if(target<this.lastHealth)this.trailDelay=.28;
   const healing=target>this.lastHealth;this.lastHealth=target;
@@ -84,7 +84,7 @@ export class BossView {
   const ticks=this.bar.querySelector('.health-ticks') as HTMLElement;ticks.style.setProperty('--tick',`${400/b.maxTiles}%`);
   this.bar.classList.toggle('health-hit',this.hitAge<.25&&!reduced);
 
-  const a=this.project(b.cell,3.5),z=this.project(b.cell+9,3.5);this.bar.style.left=`${Math.max(70,Math.min(this.host.clientWidth-70,(a.x+z.x)/2))}px`;this.bar.style.top=`${Math.max(6,(a.y+z.y)/2-30)}px`;
+  const position=this.project(b.x,b.y,3.5+this.body.position.y);this.bar.style.left=`${Math.max(70,Math.min(this.host.clientWidth-70,position.x))}px`;this.bar.style.top=`${Math.max(6,position.y-12)}px`;
   this.halo.visible=true;for(const m of this.halo.children)m.visible=b.remaining.has(m.userData.cell);
 
  }
