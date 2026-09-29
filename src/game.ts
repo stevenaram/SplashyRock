@@ -61,6 +61,15 @@ export class Game {
     this.bossNotice='Boss defeated! No 2×2 pool remains.';
   }
   readonly bossGrowthEvents:number[]=[];
+  private bossGrowthQueue:number[]=[];
+  get hasPendingBossGrowth(){return !!this.boss&&this.bossGrowthQueue.includes(this.boss.id);}
+  resolveBossGrowth(pending:boolean){
+    this.bossGrowthQueue=this.bossGrowthQueue.filter(id=>id===this.boss?.id);
+    if(pending||this.over||this.reviving||!this.bossGrowthQueue.length)return false;
+    this.bossGrowthQueue.shift();this.growBoss();return true;
+  }
+  dealInventory(){this.inventory=this.deal();}
+
   private growBoss(){
     const b=this.boss;if(!b)return;
     const additions=new Set<number>();
@@ -132,7 +141,7 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.boss=null;this.bossesDefeated=0;this.shapeMoves=0;this.nextBossMove=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossHitEvents.length=0;this.bossNotice="";
+    this.bossGrowthQueue=[];this.boss=null;this.bossesDefeated=0;this.shapeMoves=0;this.nextBossMove=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossHitEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
@@ -150,11 +159,11 @@ export class Game {
   }
   finishRevive(){if(!this.reviving)return;this.reviving=false;this.over=false;}
   private deal(): Piece[] {
-    const occupied=this.board.filter(Boolean).length;
+
     const water=this.board.filter(t=>t==='water').length;
     const lava=this.board.filter(t=>t==='lava').length;
     const fallback:Element=this.random()<.5?'water':'lava';
-    const majority: Element = water>occupied/2?'lava':lava>occupied/2?'water':fallback;
+    const majority: Element = water>lava?'lava':lava>water?'water':fallback;
     const hand=this.handsDealt++;
     const minoritySlot = Math.floor(this.random() * (hand===0?2:3));
     return Array.from({ length: 3 }, (_, slot) => ({
@@ -224,7 +233,7 @@ export class Game {
       this.shapeMoves++;
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;
-      this.growBoss();
+      if(this.boss)this.bossGrowthQueue.push(this.boss.id);
     }
     this.inventory[slot] = null;
     this.claimEggRewards();

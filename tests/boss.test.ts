@@ -23,6 +23,7 @@ test('pool loss staggers boss; destroying every 2x2 defeats it even with remaini
 test('each shape expands exactly one layer, never overwrites tiles, and eggs do not expand it',()=>{
  const g=fixture();g.trySpawnBoss();g.board[9]='lava';const before=new Set(g.boss!.pool);
  g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};g.place(0,63);
+ assert.equal(g.boss!.remaining.size,before.size);assert.equal(g.resolveBossGrowth(true),false);assert.equal(g.resolveBossGrowth(false),true);
  assert.equal(g.board[9],'lava');assert.equal(g.board[10],'water');assert.equal(g.board[2],null);
  assert.ok(g.boss!.remaining.size>before.size);
  const size=g.boss!.remaining.size;g.inventory[0]={tile:'pet',shape:{id:'egg',name:'egg',width:1,height:1,cells:[[0,0]]}};g.place(0,60);assert.equal(g.boss!.remaining.size,size);
@@ -38,4 +39,14 @@ test('boss wanders only between valid square centers and relocates after losing 
 });
 test('empty or thin pools defer spawn and game over never spawns a boss',()=>{
  const g=fixture();g.board.fill(null);g.board[0]=g.board[1]='water';assert.equal(g.trySpawnBoss(),false);g.board[8]=g.board[9]='water';g.over=true;assert.equal(g.trySpawnBoss(),false);
+});
+
+test('sandbox-style dealing follows current elemental balance even with stone present',()=>{
+ const g=fixture();g.board[0]='stone';g.dealInventory();assert.equal(g.inventory.filter(p=>p?.tile==='lava').length,2);assert.equal(g.inventory.filter(p=>p?.tile==='water').length,1);
+ g.board.fill(null);g.board[0]='lava';g.board[1]='stone';g.board[2]='stone';g.dealInventory();assert.equal(g.inventory.filter(p=>p?.tile==='water').length,2);
+});
+test('queued growth resolves once per shape and is discarded if that boss is defeated',()=>{
+ const g=fixture();g.trySpawnBoss();for(const cell of [60,61]){g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};g.place(0,cell);}
+ assert.equal(g.resolveBossGrowth(false),true);assert.equal(g.hasPendingBossGrowth,true);assert.equal(g.resolveBossGrowth(false),true);assert.equal(g.resolveBossGrowth(false),false);
+ g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};g.place(0,62);g.clearCells([...g.boss!.remaining]);assert.equal(g.resolveBossGrowth(false),false);
 });

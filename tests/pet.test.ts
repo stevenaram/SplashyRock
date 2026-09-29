@@ -29,8 +29,8 @@ test('second placed egg hatches opposite the first, independent of inventory ord
   g.restart();assert.equal(g.pets.length,0);assert.equal(g.rewardsDealt,0);
  }
 });
-test('fresh trays counter the occupied-board majority, with both elements always present',()=>{
- for(const [water,lava,stone,expected] of [[5,2,0,'lava'],[2,5,0,'water'],[2,2,0,'water'],[2,0,5,'water']] as const){
+test('fresh trays counter the water/lava majority, with both elements always present',()=>{
+ for(const [water,lava,stone,expected] of [[5,2,0,'lava'],[2,5,0,'water'],[2,2,0,'water'],[2,0,5,'lava']] as const){
   const g=new Game(()=>.2);g.board.fill(null);let c=1;
   for(let i=0;i<water;i++)g.board[c++]='water';for(let i=0;i<lava;i++)g.board[c++]='lava';for(let i=0;i<stone;i++)g.board[c++]='stone';
   // An egg consumes the final slot without changing the board composition.
