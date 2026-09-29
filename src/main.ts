@@ -99,6 +99,8 @@ function showEnd(won=false){
   endDialog.hidden=false;host!.classList.add('ended');host!.classList.toggle('won',won);
 }
 function settled(){
+  if(game.bossGrowthEvents.length){const cells=game.bossGrowthEvents.splice(0);if(game.boss)world.addPiece(0,{tile:game.boss.element,shape:{id:'boss-growth',name:'Pool surge',width:1,height:1,cells:cells.map(c=>[c%8,Math.floor(c/8)])}});}
+
   if(game.bossStoneEvents.length){for(const cell of game.bossStoneEvents.splice(0))world.addStone(cell);sweeps.schedule();}
   if(!reactions.busy&&!sweeps.busy)game.trySpawnBoss();
   if(game.reviving){

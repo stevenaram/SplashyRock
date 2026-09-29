@@ -1,4 +1,4 @@
-import {largestPool,type Boss} from './boss';
+import {largestPool,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
 import { SHAPES, type Shape, type Offset } from './shapes';
@@ -42,29 +42,49 @@ export class Game {
   trySpawnBoss(){
     const hatched=this.pets.filter(p=>p.hatchRemaining===0);
     if(this.over||this.reviving||this.boss||hatched.length<3||this.shapeMoves<this.nextBossMove)return false;
-    const pool=largestPool(this.board,this.random);if(!pool.length)return false;
     const lava=hatched.filter(p=>p.element==='lava').length;
     const element:Element=lava>hatched.length/2?'water':lava<hatched.length/2?'lava':this.random()<.5?'water':'lava';
-    const cx=pool.reduce((n,c)=>n+c%8,0)/pool.length,cy=pool.reduce((n,c)=>n+Math.floor(c/8),0)/pool.length;
-    const cell=[...pool].sort((a,b)=>Math.hypot(a%8-cx,Math.floor(a/8)-cy)-Math.hypot(b%8-cx,Math.floor(b/8)-cy))[0];
-    pool.sort((a,b)=>Math.hypot(a%8-cell%8,Math.floor(a/8)-Math.floor(cell/8))-Math.hypot(b%8-cell%8,Math.floor(b/8)-Math.floor(cell/8)));
-    const attackers=hatched.filter(p=>p.element!==element).length,maxHp=Math.max(8,attackers*4+Math.ceil(pool.length/2));
-    this.boss={id:++this.bossId,element,cell,pool,remaining:new Set(pool),hp:maxHp,maxHp,hits:0};
-    this.bossNotice=`${element==='lava'?'Lava':'Water'} boss! Opposite pets attack. Clear its pool to weaken it.`;return true;
+    const pool=largestPool(this.board.map(t=>t===element?t:null),this.random),remaining=new Set(pool),squares=poolSquares(remaining);
+    if(!squares.length)return false;
+    const cell=squares[Math.floor(this.random()*squares.length)];
+    this.boss={id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0};
+    this.bossNotice=`${element==='lava'?'Lava':'Water'} boss! Break up its pool until no 2×2 patch remains.`;return true;
   }
-  private damageBoss(amount:number,id=this.boss?.id){
-    const boss=this.boss;if(!boss||boss.id!==id||(this.over&&!this.reviving))return;
-    boss.hp=Math.max(0,boss.hp-amount);boss.hits++;
-    if(boss.hp>0&&boss.remaining.size)return;
+  private damageBoss(){
+    const boss=this.boss;if(!boss||(this.over&&!this.reviving))return;
+    boss.hits++;
+    if(poolSquares(boss.remaining).length)return;
     this.boss=null;this.bossesDefeated++;this.nextBossMove=this.shapeMoves+12;
-    const reward=boss.pool.filter(c=>this.board[c]!==null);if(!reward.length)reward.push(boss.cell);
+    const reward=[...boss.remaining].filter(c=>this.board[c]===boss.element);
     for(const c of reward){this.write(c,'stone');this.stoneDepth[c]=1;this.bossStoneEvents.push(c);}
     if(!this.reviving)this.score+=250;
-    this.bossNotice='Boss defeated! Its pool turns to clearing stones.';
+    this.bossNotice='Boss defeated! No 2×2 pool remains.';
   }
-  private attackFor(element:Element){
-    const boss=this.boss;if(!boss||boss.element===element||this.over)return null;
-    return {cells:boss.pool,hit:()=>{if(this.boss?.id!==boss.id)return;this.bossHitEvents.push({cell:boss.cell,element});this.damageBoss(2,boss.id);}};
+  readonly bossGrowthEvents:number[]=[];
+  private growBoss(){
+    const b=this.boss;if(!b)return;
+    const additions=new Set<number>();
+    for(const c of b.remaining)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      const x=c%8+dx,y=Math.floor(c/8)+dy;if(x<0||x>7||y<0||y>7)continue;
+      const n=y*8+x;if(this.board[n]===null)additions.add(n);
+    }
+    for(const c of additions){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push(c);}
+    // Connected same-element pieces become part of the territory too.
+    const queue=[...b.remaining];for(let i=0;i<queue.length;i++)for(const n of this.neighbors(queue[i]))if(this.board[n]===b.element&&!b.remaining.has(n)){b.remaining.add(n);queue.push(n);}
+    b.pool=[...b.remaining];
+  }
+  updateBoss(dt:number){
+    const b=this.boss;if(!b)return;
+    const squares=poolSquares(b.remaining);if(!squares.length)return;
+    if(!squares.includes(b.cell)){b.cell=squares.reduce((a,c)=>Math.hypot(c%8+.5-b.x,Math.floor(c/8)+.5-b.y)<Math.hypot(a%8+.5-b.x,Math.floor(a/8)+.5-b.y)?c:a);b.x=b.cell%8+.5;b.y=Math.floor(b.cell/8)+.5;}
+    const tx=b.cell%8+.5,ty=Math.floor(b.cell/8)+.5,d=Math.hypot(tx-b.x,ty-b.y);
+    if(d>.001){const step=Math.min(d,dt*.8);b.x+=(tx-b.x)/d*step;b.y+=(ty-b.y)/d*step;return;}
+    b.moveAge+=dt;if(b.moveAge<1.6)return;b.moveAge=0;
+    const choices=squares.filter(c=>this.neighbors(b.cell).includes(c));if(choices.length)b.cell=choices[Math.floor(this.random()*choices.length)];
+  }
+  private helpfulPetTargets(element:Element):number[]{
+    const b=this.boss;if(!b||b.element===element)return [];
+    return this.board.flatMap((tile,c)=>tile===null&&this.neighbors(c).some(gap=>this.board[gap]===null&&this.neighbors(gap).some(n=>b.remaining.has(n)))?[c]:[]);
   }
   moves=0;
   maxCombo=0;
@@ -91,7 +111,7 @@ export class Game {
     for(const cell of new Set(cells)){if(this.board[cell]!==null){this.write(cell,null);removed.push(cell);}}
     if(!this.reviving){this.tilesCleared+=removed.length;this.score+=removed.length*10;
     if(this.combo>0)this.chainPoints+=removed.length*10;}
-    if(this.boss){let damage=0;for(const c of removed)if(this.boss.remaining.delete(c))damage++;if(damage)this.damageBoss(damage);}
+    if(this.boss){let damage=0;for(const c of removed)if(this.boss.remaining.delete(c))damage++;if(damage)this.damageBoss();}
     this.claimEggRewards();
     return removed;
   }
@@ -112,7 +132,7 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.boss=null;this.bossesDefeated=0;this.shapeMoves=0;this.nextBossMove=0;this.bossStoneEvents.length=0;this.bossHitEvents.length=0;this.bossNotice="";
+    this.boss=null;this.bossesDefeated=0;this.shapeMoves=0;this.nextBossMove=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossHitEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
@@ -197,13 +217,14 @@ export class Game {
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');
-      const pet=new PetMotion(anchor,element,this.board,cell=>this.plantPetTile(cell,element),this.random,()=>this.boardChange,()=>this.pets,()=>this.attackFor(element));
+      const pet=new PetMotion(anchor,element,this.board,cell=>this.plantPetTile(cell,element),this.random,()=>this.boardChange,()=>this.pets,undefined,()=>this.helpfulPetTargets(element));
       pet.startHatch();this.pets.push(pet);
     }
     else {
       this.shapeMoves++;
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;
+      this.growBoss();
     }
     this.inventory[slot] = null;
     this.claimEggRewards();

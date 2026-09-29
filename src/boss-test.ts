@@ -13,7 +13,7 @@ export function seedBossTest(game:Game,world:World,element:Element){
 }
 export function bossTestControls(reset:(element:Element)=>void,attack:()=>void){
  const panel=document.createElement('details');panel.id='boss-test';panel.open=true;
- panel.innerHTML='<summary>Boss test</summary><p>Place shapes to fight, or preview an attack below.</p><div><button data-element="water">Water boss</button><button data-element="lava">Lava boss</button></div><button id="boss-test-attack">Test pet attacks</button><small>Test progress is not saved.</small>';
+ panel.innerHTML='<summary>Boss test</summary><p>Place shapes to fight, or preview pet support below.</p><div><button data-element="water">Water boss</button><button data-element="lava">Lava boss</button></div><button id="boss-test-attack">Test pet support</button><small>Test progress is not saved.</small>';
  panel.querySelectorAll<HTMLButtonElement>('[data-element]').forEach(b=>b.addEventListener('click',()=>reset(b.dataset.element as Element)));
  panel.querySelector('#boss-test-attack')!.addEventListener('click',attack);document.body.append(panel);
  return ()=>panel.remove();

@@ -81,7 +81,7 @@ export class World {
     }
     this.flushPetTiles();
     if(this.game)for(const hit of this.game.bossHitEvents.splice(0)){if(!this.reducedMotion.matches)this.effects.burst(hit.cell,hit.element,true);this.onSound('steam',hit.cell);}
-    if(this.game)this.bossView.update(this.game,dt,this.reducedMotion.matches);
+    if(this.game){this.game.updateBoss(dt);this.bossView.update(this.game,dt,this.reducedMotion.matches);}
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {

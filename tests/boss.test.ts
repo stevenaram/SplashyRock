@@ -1,45 +1,41 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,type Element} from '../src/game';
-import {largestPool} from '../src/boss';
-import {PetMotion,PET_LEAP_MIN} from '../src/pet-motion';
+import {poolSquares} from '../src/boss';
 function fixture(){
  const g=new Game(()=>.1,()=>true);
  for(const [i,element] of (['lava','water','lava'] as Element[]).entries()){
   g.inventory[0]={tile:'pet',petElement:element,shape:{id:'egg',name:'Egg',width:1,height:1,cells:[[0,0]]}};
   g.place(0,48+i);g.pet!.hatchRemaining=0;
  }
- for(const c of [18,19,20,26,27,28])g.board[c]='water';
- return g;
+ for(const c of [18,19,20,26,27,28])g.board[c]='water';return g;
 }
-test('boss waits for three actual hatches, chooses opposite majority, and anchors largest cardinal pool',()=>{
+test('boss waits for actual hatches and a same-element 2x2 pool',()=>{
  const g=fixture();g.pet!.hatchRemaining=1;assert.equal(g.trySpawnBoss(),false);g.pet!.hatchRemaining=0;
- assert.equal(g.trySpawnBoss(),true);assert.equal(g.boss!.element,'water');assert.deepEqual(new Set(g.boss!.pool),new Set([18,19,20,26,27,28]));assert.equal(g.trySpawnBoss(),false);
- const b=Array(64).fill(null);b[7]=b[8]='water';assert.equal(largestPool(b,()=>0).length,1);
+ assert.equal(g.trySpawnBoss(),true);assert.equal(g.boss!.element,'water');assert.equal(g.boss!.x,g.boss!.cell%8+.5);
+ assert.deepEqual(poolSquares(new Set([7,8,15,16])),[]);
 });
-test('attacking leap takes twice the normal duration and consumes one action without laying a tile',()=>{
- const board=Array(64).fill(null);let hits=0,tiles=0;
- const p=new PetMotion(27,'lava',board,()=>{tiles++;},()=>0,undefined,undefined,()=>({cells:[28],hit:()=>{hits++;}}));
- p.queueAbility();p.update(PET_LEAP_MIN);assert.equal(hits,0);assert.equal(p.attacking,true);assert.equal(p.leapProgress,.5);
- p.update(PET_LEAP_MIN);assert.equal(hits,1);assert.equal(tiles,0);assert.equal(p.queued,0);assert.equal(p.attacking,false);
+test('pool loss staggers boss; destroying every 2x2 defeats it even with remaining tiles',()=>{
+ const g=fixture();g.trySpawnBoss();g.clearCells([18]);assert.ok(g.boss);assert.equal(g.boss.hits,1);
+ g.clearCells([20]);assert.equal(g.boss,null);assert.equal(g.bossesDefeated,1);assert.equal(g.bossStoneEvents.length,4);
+ assert.ok(g.bossStoneEvents.every(c=>g.board[c]==='stone'));assert.equal(g.trySpawnBoss(),false);
 });
-test('opposite pets attack while matching pets still place tiles',()=>{
- const g=fixture();g.trySpawnBoss();const hp=g.boss!.hp;
- const lava=g.pets[0],water=g.pets[1];lava.queueAbility();water.queueAbility();lava.update(.01);water.update(.01);
- assert.equal(lava.attacking,true);assert.equal(water.attacking,false);lava.update(3);water.update(2);
- assert.equal(g.boss!.hp,hp-2);assert.equal(g.petTileEvents.length,1);
+test('each shape expands exactly one layer, never overwrites tiles, and eggs do not expand it',()=>{
+ const g=fixture();g.trySpawnBoss();g.board[9]='lava';const before=new Set(g.boss!.pool);
+ g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};g.place(0,63);
+ assert.equal(g.board[9],'lava');assert.equal(g.board[10],'water');assert.equal(g.board[2],null);
+ assert.ok(g.boss!.remaining.size>before.size);
+ const size=g.boss!.remaining.size;g.inventory[0]={tile:'pet',shape:{id:'egg',name:'egg',width:1,height:1,cells:[[0,0]]}};g.place(0,60);assert.equal(g.boss!.remaining.size,size);
 });
-test('pool clearing damages boss once per original cell; defeat rewards stones and has a 12-shape cooldown',()=>{
- const g=fixture();g.trySpawnBoss();const hp=g.boss!.hp;
- g.clearCells([18]);assert.equal(g.boss!.hp,hp-1);g.clearCells([18]);assert.equal(g.boss!.hp,hp-1);
- g.clearCells([19,20,26,27,28]);assert.equal(g.boss,null);assert.equal(g.bossesDefeated,1);assert.equal(g.bossStoneEvents.length,1);assert.equal(g.board[g.bossStoneEvents[0]],'stone');
- g.board[10]='lava';assert.equal(g.trySpawnBoss(),false);g.shapeMoves+=11;assert.equal(g.trySpawnBoss(),false);g.shapeMoves++;assert.equal(g.trySpawnBoss(),true);
- g.restart();assert.equal(g.boss,null);assert.equal(g.bossesDefeated,0);assert.equal(g.bossStoneEvents.length,0);
+test('helpful pets plant reaction-enabling tiles instead of damaging boss directly',()=>{
+ const g=fixture();g.trySpawnBoss();const pet=g.pets[0];pet.queueAbility();pet.update(.01);assert.equal(pet.attacking,false);pet.update(3);
+ assert.equal(g.petTileEvents.length,1);assert.ok(g.stoneCandidates().length>0);assert.equal(g.boss!.hits,0);
 });
-test('empty boards defer spawning; bosses never spawn after game over',()=>{
- const g=fixture();g.board.fill(null);assert.equal(g.trySpawnBoss(),false);g.board[27]='lava';g.over=true;assert.equal(g.trySpawnBoss(),false);
+test('boss wanders only between valid square centers and relocates after losing footing',()=>{
+ const g=fixture();g.trySpawnBoss();const initial=g.boss!.cell;g.updateBoss(2);g.updateBoss(2);assert.notEqual(g.boss!.cell,initial);
+ assert.ok(poolSquares(g.boss!.remaining).includes(g.boss!.cell));g.clearCells([18]);g.updateBoss(.1);assert.equal(g.boss!.cell,19);
+ g.restart();assert.equal(g.boss,null);assert.equal(g.bossGrowthEvents.length,0);
 });
-test('a boss defeated mid-flight cannot receive stale damage or turn an attack into a pet tile',()=>{
- const g=fixture();g.trySpawnBoss();const pet=g.pets[0];pet.queueAbility();pet.update(.01);g.clearCells([...g.boss!.pool]);pet.update(3);
- assert.equal(g.bossesDefeated,1);assert.equal(pet.queued,0);assert.equal(g.petTileEvents.length,0);
+test('empty or thin pools defer spawn and game over never spawns a boss',()=>{
+ const g=fixture();g.board.fill(null);g.board[0]=g.board[1]='water';assert.equal(g.trySpawnBoss(),false);g.board[8]=g.board[9]='water';g.over=true;assert.equal(g.trySpawnBoss(),false);
 });

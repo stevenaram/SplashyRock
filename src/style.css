@@ -370,12 +370,6 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 @media(max-height:500px){#game-over .end-scores strong{font-size:clamp(12px,calc((min(88cqw,390px) - 74px) / 2 / var(--end-digits,6) / .62),20px)}}
 
 
-.boss-health {position:absolute;z-index:4;width:134px;transform:translateX(-50%);pointer-events:none;text-align:center;font:800 11px/1.2 system-ui;color:#fff0c5;text-shadow:0 2px 2px #183749}
-.boss-health[hidden],.boss-notice[hidden]{display:none}
-.boss-health>div{height:10px;border:2px solid #fff0c5aa;border-radius:6px;background:#173649dd;margin:4px 0;overflow:hidden;box-shadow:0 2px 5px #06263544}
-.boss-health i{display:block;height:100%;background:#ffac58;border-radius:3px;transition:width .18s ease}
-.boss-health[data-element=water] i{background:#72d4de}
-.boss-health small{font-size:10px}
 .boss-notice{position:absolute;z-index:8;left:50%;bottom:8px;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);padding:10px 15px;border:1px solid #b6e5df66;border-radius:12px;background:#163f50ed;color:#fff0c5;font:600 12px/1.4 system-ui;text-align:center;pointer-events:none;box-shadow:0 3px 12px #06263533}
 
 #boss-test{position:fixed;right:10px;top:110px;z-index:50;width:190px;padding:10px 12px;background:#163f50ed;color:#fff0c5;border:1px solid #a3ded780;border-radius:12px;font:12px/1.4 system-ui;box-shadow:0 3px 12px #06263544}
@@ -386,3 +380,5 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 #boss-test-attack{width:100%;margin:7px 0}
 #boss-test small{color:#b6d8d4;font-size:10px}
 @media(min-width:601px){#boss-test{top:76px}}
+
+.boss-notice[hidden]{display:none}
