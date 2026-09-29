@@ -434,3 +434,15 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 #hud-best strong{white-space:nowrap;font-variant-numeric:tabular-nums}
 #gem-wallet{align-self:end;height:32px}
 @media(max-height:500px){#hud-best{gap:3px}#hud-best svg{width:13px;height:12px}#gem-wallet{height:27px}#gem-wallet .gem-icon{height:22px}}
+
+/* Best score and currency share a utility row, leaving the main score centered. */
+#game{--hud-space:130px}
+#run-hud{grid-template-columns:minmax(0,650px) 36px;grid-template-rows:28px 48px 28px;column-gap:10px;row-gap:3px;padding-block:7px 10px}
+#hud-wallets{grid-column:1;grid-row:1;display:flex;align-items:center;gap:12px;min-width:0}
+#hud-best{flex:none;width:92px;align-self:center;justify-content:flex-start}
+#gem-wallet{align-self:center;height:28px;width:84px}
+#hud{grid-column:1/-1;grid-row:2;justify-self:center;width:min(460px,100%);gap:0}
+#hud>span:first-child{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+#progress-menu{grid-column:2;grid-row:1;width:28px;height:28px}
+#egg-goal{grid-column:1/-1;grid-row:3;height:28px}
+@media(max-height:500px){#game{--hud-space:105px}#run-hud{grid-template-rows:24px 34px 25px;row-gap:3px;padding-block:6px 10px}#gem-wallet{height:24px}#progress-menu{height:24px}#egg-goal{height:25px}}

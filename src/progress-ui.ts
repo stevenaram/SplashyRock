@@ -13,7 +13,7 @@ export class ProgressUI {
  constructor(private readonly progress:Progression,private readonly onOpen:()=>void){
   this.wallet.id='gem-wallet';this.wallet.type='button';this.wallet.innerHTML=`${gemIcon}<strong>0</strong>`;
   this.menu.id='progress-menu';this.menu.type='button';this.menu.setAttribute('aria-label','Open achievements');this.menu.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
-  const hud=document.querySelector('#run-hud')!;hud.prepend(this.wallet);hud.append(this.menu);
+  const hud=document.querySelector('#run-hud')!;hud.querySelector('#hud-wallets')!.append(this.wallet);hud.append(this.menu);
   this.dialog.id='achievements';this.dialog.setAttribute('aria-labelledby','achievements-title');
   this.dialog.innerHTML=`<header><div><span class="eyebrow">YOUR ISLAND JOURNEY</span><h2 id="achievements-title">Achievements</h2></div><button class="panel-close" aria-label="Close achievements">×</button></header><div class="achievement-wallet">${gemIcon}<strong></strong><span>Gems</span><small>Earn gems. Keep growing.</small></div><div class="achievement-tabs"><button data-history="false" aria-pressed="true">Next goals</button><button data-history="true" aria-pressed="false">Completed</button></div><div class="achievement-list"></div><footer>Rewards are collected automatically. Progress carries across runs.</footer>`;
   this.toast.id='gem-reward';this.toast.type='button';this.toast.hidden=true;this.toast.setAttribute('aria-live','polite');
