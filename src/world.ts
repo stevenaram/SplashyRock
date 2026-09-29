@@ -1,3 +1,4 @@
+import {BossView} from './boss-view';
 import type {SoundCue} from './sound';
 import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
@@ -11,6 +12,7 @@ import {PetBatch} from './pet-batch';
 import { PixelRenderer } from './pixel-renderer';
 
 export class World {
+  private bossView:BossView;
   readonly scene = new THREE.Scene();
   // Same lens and fixed viewing angle as Diggy Splash.
   readonly camera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
@@ -38,6 +40,7 @@ export class World {
   private readonly observer: ResizeObserver;
 
   constructor(private readonly host: HTMLElement) {
+    this.bossView=new BossView(this.scene,host,(cell,height)=>this.cellScreen(cell,height));
     this.scene.background = new THREE.Color('#168eac');
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.autoUpdate = false;
@@ -77,6 +80,8 @@ export class World {
       if(revision!==pet.motion.revision||busy!==pet.motion.busy)petsChanged=true;
     }
     this.flushPetTiles();
+    if(this.game)for(const hit of this.game.bossHitEvents.splice(0)){if(!this.reducedMotion.matches)this.effects.burst(hit.cell,hit.element,true);this.onSound('steam',hit.cell);}
+    if(this.game)this.bossView.update(this.game,dt,this.reducedMotion.matches);
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {
@@ -255,7 +260,7 @@ export class World {
     this.render();
   }
 
-  dispose() {
+  dispose() {this.bossView.dispose();
     this.removePet();
     cancelAnimationFrame(this.frame);
     this.pixels.dispose();

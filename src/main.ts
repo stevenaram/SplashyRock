@@ -96,6 +96,8 @@ function showEnd(won=false){
   endDialog.hidden=false;host!.classList.add('ended');host!.classList.toggle('won',won);
 }
 function settled(){
+  if(game.bossStoneEvents.length){for(const cell of game.bossStoneEvents.splice(0))world.addStone(cell);sweeps.schedule();}
+  if(!reactions.busy&&!sweeps.busy)game.trySpawnBoss();
   if(game.reviving){
     progression.observe(game,{calm:false,allowCleanBoard:false,suppressed:true});
     if(sweeps.busy)return;
