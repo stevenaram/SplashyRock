@@ -1,5 +1,5 @@
 import type {Element,Tile} from './game';
-export interface Boss {id:number;element:Element;cell:number;pool:number[];remaining:Set<number>;hits:number;x:number;y:number;moveAge:number;deathRemaining:number;maxTiles:number}
+export interface Boss {id:number;element:Element;cell:number;pool:number[];remaining:Set<number>;hits:number;x:number;y:number;moveAge:number;deathRemaining:number;maxTiles:number;regionRevision:number}
 export function largestPool(board:readonly(Tile|null)[],random:()=>number):number[]{
  const seen=new Set<number>();let choices:number[][]=[],size=0;
  for(let cell=0;cell<64;cell++){
@@ -22,6 +22,6 @@ export function elementalPools(board:readonly(Tile|null)[]):{element:Element;cel
   result.push({element,cells});
  }return result;
 }
-export function poolBlocks(pool:ReadonlySet<number>,size=4):number[]{
+export function poolBlocks(pool:ReadonlySet<number>,size=3):number[]{
  return [...pool].filter(c=>c%8<=8-size&&Math.floor(c/8)<=8-size&&Array.from({length:size*size},(_,i)=>c+i%size+Math.floor(i/size)*8).every(n=>pool.has(n)));
 }

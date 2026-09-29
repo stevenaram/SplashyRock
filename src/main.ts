@@ -144,7 +144,7 @@ const world = new World(board);
 const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
 // The clearing explanation also recognizes players who finished before completion tracking.
 const game = new Game(Math.random,()=>seenTips.has('intro-complete')||seenTips.has('clearing'));
-world.game=game;world.onPetChange=settled;world.onSound=(cue,cell)=>sound.play(cue,1,cell===undefined?0:(cell%8/7-.5)*.6);
+world.game=game;world.onPetChange=settled;world.onSound=(cue,cell,level=1)=>sound.play(cue,level,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
 // Suppress native selection/callouts without cancelling button taps or keyboard clicks.

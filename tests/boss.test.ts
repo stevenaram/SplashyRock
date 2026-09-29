@@ -5,9 +5,9 @@ import {poolBlocks} from '../src/boss';
 const block=(anchor:number)=>Array.from({length:16},(_,i)=>anchor+i%4+Math.floor(i/4)*8);
 const single:Piece={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};
 function fixture(){const g=new Game(()=>.1,()=>true);for(const c of block(18))g.board[c]='water';return g;}
-test('bosses require a settled solid 4x4 pool, without a pet requirement',()=>{
- const g=fixture();assert.equal(g.trySpawnBoss(true),false);g.board[18]=null;assert.equal(g.trySpawnBoss(),false);g.board[18]='water';assert.equal(g.trySpawnBoss(),true);
- assert.equal(g.boss!.element,'water');assert.equal(g.boss!.maxTiles,16);assert.equal(g.boss!.x,g.boss!.cell%8+.5);assert.equal(g.pets.length,0);
+test('bosses require a settled solid 3x3 pool, without a pet requirement',()=>{
+ const g=new Game(()=>.1,()=>true);for(const c of [18,19,20,26,27,28,34,35,36])g.board[c]='water';assert.equal(g.trySpawnBoss(true),false);g.board[18]=null;assert.equal(g.trySpawnBoss(),false);g.board[18]='water';assert.equal(g.trySpawnBoss(),true);
+ assert.equal(g.boss!.element,'water');assert.equal(g.boss!.maxTiles,9);assert.equal(g.boss!.x,g.boss!.cell%8+.5);assert.equal(g.pets.length,0);
  assert.deepEqual(poolBlocks(new Set([6,7,8,9,14,15,16,17,22,23,24,25,30,31,32,33])),[]);
 });
 test('one boss per element including dying bosses, with a new disconnected pool eligible afterward',()=>{
@@ -41,8 +41,8 @@ test('restart removes bosses, death holds and pending visuals; death delays game
  const g=fixture();g.trySpawnBoss();g.clearCells([...g.boss!.remaining]);g.inventory=[];assert.equal(g.finishIfBlocked(false),false);g.restart();assert.equal(g.bossesDying,false);assert.equal(g.bosses.length,0);assert.equal(g.bossGrowthEvents.length,0);assert.equal(g.bossLiquidEvents.length,0);
 });
 
-test('a settled pet-created 4x4 can spawn a boss, while a pending aftermath cannot',()=>{
- const g=fixture();g.board[18]=null;assert.equal(g.trySpawnBoss(),false);assert.equal(g.plantPetTile(18,'water'),true);
+test('a settled pet-created 3x3 can spawn a boss, while a pending aftermath cannot',()=>{
+ const g=new Game();for(const c of [19,20,26,27,28,34,35,36])g.board[c]='water';assert.equal(g.trySpawnBoss(),false);assert.equal(g.plantPetTile(18,'water'),true);
  assert.equal(g.trySpawnBoss(true),false);assert.equal(g.trySpawnBoss(false),true);
 });
 test('death hold does not double-count cleared tiles and ignores unrelated sweeps',()=>{
@@ -56,4 +56,29 @@ test('recent clears survive rapid boss growth and the first growth after afterma
  g.settleExpansionProtection(false);assert.equal(g.place(1,62),true);assert.equal(g.board[18],null);
  g.clearCells([63]);assert.equal(g.place(2,63),true);assert.equal(g.board[18],'water');
  g.restart();for(const c of block(18))g.board[c]='water';g.trySpawnBoss();g.inventory=[single];g.place(0,63);assert.equal(g.board[9],'water');
+});
+
+test('splitting a pool removes detached tiles from health and cannot rescue a stranded boss',()=>{
+ const g=new Game(()=>0,()=>true);
+ const home=[0,1,2,8,9,10,16,17,18],island=[6,7,14,15];
+ for(const c of [...home,...island,11,12,13])g.board[c]='water';g.trySpawnBoss();const b=g.boss!;
+ assert.equal(b.maxTiles,16);g.clearCells([12]);assert.equal(b.remaining.size,10);assert.equal(b.maxTiles,16);
+ assert.ok(island.every(c=>!b.remaining.has(c)&&g.board[c]==='water'));
+ g.clearCells([1,9,17]);assert.ok(b.deathRemaining);assert.ok(island.every(c=>g.board[c]==='water'));
+});
+test('detached pools cannot expand for the boss, but reconnecting them restores connected health',()=>{
+ const g=new Game(()=>0,()=>true);for(const c of [0,1,2,8,9,10,16,17,18,11,12,13,6,7,14,15])g.board[c]='water';g.trySpawnBoss();const b=g.boss!;
+ g.clearCells([12]);g.inventory=[single];g.place(0,63);
+ assert.equal(g.board[23],null); // Only adjacent to the detached island.
+ assert.equal(g.board[12],null);assert.ok(!b.remaining.has(15));
+ g.plantPetTile(12,'water');g.updateBoss(.01);assert.ok(b.remaining.has(15));
+});
+
+test('death never converts a detached same-element pool to stone',()=>{
+ const g=new Game(()=>0,()=>true);const detached=[6,7,14,15];
+ for(const c of [0,1,2,8,9,10,16,17,18,11,12,13,...detached])g.board[c]='water';
+ g.trySpawnBoss();g.clearCells([12]);const b=g.boss!;g.clearCells([...b.remaining]);
+ assert.ok(b.deathRemaining);g.updateBoss(1.2);
+ for(const c of detached)assert.equal(g.board[c],'water');
+ assert.ok(g.bossStoneEvents.every(c=>!detached.includes(c)));
 });

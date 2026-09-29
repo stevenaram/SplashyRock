@@ -52,9 +52,22 @@ export class Game {
       if(this.bosses.some(b=>b.element===element))continue;
       const remaining=new Set(pool),blocks=poolBlocks(remaining);if(!blocks.length)continue;
       const anchor=blocks[Math.floor(this.random()*blocks.length)],cell=anchor+9;
-      this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length});spawned=true;
+      this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange});spawned=true;
       this.bossNotice=`${element==='lava'?'Lava':'Water'} boss! Break up its pool until no 2×2 patch remains.`;
     }return spawned;
+  }
+  private reconcileBossRegion(b:Boss){
+    if(b.deathRemaining)return;
+    // Choose the surviving liquid directly under the boss, never a distant island.
+    const x=Math.max(0,Math.min(6,Math.round(b.x-.5))),y=Math.max(0,Math.min(6,Math.round(b.y-.5))),foot=y*8+x;
+    const seeds=[foot,foot+1,foot+8,foot+9].filter(c=>this.board[c]===b.element);
+    seeds.sort((a,c)=>Math.hypot(a%8-b.x,Math.floor(a/8)-b.y)-Math.hypot(c%8-b.x,Math.floor(c/8)-b.y));
+    const region=new Set<number>(),queue=seeds.length?[seeds[0]]:[];
+    if(queue.length)region.add(queue[0]);
+    for(let i=0;i<queue.length;i++)for(const n of this.neighbors(queue[i]))if(this.board[n]===b.element&&!region.has(n)){region.add(n);queue.push(n);}
+    const lost=[...b.remaining].some(c=>!region.has(c));if(lost)b.hits++;
+    b.remaining=region;b.pool=[...region];b.regionRevision=this.boardChange;b.maxTiles=Math.max(b.maxTiles,region.size);
+    if(!poolSquares(region).length){b.cell=foot;this.beginBossDeath(b);}
   }
   private heldByDyingBoss(cell:number){return this.bosses.some(b=>b.deathRemaining>0&&b.remaining.has(cell));}
   private beginBossDeath(b:Boss){
@@ -68,6 +81,7 @@ export class Game {
   }
   dealInventory(){this.inventory=this.deal();}
   private growBosses(){
+    for(const b of this.bosses)if(b.regionRevision!==this.boardChange)this.reconcileBossRegion(b);
     // Snapshot every frontier before expansion: each boss grows only one layer.
     const proposals=this.bosses.filter(b=>!b.deathRemaining).map(b=>{
       const cells=new Set<number>();for(const c of b.remaining)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
@@ -75,13 +89,14 @@ export class Game {
       }return {b,cells};
     });
     for(const {b,cells} of proposals){for(const c of cells)if(this.board[c]===null){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});}
-      const queue=[...b.remaining];for(let i=0;i<queue.length;i++)for(const n of this.neighbors(queue[i]))if(this.board[n]===b.element&&!b.remaining.has(n)&&!this.bosses.some(other=>other!==b&&other.remaining.has(n))){b.remaining.add(n);queue.push(n);}
-      b.pool=[...b.remaining];b.maxTiles=Math.max(b.maxTiles,b.remaining.size);
+      this.reconcileBossRegion(b);
     }
   }
   updateBoss(dt:number){
     let finished=false;
     for(const b of [...this.bosses]){
+      if(!b.deathRemaining&&b.regionRevision!==this.boardChange){this.reconcileBossRegion(b);if(b.deathRemaining)finished=true;}
+
       if(b.deathRemaining){b.deathRemaining=Math.max(0,b.deathRemaining-dt);if(b.deathRemaining===0){
         this.bosses.splice(this.bosses.indexOf(b),1);this.bossesDefeated++;if(!this.reviving)this.score+=250;
         for(const c of b.remaining){this.write(c,'stone');this.stoneDepth[c]=1;this.bossStoneEvents.push(c);}finished=true;
@@ -121,7 +136,7 @@ export class Game {
   clearCells(cells: readonly number[]): number[] {
     const removed: number[]=[];
     for(const cell of new Set(cells)){if(this.board[cell]!==null&&!this.heldByDyingBoss(cell)){this.write(cell,null);removed.push(cell);}}
-    for(const boss of this.bosses){if(boss.deathRemaining)continue;let damage=0;for(const c of removed)if(boss.remaining.delete(c))damage++;if(damage){boss.hits++;if(!poolSquares(boss.remaining).length)this.beginBossDeath(boss);}}
+    for(const boss of this.bosses)if(!boss.deathRemaining)this.reconcileBossRegion(boss);
     const cleared=removed.filter(c=>this.board[c]===null);
     for(const c of cleared)this.expansionProtected.add(c);
     if(cleared.length)this.protectionSettled=false;
