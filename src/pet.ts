@@ -1,4 +1,3 @@
-import {hopTuning} from './hop-tuning';
 import * as T from 'three';
 import {createEgg} from './egg';
 import {gridWorld} from './map';
@@ -106,7 +105,7 @@ export class PetWalker {
   this.shadow.visible=leaping||this.swim<.15;
   const flightArc=leaping?Math.pow(Math.sin(this.motion.leapProgress*Math.PI),.85):0;
   // Height is purely visual: the ability still lands on the same gameplay frame.
-  const height=reduced?0:flightArc*hopTuning.height;
+  const height=reduced?0:flightArc*4.5;
   this.landing.visible=leaping;
   if(leaping&&this.motion.next!==null){
     this.landing.position.set(gridWorld(this.motion.next%8)-gridWorld(this.motion.x),.035,gridWorld(Math.floor(this.motion.next/8))-gridWorld(this.motion.y));
