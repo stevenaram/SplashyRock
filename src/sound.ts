@@ -11,20 +11,25 @@ export class SoundEngine {
   private noise:AudioBuffer|null=null;
   private voices=new Set<AudioScheduledSourceNode>();
   private pan=0;
+  private pending:{cue:SoundCue;level:number;pan:number;at:number}|null=null;
   private last=new Map<SoundCue,number>();
   private events=new AbortController();
   constructor(){
     try{this.muted=localStorage.getItem('splashy-rock-muted')==='1';}catch{}
     const wake=()=>this.unlock();
-    window.addEventListener('pointerdown',wake,{capture:true,signal:this.events.signal});
-    window.addEventListener('keydown',wake,{capture:true,signal:this.events.signal});
-    document.addEventListener('visibilitychange',()=>{if(document.hidden){this.stop();void this.context?.suspend();}else if(this.context&&!this.muted)void this.context.resume().catch(()=>{});},{signal:this.events.signal});
+    for(const event of ['pointerdown','pointerup','touchstart','touchend','click','keydown'])window.addEventListener(event,wake,{capture:true,passive:true,signal:this.events.signal});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden){this.stop();void this.context?.suspend();}else if(this.context)this.unlock();},{signal:this.events.signal});
   }
   unlock(){
     if(this.muted)return;
     try{
       if(!this.context){
         const c=this.context=new AudioContext();
+        c.onstatechange=()=>{
+          if(c.state!=='running')return;
+          const pending=this.pending;this.pending=null;
+          if(pending&&performance.now()-pending.at<250)this.play(pending.cue,pending.level,pending.pan);
+        };
         const compressor=c.createDynamicsCompressor();compressor.threshold.value=-16;compressor.knee.value=12;compressor.ratio.value=5;compressor.attack.value=.004;compressor.release.value=.16;
         this.master=c.createGain();this.master.gain.value=.55;this.master.connect(compressor);compressor.connect(c.destination);
         this.dry=c.createGain();this.dry.connect(this.master);
@@ -33,7 +38,13 @@ export class SoundEngine {
         this.noise=c.createBuffer(1,c.sampleRate,c.sampleRate);const data=this.noise.getChannelData(0);let seed=97;
         for(let i=0;i<data.length;i++){seed=(Math.imul(seed,1664525)+1013904223)|0;data[i]=(seed>>>0)/2147483648-1;}
       }
-      if(this.context.state==='suspended')void this.context.resume().catch(()=>{});
+      if(this.context.state!=='running'&&this.context.state!=='closed'){
+        // Start the output inside the actual gesture, before resume resolves.
+        const c=this.context,primer=c.createBufferSource();
+        primer.buffer=c.createBuffer(1,1,c.sampleRate);primer.connect(c.destination);
+        primer.onended=()=>primer.disconnect();primer.start();
+        void c.resume().catch(()=>{});
+      }
     }catch{/* Silent fallback for devices without audio support. */}
   }
   toggle(){this.muted=!this.muted;try{localStorage.setItem('splashy-rock-muted',this.muted?'1':'0');}catch{}if(this.muted){this.stop();if(this.master&&this.context)this.master.gain.setTargetAtTime(0,this.context.currentTime,.015);}else{this.unlock();if(this.master&&this.context)this.master.gain.setTargetAtTime(.55,this.context.currentTime,.025);this.play('ui');}return this.muted;}
@@ -64,7 +75,8 @@ export class SoundEngine {
   }
 
   play(cue:SoundCue,level=1,pan=0){
-    if(this.muted||document.hidden||!this.context||this.context.state!=='running')return;
+    if(this.muted||document.hidden||!this.context)return;
+    if(this.context.state!=='running'){this.pending={cue,level,pan,at:performance.now()};return;}
     const now=this.context.currentTime,gap=cue==='snap'?.085:['charge','hatch','reward','combo'].includes(cue)?.24:.065;
     if(now-(this.last.get(cue)??-100)<gap)return;this.last.set(cue,now);this.pan=Math.max(-.4,Math.min(.4,pan));
     const note=(f:number,d=.25,v=.1,at=0)=>{this.tone(f,f*.998,d,v,at,'sine',true);this.tone(f*2,f*2,d*.55,v*.2,at,'sine');};
@@ -94,6 +106,6 @@ export class SoundEngine {
       case 'restart':[392,523,659].forEach((f,i)=>note(f,.25,.06,i*.055));break;
     }
   }
-  stop(){for(const voice of this.voices){try{voice.stop();}catch{}}this.last.clear();}
+  stop(){this.pending=null;for(const voice of this.voices){try{voice.stop();}catch{}}this.last.clear();}
   dispose(){this.events.abort();this.stop();void this.context?.close();}
 }

@@ -460,3 +460,12 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 @media(max-width:450px){#hud-best{min-width:76px;font-size:13px}#hud-best svg{width:16px;height:16px}#hud-wallets{gap:10px}}
 
 #score-gain{left:auto;top:auto;transform:none;font-size:20px;line-height:1;color:#b5ffac;text-shadow:0 2px 0 #17533f,0 0 6px #153e5080;font-weight:800;letter-spacing:0;pointer-events:none}
+
+#notice-rail{position:fixed;left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 28px));z-index:8;display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:0 0 10px}
+#notice-rail>:is(#egg-unlocked,#gem-reward,#clearing-tip,#pet-ability-tip,#fit-warning-tip,#goal-hint){position:relative;inset:auto;left:auto;top:auto;bottom:auto;right:auto;transform:none;flex:none;margin:0;max-width:100%;width:100%;pointer-events:auto}
+#notice-rail>#egg-unlocked{width:max-content;pointer-events:none}
+#notice-rail>#goal-hint{width:min(100%,290px)}
+#notice-rail>#goal-hint::before{display:none}
+#notice-rail>#gem-reward{gap:9px;padding:10px 13px}
+#notice-rail>#gem-reward>span:first-of-type{min-width:0;flex:1}
+@media(max-height:500px){#notice-rail{gap:6px;width:min(380px,calc(100vw - 28px))}#notice-rail>:is(#clearing-tip,#pet-ability-tip,#fit-warning-tip){padding:8px 12px}#notice-rail>#gem-reward{padding-block:7px}}

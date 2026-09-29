@@ -1,3 +1,4 @@
+import {noticeRail} from './notice-rail';
 import {HighScore} from './high-score';
 import {BossSpawnQueue} from './boss-spawns';
 import {BossRewardCallout} from './boss-reward';
@@ -52,7 +53,7 @@ function announceEggs(){
   sound.play('reward');
   announcedEggs=game.rewardsDealt;renderTray();unlock.hidden=false;
   unlock.getAnimations().forEach(a=>a.cancel());
-  if(!matchMedia('(prefers-reduced-motion: reduce)').matches)unlock.animate([{opacity:0,transform:'translate(-50%, 8px) scale(.9)'},{opacity:1,transform:'translate(-50%, -2px) scale(1.03)',offset:.7},{opacity:1,transform:'translate(-50%, 0) scale(1)'}],{duration:480,easing:'cubic-bezier(.2,.8,.3,1)'});
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches)unlock.animate([{opacity:0,transform:'translateY(8px) scale(.9)'},{opacity:1,transform:'translateY(-2px) scale(1.03)',offset:.7},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:480,easing:'cubic-bezier(.2,.8,.3,1)'});
   clearTimeout(unlockTimer);unlockTimer=setTimeout(()=>{unlock.hidden=true;},2800);
 }
 let shownCombo=0;
@@ -175,6 +176,7 @@ host.addEventListener('touchmove',preventNativeGesture,{passive:false,signal:eve
 const tutorial=new Tutorial(board,goal,tray,game,cell=>world.cellScreen(cell,0));
 world.onFirstPetAbility=element=>tutorial.showPetAbility(element);
 const progressUI=new ProgressUI(progression,()=>{cancel();sound.play('ui');});
+const disposeNotices=noticeRail(goal,tray);
 let selected: number | null = null;
 let drag: { pointer: number; x: number; y: number; moved: boolean; offset: number } | null = null;
 let target: number | null = null;
@@ -370,4 +372,4 @@ const disposeScoreTest=scoreTestMode?scoreTestControls(amount=>{
   progressUI.render();refreshRevive();return true;
 },()=>progression.gems):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });
