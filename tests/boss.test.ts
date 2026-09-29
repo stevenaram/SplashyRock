@@ -99,3 +99,18 @@ test('each checkerboard surge expands only cardinal neighbors of the pre-surge p
   }
  }
 });
+
+test('boss payout counts repeated actual tile damage, excludes detached tiles and pays once',()=>{
+ const g=fixture();g.trySpawnBoss();const b=g.boss!;
+ g.clearCells([18]);assert.equal(b.damageTaken,1);
+ g.plantPetTile(18,'water');g.updateBoss(.01);g.clearCells([18]);assert.equal(b.damageTaken,2);
+ g.board[0]='water';g.clearCells([0]);assert.equal(b.damageTaken,2);
+ g.clearCells([...b.remaining]);assert.equal(b.damageTaken,17);assert.ok(b.deathRemaining);
+ const before=g.score;g.updateBoss(2.9);assert.equal(g.score,before);assert.equal(g.bossRewards.length,0);
+ g.updateBoss(.2);assert.equal(g.score-before,1350);assert.equal(g.bossRewards[0].score,1350);
+ g.updateBoss(5);assert.equal(g.score-before,1350);assert.equal(g.bossRewards.length,1);
+ g.restart();assert.equal(g.bossRewards.length,0);
+});
+test('revive damage does not inflate a boss reward',()=>{
+ const g=fixture();g.trySpawnBoss();const b=g.boss!;g.reviving=true;g.clearCells([18]);assert.equal(b.damageTaken,0);
+});

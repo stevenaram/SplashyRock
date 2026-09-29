@@ -1,3 +1,4 @@
+import {BossRewardCallout} from './boss-reward';
 import {bossTestMode} from './test-mode';
 import {seedBossTest,bossTestControls} from './boss-test';
 import {gemIcon,REVIVE_COST} from './gems';
@@ -106,6 +107,7 @@ function settled(){
 
 
 
+  for(const reward of game.bossRewards.splice(0)){bossReward.show(reward);sound.play('reward');}
   if(game.bossStoneEvents.length){for(const cell of game.bossStoneEvents.splice(0))world.addStone(cell);sweeps.schedule();}
   if(game.reviving){
     progression.observe(game,{calm:false,allowCleanBoard:false,suppressed:true});
@@ -140,6 +142,7 @@ function settled(){
   },400);
 }
 const world = new World(board);
+const bossReward=new BossRewardCallout(board,(x,y)=>world.gridScreen(x,y,1));
 const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
 // The clearing explanation also recognizes players who finished before completion tracking.
 const game = new Game(Math.random,()=>seenTips.has('intro-complete')||seenTips.has('clearing'));
@@ -198,7 +201,7 @@ function restartRun(){
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
   clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
   world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
-  shownCombo=0;combo.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
+  shownCombo=0;combo.reset();bossReward.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
   if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
   shownScore=0;gainLabel.textContent='';tutorial.start();updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
@@ -336,4 +339,4 @@ document.addEventListener('click',event=>{if((event.target as HTMLElement).close
 if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
 const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility();});}):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });

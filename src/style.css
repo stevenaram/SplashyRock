@@ -399,3 +399,9 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 .boss-health[data-element=lava] i{background:#ef9b4c}
 .boss-health .health-ticks{position:absolute;inset:1px;pointer-events:none;background:repeating-linear-gradient(to right,transparent 0,transparent calc(var(--tick) - 1px),#102c43b3 calc(var(--tick) - 1px),#102c43b3 var(--tick))}
 .boss-health.health-hit .territory-track{border-color:#fff8dc;filter:brightness(1.25)}
+
+.boss-reward{position:absolute;z-index:9;pointer-events:none;transform:translate(-50%,-50%);display:flex;align-items:center;flex-direction:column;white-space:nowrap;padding:11px 18px 10px;border:1px solid #b7eee49c;border-radius:16px;background:#153f50e8;box-shadow:0 5px 0 #092e4266,inset 0 1px #e2ffff30;text-align:center;color:#fff0c5}
+.boss-reward>span{font:800 11px/1.2 system-ui;letter-spacing:1.5px;text-transform:uppercase;color:#abede7}
+.boss-reward>strong{font:900 clamp(30px,7vw,42px)/1.2 ui-monospace,monospace;letter-spacing:-1px;text-shadow:0 3px #674c3f;margin:4px 0}
+.boss-reward>small{font:600 11px/1.4 ui-monospace,monospace;color:#d1ddd3}
+.boss-reward[data-element=lava]{border-color:#ffc787a6}.boss-reward[data-element=lava]>span{color:#ffd092}
