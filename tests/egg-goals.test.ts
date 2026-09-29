@@ -14,9 +14,9 @@ test('egg milestones grow the incremental requirement by 1.033 and reach 64 just
 });
 test('large score jumps immediately preserve every egg without replacing shapes',()=>{
  const g=new Game(()=>.2),original=[...g.inventory];g.score=EGG_GOALS[3];
- assert.equal(g.claimEggRewards(),4);assert.equal(g.inventory.length,7);
- assert.deepEqual(g.inventory.slice(0,3),original);assert.equal(g.rewardsDealt,4);
- assert.equal(g.claimEggRewards(),0);assert.equal(g.inventory.filter(p=>p?.tile==='pet').length,4);
+ assert.equal(g.claimEggRewards(),4);assert.equal(g.inventory.length,4);
+ assert.deepEqual(g.inventory.slice(0,3),original);assert.equal(g.rewardsDealt,4);assert.equal(g.inventory[3]?.eggCount,4);
+ assert.equal(g.claimEggRewards(),0);assert.equal(g.inventory.filter(p=>p?.tile==='pet').length,1);
 });
 test('five pets keep independent abilities and can plant five tiles',()=>{
  const g=new Game(()=>.2);for(const cell of [0,7,27,56,63]){g.inventory=[egg,null,null];assert.ok(g.place(0,cell));}
@@ -32,4 +32,19 @@ test('victory requires all 64 eggs to hatch, caps further eggs, and restart rese
  const g=new Game();for(let i=0;i<MAX_PETS;i++){g.inventory=[egg,null,null];assert.ok(g.place(0,i));}
  assert.equal(g.finishIfWon(),false);assert.equal(g.canPlace(egg,0),false);g.pets.forEach(p=>p.update(1.8));assert.equal(g.finishIfWon(),true);assert.equal(g.over,true);
  g.restart();assert.equal(g.won,false);assert.equal(g.pets.length,0);assert.equal(g.rewardsDealt,0);assert.equal(g.earnedEggs,0);
+});
+
+test('stacked eggs consume one per placement and additional rewards join the same slot',()=>{
+ const g=new Game(()=>.2);g.score=EGG_GOALS[2];g.claimEggRewards();
+ const slot=g.inventory.findIndex(p=>p?.tile==='pet');
+ g.board[0]='water';assert.equal(g.place(slot,0),false);assert.equal(g.inventory[slot]?.eggCount,3);g.board[0]=null;
+ assert.ok(g.place(slot,0));assert.equal(g.inventory[slot]?.eggCount,2);assert.equal(g.pets.length,1);
+ g.score=EGG_GOALS[3];g.claimEggRewards();assert.equal(g.inventory[slot]?.eggCount,3);assert.equal(g.inventory.length,4);
+ for(const remaining of [2,1,0]){assert.ok(g.place(slot,7));assert.equal(g.inventory[slot]?.eggCount??0,remaining);}
+ assert.equal(g.pets.length,4);assert.notEqual(g.pets[0].element,g.pets[1].element);assert.ok(g.pets.every(p=>p.queued===0));
+});
+test('the final egg in a stack refills an otherwise exhausted inventory',()=>{
+ const g=new Game();g.inventory=[{tile:'pet',shape,eggCount:2},null,null];
+ g.place(0,0);assert.equal(g.inventory[0]?.eggCount,1);assert.equal(g.inventory[1],null);
+ g.place(0,1);assert.equal(g.inventory.length,3);assert.ok(g.inventory.every(p=>p&&p.tile!=='pet'));
 });

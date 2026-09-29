@@ -226,7 +226,7 @@ function updateTrayWarnings(){
     if(blocked)count++;
     button.classList.toggle('blocked',blocked);
     if(blocked&&!game.over)tutorial.showFitWarning(piece);
-    button.setAttribute('aria-label',piece?`${piece.tile==='pet'?'Mystery Egg':`${piece.tile} ${piece.shape.name}`}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
+    button.setAttribute('aria-label',piece?`${piece.tile==='pet'?((piece.eggCount??1)>1?`${piece.eggCount} Mystery Eggs`:'Mystery Egg'):`${piece.tile} ${piece.shape.name}`}, piece ${index+1}${blocked?', cannot fit on the board right now':''}`:'Used piece');
   });
   if(count>blockedSlots&&!game.over)sound.play('warning');
   blockedSlots=count;
@@ -235,7 +235,7 @@ function renderTray() {
   tray.classList.toggle('expanded',game.inventory.length>3);
   const markup = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
     data-pet="${piece?.tile==='pet'?'egg':''}" data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
-    ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece)+'<svg class="fit-warning" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path class="warning-mark" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>' : ''}</button>`).join('');
+    ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece)+(piece.tile==='pet'&&(piece.eggCount??1)>1?`<span class="egg-count" aria-hidden="true">${piece.eggCount}</span>`:'')+'<svg class="fit-warning" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path class="warning-mark" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>' : ''}</button>`).join('');
   const fresh=game.inventory.map((piece,i)=>!!piece&&piece!==trayPieces[i]);
   if(markup===trayMarkup&&!fresh.some(Boolean)){updateTrayWarnings();return;}
   if(trayPieces.length&&fresh.length===3&&fresh.every(Boolean))sound.play('deal');

@@ -4,7 +4,7 @@ import {PetMotion} from './pet-motion';
 import { SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
 export type Tile = Element | 'stone';
-export interface Piece { tile: Element | 'pet'; shape: Shape; petElement?: Element }
+export interface Piece { tile: Element | 'pet'; shape: Shape; petElement?: Element; eggCount?: number }
 export const SIZE = 8;
 
 // The pointer anchors the center cell of a shape's bounding box. Holes remain
@@ -225,9 +225,13 @@ export class Game {
     if(this.over)return 0;
     let count=0;
     while(this.rewardsDealt<MAX_PETS&&this.score>=EGG_GOALS[this.rewardsDealt]){
-      const egg:Piece={tile:'pet',shape:{id:'pet-egg',name:'Mystery Egg',width:1,height:1,cells:[[0,0]]}};
-      const empty=this.inventory[1]===null?1:this.inventory.indexOf(null);
-      if(empty<0)this.inventory.push(egg);else this.inventory[empty]=egg;
+      const stack=this.inventory.find(piece=>piece?.tile==='pet');
+      if(stack)stack.eggCount=(stack.eggCount??1)+1;
+      else {
+        const egg:Piece={tile:'pet',eggCount:1,shape:{id:'pet-egg',name:'Mystery Egg',width:1,height:1,cells:[[0,0]]}};
+        const empty=this.inventory[1]===null?1:this.inventory.indexOf(null);
+        if(empty<0)this.inventory.push(egg);else this.inventory[empty]=egg;
+      }
       this.rewardsDealt++;count++;
     }
     return count;
@@ -289,7 +293,8 @@ export class Game {
       this.score += piece.shape.cells.length;
       this.growBosses();
     }
-    this.inventory[slot] = null;
+    if(piece.tile==='pet'&&(piece.eggCount??1)>1)this.inventory[slot]={...piece,eggCount:piece.eggCount!-1};
+    else this.inventory[slot] = null;
     this.claimEggRewards();
     if (this.inventory.every(item => item === null)) this.inventory = this.deal();
     return true;

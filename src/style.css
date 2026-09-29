@@ -406,3 +406,6 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 .boss-reward>small{font:600 11px/1.4 ui-monospace,monospace;color:#d1ddd3}
 .boss-reward[data-element=lava]{border-color:#ffc787a6}.boss-reward[data-element=lava]>span{color:#ffd092}
 .score-test form{margin:9px 0}.score-test form>div{display:flex;gap:6px;margin-top:4px}.score-test input{width:0;min-width:0;flex:2;border:1px solid #a3ded780;border-radius:6px;background:#103447;color:#fff0c5;padding:7px;font:600 13px ui-monospace,monospace;user-select:text;touch-action:auto}.score-test .next-egg,.score-test .reset-score-test{width:100%;margin-top:8px}.score-test small{display:block;margin-top:9px}.score-test .score-test-status{color:#b9eee4}
+
+/* A single inventory egg represents all unplaced rewards. */
+.slot.pet .egg-count {position:absolute;right:12%;bottom:12%;z-index:2;min-width:25px;height:25px;padding:0 6px;display:grid;place-items:center;box-sizing:border-box;border:2px solid #e6e4ae;border-radius:10px;background:#244b59;color:#fff4ce;font:800 15px/1 ui-monospace,monospace;font-variant-numeric:tabular-nums;box-shadow:0 2px 0 #102f3c80,inset 0 1px 0 #719797;pointer-events:none}
