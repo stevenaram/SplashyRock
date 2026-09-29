@@ -4,7 +4,7 @@ export class Aftermath {
   private work=1;
   private timer:ReturnType<typeof setTimeout>|undefined;
   private closed=false;
-  constructor(private readonly done:()=>void){}
+  constructor(private readonly done:()=>void,readonly comboRun=0){}
   get finished(){return this.closed;}
   retain(){if(this.closed)return;clearTimeout(this.timer);this.work++;}
   release(){

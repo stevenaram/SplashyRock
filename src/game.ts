@@ -123,6 +123,10 @@ export class Game {
   tilesCleared=0;
   reviving=false;
   readonly petTileEvents:number[]=[];
+  comboRun=0;
+  private lastComboWave=-Infinity;
+  onPetPlacement:(comboRun:number)=>void=()=>{};
+  readonly stoneComboRuns:number[]=Array(64).fill(0);
   combo = 0;
   chainPoints = 0;
   readonly stoneDepth: number[] = Array(64).fill(0);
@@ -141,12 +145,12 @@ export class Game {
     const x=cell%SIZE,y=Math.floor(cell/SIZE);
     return [[x-1,y],[x+1,y],[x,y-1],[x,y+1]].filter(([x,y])=>x>=0&&x<SIZE&&y>=0&&y<SIZE).map(([x,y])=>y*SIZE+x);
   }
-  clearCells(cells: readonly number[]): number[] {
+  clearCells(cells: readonly number[],comboRun=this.comboRun): number[] {
     const removed: number[]=[];
     for(const cell of new Set(cells)){if(this.board[cell]!==null&&!this.heldByDyingBoss(cell)){this.write(cell,null);removed.push(cell);}}
     for(const boss of this.bosses)if(!boss.deathRemaining)this.reconcileBossRegion(boss);
     const cleared=removed.filter(c=>this.board[c]===null);
-    if(!this.reviving){this.tilesCleared+=cleared.length;this.score+=cleared.length*10;if(this.combo>0)this.chainPoints+=cleared.length*10;}
+    if(!this.reviving){this.tilesCleared+=cleared.length;this.score+=cleared.length*10;if(this.combo>0&&comboRun===this.comboRun)this.chainPoints+=cleared.length*10;}
     this.claimEggRewards();
     return cleared;
   }
@@ -154,7 +158,7 @@ export class Game {
   // once all reaction/sweep timers settle. Placements are never included.
   finishChain(): number {
     const bonus=this.chainPoints*Math.max(0,this.combo-1);
-    this.score+=bonus;this.combo=0;this.chainPoints=0;
+    this.score+=bonus;this.combo=0;this.chainPoints=0;this.lastComboWave=-Infinity;
     this.claimEggRewards();
     return bonus;
   }
@@ -163,13 +167,13 @@ export class Game {
     return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
   }
   finishIfBlocked(pending: boolean): boolean {
-    if(!pending&&!this.bossesDying&&!this.petsBusy&&!this.hasLegalMove())this.over=true;
+    if(!pending&&!this.bossesDying&&!this.petsBusy&&!this.hasLegalMove()){this.finishChain();if(!this.hasLegalMove())this.over=true;}
     return this.over;
   }
   restart() {
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
-    this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
+    this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
     this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
@@ -180,6 +184,7 @@ export class Game {
     if(!this.over||this.won||this.reviving)return [];
     const cells=this.reviveTargets().filter(c=>!this.heldByDyingBoss(c));if(!cells.length)return [];
     for(const pet of this.pets)pet.cancelAbilities();
+    this.comboRun++;this.lastComboWave=-Infinity;
     this.reviving=true;this.combo=0;this.chainPoints=0;
     for(const cell of cells){this.write(cell,'stone');this.stoneDepth[cell]=1;}
     return cells;
@@ -233,19 +238,24 @@ export class Game {
     }
     return neighbors.includes('water')&&neighbors.includes('lava');
   }
-  plantPetTile(cell:number,element:Element):boolean {
+  plantPetTile(cell:number,element:Element,comboRun=this.comboRun):boolean {
     if(this.over||this.board[cell]!==null)return false;
-    this.write(cell,element);this.petTileEvents.push(cell);return true;
+    this.write(cell,element);this.petTileEvents.push(cell);this.onPetPlacement(comboRun);return true;
   }
   stoneCandidates(): number[] {
     return this.board.flatMap((_, cell) => this.canFormStone(cell) ? [cell] : []);
   }
-  formStone(cell: number, depth = 1): boolean {
+  formStone(cell: number, depth = 1,comboRun=this.comboRun,now=performance.now()): boolean {
     if (!this.canFormStone(cell)) return false;
     this.write(cell, 'stone');
-    this.maxCombo=Math.max(this.maxCombo,depth);
+
     this.score += 20;
-    this.stoneDepth[cell]=depth;this.combo=Math.max(this.combo,depth);this.chainPoints+=20;
+    this.stoneDepth[cell]=depth;this.stoneComboRuns[cell]=comboRun;
+    if(comboRun===this.comboRun){
+      // Creations within 150ms are one visible wave, not one combo per tile.
+      if(now-this.lastComboWave>=150){this.combo++;this.lastComboWave=now;}
+      this.combo=Math.max(this.combo,depth);this.chainPoints+=20;this.maxCombo=Math.max(this.maxCombo,this.combo);
+    }
     this.claimEggRewards();
     return true;
   }
@@ -255,10 +265,11 @@ export class Game {
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');
-      const pet=new PetMotion(anchor,element,this.board,cell=>this.plantPetTile(cell,element),this.random,()=>this.boardChange,()=>this.pets,undefined,()=>this.helpfulPetTargets(element));
+      const pet=new PetMotion(anchor,element,this.board,(cell,run)=>this.plantPetTile(cell,element,run),this.random,()=>this.boardChange,()=>this.pets,undefined,()=>this.helpfulPetTargets(element));
       pet.startHatch();this.pets.push(pet);
     }
     else {
+      this.finishChain();this.comboRun++;this.lastComboWave=-Infinity;
       this.shapeMoves++;
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;

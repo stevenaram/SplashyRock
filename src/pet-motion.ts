@@ -16,6 +16,8 @@ export class PetMotion {
   hatchRemaining=0;
   startHatch(){this.hatchRemaining=1.8;this.revision++;}
   abilitiesUsed=0;
+  private abilityRuns:number[]=[];
+  hasAbilityFor(run:number){return this.abilityRuns.includes(run);}
   queued=0; // Ready abilities, not walking steps.
   completed=0;
   revision=0;
@@ -29,10 +31,10 @@ export class PetMotion {
   private escapingStep=false;
   private escapeCache:{key:string;value:number|null}|null=null;
   private recent:number[]=[];
-  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[]){this.x=cell%8;this.y=Math.floor(cell/8);}
+  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number,comboRun?:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[]){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
-  queueAbility(){this.queued++;this.revision++;}
-  cancelAbilities(){this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
+  queueAbility(comboRun=0){this.abilityRuns.push(comboRun);this.queued++;this.revision++;}
+  cancelAbilities(){this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
   private leapTarget(){
     let distance=Infinity;const choices:number[]=[];
     const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c))??[];
@@ -60,8 +62,8 @@ export class PetMotion {
     this.cell=flight.target;this.x=this.cell%8;this.y=Math.floor(this.cell/8);this.next=null;this.progress=0;
     this.flight=null;this.leaping=false;this.leapProgress=0;this.planting=.000001;this.revision++;
     if(flight.cancelled)return;
-    if(flight.hit){flight.hit();this.queued--;this.attacking=false;}
-    else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell)!==false){this.queued--;this.abilitiesUsed++;}
+    if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.attacking=false;}
+    else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
   }
   // Moving pets reserve their destination, not the tile they are leaving.

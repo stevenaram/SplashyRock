@@ -121,7 +121,7 @@ function settled(){
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
   if (!game.over) reactions.schedule();
-  if(!reactions.busy&&!sweeps.busy&&game.combo>0){
+  if(!reactions.busy&&!sweeps.busy&&!game.pets.some(p=>p.hasAbilityFor(game.comboRun))&&game.combo>0){
     const multiplier=game.combo;const bonus=game.finishChain();
     if(multiplier>1)combo.finish(bonus);
     shownCombo=0;
@@ -181,6 +181,11 @@ const reactions = new StoneReactions(game, (cell,owner) => {
   sweeps.schedule(owner);
   refreshPreview();
 },settled);
+
+// Attribute each pet's reactions immediately, before another pet can land this frame.
+game.onPetPlacement=run=>{
+  const owner=new Aftermath(settled,run);reactions.schedule(1,owner);owner.release();
+};
 
 document.querySelector('#close-game-over')!.addEventListener('click',()=>{
   sound.play('ui');cancel();endDialog.hidden=true;host!.classList.add('reviewing');board.append(again);if(!game.won)board.append(reviveButton);
@@ -267,12 +272,14 @@ function place() {
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
+  const oldMultiplier=game.combo,oldPoints=game.chainPoints;
   if (!game.place(selected, target)){sound.play('reject');return false;}
+  if(piece.tile!=='pet'){if(oldMultiplier>1)combo.finish(oldPoints*(oldMultiplier-1));else combo.reset();shownCombo=0;}
   if(piece.tile!=='pet'&&!tutorial.guiding)playedBeyondIntro=true;
   tutorial.placed(piece,target);
   world.addPiece(target, piece);
-  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();});
-  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility();
+  const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
+  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility(game.comboRun);
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
@@ -340,7 +347,7 @@ tray.addEventListener('click', event => {
 }, { signal: events.signal });
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
-const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility();});}):()=>{};
+const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility(game.comboRun);});}):()=>{};
 const disposeScoreTest=scoreTestMode?scoreTestControls(amount=>{
   if(game.over)return false;
   game.score+=amount;game.claimEggRewards();settled();renderTray();return true;
