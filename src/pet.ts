@@ -63,11 +63,12 @@ export class PetWalker {
  private readonly model:ReturnType<typeof createPetModel>;
  private readonly egg=createEgg();
  private age=0;private spawn=0;private swim=0;
+ private gait=0;private walkBlend=0;
  private readonly wake=new T.Group();
  private readonly wakeMaterial:T.ShaderMaterial;
  private readonly shadow:T.Mesh;
  private readonly landing:T.Mesh<T.RingGeometry,T.MeshBasicMaterial>;
- constructor(readonly motion:PetMotion){this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root,this.egg.group);this.model.root.visible=false;
+ constructor(readonly motion:PetMotion){this.age=motion.cell*.371;this.gait=(motion.cell*.618)%1;this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root,this.egg.group);this.model.root.visible=false;
   // A small contact shadow follows the pet without re-rendering the island shadow map.
   const shadow=this.shadow=new T.Mesh(new T.CircleGeometry(.48,12),new T.MeshBasicMaterial({color:'#705536',transparent:true,opacity:.24,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.8,1);shadow.position.y=.005;this.group.add(shadow);
@@ -80,7 +81,10 @@ export class PetWalker {
  }
  update(dt:number,reduced=false){
   this.age+=dt;this.spawn=Math.min(1,this.spawn+dt/.32);this.group.scale.setScalar(reduced?1:1-Math.pow(1-this.spawn,3));
+  const previousX=this.motion.x,previousY=this.motion.y,wasLeaping=this.motion.leaping;
   this.motion.update(dt);
+  const distance=wasLeaping||this.motion.leaping?0:Math.hypot(this.motion.x-previousX,this.motion.y-previousY)*2;
+  this.gait=(this.gait+distance/.72)%1;
   if(this.motion.hatchRemaining>0){
     const t=1.8-this.motion.hatchRemaining,crack=Math.max(0,Math.min(1,(t-.9)/.25)),open=Math.max(0,Math.min(1,(t-1.1)/.55));
     this.wake.visible=false;this.egg.group.visible=true;
@@ -120,23 +124,41 @@ export class PetWalker {
   const cx=gridWorld(Math.round(this.motion.x)),cz=gridWorld(Math.round(this.motion.y));this.wakeMaterial.uniforms.bounds.value.set(cx-1,cz-1,cx+1,cz+1);
   this.wake.scale.setScalar(reduced?1:1+Math.sin(this.age*5)*.045);
   this.group.position.x=gridWorld(this.motion.x);this.group.position.z=gridWorld(this.motion.y);
-  const delta=Math.atan2(Math.sin(this.motion.heading-this.model.body.rotation.y),Math.cos(this.motion.heading-this.model.body.rotation.y));this.model.body.rotation.y+=delta*Math.min(1,dt*12);
-  const stride=walking?Math.sin(this.age*11):0;
-  this.model.legs.forEach((leg,i)=>{leg.rotation.x=reduced?0:stride*(i===0||i===3?1:-1)*.30*(1-this.swim);leg.rotation.z=reduced?0:Math.sin(this.age*7+i*Math.PI/2)*this.swim*.24;});
-  this.model.body.position.y=reduced?0:walking?Math.abs(stride)*.035:Math.sin(this.age*2)*.012;
-  this.model.tail.rotation.y=reduced?0:Math.sin(this.age*(walking?5:2))*.12;
-  this.model.head.rotation.x=reduced?0:Math.sin(this.age*2.4)*.035;
-  this.model.body.position.y-=this.swim*.19;
-  this.model.body.rotation.z=reduced?0:Math.sin(this.age*5)*this.swim*.045;
-  this.model.tail.rotation.y+=reduced?0:Math.sin(this.age*7)*this.swim*.23;
+  const delta=Math.atan2(Math.sin(this.motion.heading-this.model.body.rotation.y),Math.cos(this.motion.heading-this.model.body.rotation.y));
+  this.model.body.rotation.y+=delta*(1-Math.exp(-dt*16));
+  this.walkBlend+=((walking?1:0)-this.walkBlend)*(1-Math.exp(-dt*18));
+  const land=reduced?0:this.walkBlend*(1-this.swim),cycle=this.gait*Math.PI*2;
+  const bob=(.025-Math.cos(cycle*2)*.025)*land;
+  // Paws spend most of each stride planted, then lift and curl forward.
+  // Advance the gait by distance, so short turns never scramble the footsteps.
+  this.model.legs.forEach((leg,i)=>{
+    const phase=(this.gait+(i===0||i===3?0:.5))%1,stance=phase<.62;
+    const swing=stance?0:(phase-.62)/.38,lift=Math.sin(swing*Math.PI);
+    const reach=stance?-.2+phase/.62*.4:.2-(swing*swing*(3-2*swing))*.4;
+    leg.position.y=.23+lift*.15*land-bob;
+    leg.position.z=(i<2?-.28:.36)+reach*land;
+    leg.rotation.x=reduced?0:(stance?-.06:Math.sin(swing*Math.PI)*-.48)*land+Math.sin(this.age*7+(i===0||i===3?0:Math.PI))*this.swim*.22;
+    leg.rotation.z=reduced?0:(i%2===0?-1:1)*lift*.13*land+Math.sin(this.age*7+i*Math.PI/2)*this.swim*.24;
+  });
+  const breath=reduced?0:Math.sin(this.age*2.5)*.014;
+  const sniff=reduced?0:Math.pow(Math.max(0,Math.sin(this.age*.85)),10)*(1-this.walkBlend)*.1;
+  this.model.body.position.y=bob+breath*(1-this.walkBlend)-this.swim*.19;
+  this.model.body.rotation.x=reduced?0:Math.sin(cycle*2)*.055*land;
+  this.model.body.rotation.z=reduced?0:Math.sin(cycle)*.075*land+Math.sin(this.age*5)*this.swim*.045;
+  this.model.head.rotation.x=reduced?0:-Math.sin(cycle*2+.55)*.085*land+sniff+breath;
+  this.model.head.rotation.y=reduced?0:Math.max(-.38,Math.min(.38,delta*.55))+Math.sin(this.age*1.4)*.08*(1-this.walkBlend);
+  this.model.head.position.y=.34+(reduced?0:-bob*.45+sniff*.15);
+  const tailTarget=reduced?0:Math.sin(cycle-.7)*.24*land-delta*.22+Math.sin(this.age*2)*.11*(1-this.walkBlend)+Math.sin(this.age*7)*this.swim*.23;
+  this.model.tail.rotation.y+=(Math.max(-.5,Math.min(.5,tailTarget))-this.model.tail.rotation.y)*(1-Math.exp(-dt*11));
   const planting=this.motion.planting;
   const charge=leaping?Math.sin(this.motion.leapProgress*Math.PI):planting>0?1-planting/.18:0;
   this.model.glowMaterials.forEach(material=>{const glow=charge>.66?.55:charge>.25?.25:0;material.color.setRGB(1+glow*(this.motion.element==='lava'?1:.2),1+glow*.5,1+glow*(this.motion.element==='water'?1:.1));});
-  this.model.body.scale.setScalar(1);this.model.tail.rotation.x=0;
+  this.model.body.scale.set(1-breath*.3,1+breath*.7,1-breath*.3);this.model.tail.rotation.x=reduced?0:Math.sin(cycle*2-.5)*.09*land;
   if(leaping&&!reduced){
+    this.model.body.rotation.x=0;this.model.body.rotation.z=0;this.model.head.rotation.y=0;
     this.model.body.position.y=height;this.model.body.scale.set(1-charge*.12,1+charge*.22,1-charge*.12);
     this.model.head.rotation.x=-Math.sin(this.motion.leapProgress*Math.PI*2)*.26;this.model.tail.rotation.x=-charge*.4;
-    this.model.legs.forEach(leg=>{leg.rotation.x=-charge*.65;leg.rotation.z=0;});
+    this.model.legs.forEach((leg,i)=>{leg.position.y=.23+charge*.07;leg.position.z=i<2?-.28:.36;leg.rotation.x=-charge*.65;leg.rotation.z=0;});
   }else if(planting>0&&!reduced){
     const squash=Math.sin((planting/.18)*Math.PI);
     this.model.body.scale.set(1+squash*.28,1-squash*.4,1+squash*.28);
