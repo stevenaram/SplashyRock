@@ -210,11 +210,10 @@ again.addEventListener('click',restartRun,{signal:events.signal});
 
 let blockedSlots=0;
 function updateTrayWarnings(){
-  tray.classList.toggle("boss-waiting",game.bossTurnLocked);tray.setAttribute("aria-busy",String(game.bossTurnLocked));
   let count=0;
   tray.querySelectorAll<HTMLButtonElement>('.slot').forEach((button,index)=>{
     const piece=game.inventory[index],blocked=!!piece&&!game.pieceFits(piece);
-    button.disabled=!piece||game.bossTurnLocked;
+    button.disabled=!piece;
     if(blocked)count++;
     button.classList.toggle('blocked',blocked);
     if(blocked&&!game.over)tutorial.showFitWarning(piece);
@@ -260,7 +259,8 @@ function updateTarget(x: number, y: number) {
   ghost.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
 }
 function place() {
-  if (game.over || game.bossTurnLocked || selected === null || target === null) return false;
+  if (game.over || selected === null || target === null) return false;
+  if(game.bossTurnLocked){sound.play('reject');return false;}
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
@@ -280,7 +280,7 @@ function place() {
   return true;
 }
 tray.addEventListener('pointerdown', event => {
-  if (game.bossTurnLocked || !event.isPrimary || drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  if (!event.isPrimary || drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (!button || button.disabled) return;
   event.preventDefault();
@@ -330,7 +330,7 @@ board.addEventListener('pointerdown', event => {
   place();
 }, { signal: events.signal });
 tray.addEventListener('click', event => {
-  if (game.bossTurnLocked || event.detail !== 0) return;
+  if (event.detail !== 0) return;
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
   if (button && !button.disabled) { tutorial.beginDrag();sound.play('pick');selected = Number(button.dataset.slot);
  renderTray(); }
