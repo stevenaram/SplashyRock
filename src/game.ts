@@ -61,12 +61,15 @@ export class Game {
     this.bossNotice='Boss defeated! No 2×2 pool remains.';
   }
   readonly bossGrowthEvents:number[]=[];
+  private bossExpanding=false;
+  get bossTurnLocked(){return !!this.boss&&(this.hasPendingBossGrowth||this.bossExpanding);}
+  finishBossExpansion(){this.bossExpanding=false;}
   private bossGrowthQueue:{bossId:number;cleared:Set<number>}[]=[];
   get hasPendingBossGrowth(){return !!this.boss&&this.bossGrowthQueue.some(job=>job.bossId===this.boss!.id);}
   resolveBossGrowth(pending:boolean){
     this.bossGrowthQueue=this.bossGrowthQueue.filter(job=>job.bossId===this.boss?.id);
-    if(pending||this.over||this.reviving||!this.bossGrowthQueue.length)return false;
-    const job=this.bossGrowthQueue.shift()!;this.growBoss(job.cleared);return true;
+    if(pending||this.bossExpanding||this.over||this.reviving||!this.bossGrowthQueue.length)return false;
+    this.bossExpanding=true;const job=this.bossGrowthQueue.shift()!;this.growBoss(job.cleared);return true;
   }
   dealInventory(){this.inventory=this.deal();}
 
@@ -144,7 +147,7 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.bossGrowthQueue=[];this.boss=null;this.bossesDefeated=0;this.shapeMoves=0;this.nextBossMove=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossHitEvents.length=0;this.bossNotice="";
+    this.bossExpanding=false;this.bossGrowthQueue=[];this.boss=null;this.bossesDefeated=0;this.shapeMoves=0;this.nextBossMove=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossHitEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
@@ -225,7 +228,7 @@ export class Game {
   }
   place(slot: number, anchor: number): boolean {
     const piece = this.inventory[slot];
-    if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
+    if (this.over || this.bossTurnLocked || !piece || !this.canPlace(piece, anchor)) return false;
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');

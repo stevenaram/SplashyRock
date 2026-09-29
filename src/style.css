@@ -382,3 +382,5 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 @media(min-width:601px){#boss-test{top:76px}}
 
 .boss-notice[hidden]{display:none}
+
+#tray.boss-waiting .slot:not(.used){opacity:.5;filter:saturate(.7);cursor:wait;transition:opacity .18s,filter .18s}
