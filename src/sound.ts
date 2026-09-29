@@ -37,9 +37,9 @@ export class SoundEngine {
     }catch{/* Silent fallback for devices without audio support. */}
   }
   toggle(){this.muted=!this.muted;try{localStorage.setItem('splashy-rock-muted',this.muted?'1':'0');}catch{}if(this.muted){this.stop();if(this.master&&this.context)this.master.gain.setTargetAtTime(0,this.context.currentTime,.015);}else{this.unlock();if(this.master&&this.context)this.master.gain.setTargetAtTime(.55,this.context.currentTime,.025);this.play('ui');}return this.muted;}
-  private voice(source:AudioScheduledSourceNode,filter:AudioNode,duration:number,volume:number,delay=0,wet=false){
+  private voice(source:AudioScheduledSourceNode,filter:AudioNode,duration:number,volume:number,delay=0,wet=false,attack=.008,hold=0){
     const c=this.context!;if(this.voices.size>=48){source.disconnect();filter.disconnect();return;}
-    const at=c.currentTime+delay,gain=c.createGain();gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(volume,at+.008);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    const at=c.currentTime+delay,gain=c.createGain();gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(volume,at+attack);if(hold>0)gain.gain.setValueAtTime(volume,at+attack+hold);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
     const pan=c.createStereoPanner();pan.pan.value=this.pan;source.connect(filter);filter.connect(gain);gain.connect(pan);pan.connect(this.dry!);if(wet)pan.connect(this.echo!);
     this.voices.add(source);source.onended=()=>{this.voices.delete(source);source.disconnect();filter.disconnect();gain.disconnect();pan.disconnect();};source.start(at);source.stop(at+duration+.02);
   }
@@ -48,26 +48,31 @@ export class SoundEngine {
   }
   private air(frequency:number,duration:number,volume:number,delay=0,q=.7){const c=this.context!,source=c.createBufferSource(),filter=c.createBiquadFilter();source.buffer=this.noise;filter.type='bandpass';filter.frequency.setValueAtTime(frequency,c.currentTime+delay);filter.frequency.exponentialRampToValueAtTime(Math.max(180,frequency*.45),c.currentTime+delay+duration);filter.Q.value=q;this.voice(source,filter,duration,volume,delay);}
   private roar(water:boolean,dying=false){
-    // Voiced growl through two broad formants: a rounded aquatic call or a gravelly lava roar.
-    const c=this.context!,at=c.currentTime+.24,pitch=water?100:68,duration=dying?1.65:1.9;
-    for(const [formant,volume] of [[water?470:310,.12],[water?1050:740,.065]]){
-      const osc=c.createOscillator(),filter=c.createBiquadFilter();osc.type='sawtooth';
-      osc.frequency.setValueAtTime(pitch*.8,at);osc.frequency.exponentialRampToValueAtTime(pitch*(dying?1.1:1.5),at+.3);osc.frequency.exponentialRampToValueAtTime(pitch*(dying?.38:.65),at+duration);
-      filter.type='bandpass';filter.Q.value=2.2;filter.frequency.setValueAtTime(formant,at);filter.frequency.exponentialRampToValueAtTime(formant*(dying?.4:.7),at+duration);
-      this.voice(osc,filter,duration,volume,.24,true);
+    // Breath and smooth harmonics give the creature weight without a low buzzy rasp.
+    const c=this.context!,delay=.24,at=c.currentTime+delay,pitch=water?220:164.81,duration=dying?1.65:1.9;
+    for(const [ratio,volume] of [[1,.095],[2,.035],[3,.012]]){
+      const osc=c.createOscillator(),filter=c.createBiquadFilter();osc.type='sine';
+      osc.frequency.setValueAtTime(pitch*ratio*.94,at);
+      osc.frequency.exponentialRampToValueAtTime(pitch*ratio*(dying?1.02:1.16),at+.35);
+      osc.frequency.exponentialRampToValueAtTime(pitch*ratio*(dying?.78:1),at+duration);
+      filter.type='lowpass';filter.frequency.value=1800;
+      this.voice(osc,filter,duration,volume,delay,true,.16,.28);
     }
-    this.air(water?900:480,.56,.065,.31,1.5);
+    this.air(water?1500:850,1.15,.065,.35,.6);
+    if(water){this.tone(660,550,.45,.026,.55,'sine',true);this.tone(880,740,.5,.022,.85,'sine',true);}
+    else for(let i=0;i<4;i++)this.air(2100+i*170,.08,.025,.42+i*.17,1);
   }
+
   play(cue:SoundCue,level=1,pan=0){
     if(this.muted||document.hidden||!this.context||this.context.state!=='running')return;
     const now=this.context.currentTime,gap=cue==='snap'?.085:['charge','hatch','reward','combo'].includes(cue)?.24:.065;
     if(now-(this.last.get(cue)??-100)<gap)return;this.last.set(cue,now);this.pan=Math.max(-.4,Math.min(.4,pan));
     const note=(f:number,d=.25,v=.1,at=0)=>{this.tone(f,f*.998,d,v,at,'sine',true);this.tone(f*2,f*2,d*.55,v*.2,at,'sine');};
     switch(cue){
-      case 'bossSpawn':{const water=level===1;this.air(water?700:420,.65,.12);this.tone(55,water?180:130,.48,.12,0,'triangle',true);this.tone(water?220:145,water?85:55,.48,.17,.28,'triangle',true);this.air(water?1800:900,.38,.11,.3);this.roar(water);break;}
-      case 'bossHit':{const f=level===1?145:95;this.tone(f,f*.52,.29,.15,0,'triangle',true);this.tone(f*1.48,f*.8,.22,.065,.035,'sine');this.air(level===1?650:390,.2,.07);break;}
-      case 'bossDeath':this.roar(level===1,true);this.tone(level===1?210:145,45,.56,.18,0,'triangle',true);this.air(620,.48,.10);break;
-      case 'bossBurst':this.tone(95,30,.36,.18,0,'sine',true);this.air(level===1?2400:1300,.53,.15);[523,784,1046].forEach((f,i)=>note(f,.4,.035,.06+i*.07));break;
+      case 'bossSpawn':{const water=level===1;this.air(water?1600:950,.7,.095);this.tone(130,110,.3,.08,0,'sine',true);this.air(water?2400:1800,.45,.06,.3);this.roar(water);break;}
+      case 'bossHit':{const f=level===1?330:246.94;this.tone(f,f*.84,.3,.075,0,'sine',true);this.tone(f*2,f*1.75,.2,.025,.025,'sine');this.air(level===1?1400:950,.19,.055);break;}
+      case 'bossDeath':this.roar(level===1,true);this.tone(164.81,130.81,.5,.065,0,'sine',true);this.air(1400,.6,.075);break;
+      case 'bossBurst':this.tone(110,80,.24,.09,0,'sine',true);this.air(level===1?2400:1700,.53,.12);[523,784,1046].forEach((f,i)=>note(f,.4,.035,.06+i*.07));break;
       case 'pick':this.tone(390,590,.075,.075);this.air(1800,.045,.025);break;
       case 'snap':this.tone(740,670,.035,.024);break;
       case 'ui':this.tone(550,700,.07,.055);break;
