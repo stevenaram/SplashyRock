@@ -11,6 +11,7 @@ export class BossView {
  private body=new T.Group();
  private halo=new T.Group();
  private death=new T.Group();
+ private engulf=new T.Group();
  private bar=document.createElement('div');
  private health=1;private trail=1;private lastHealth=1;private trailDelay=0;
 
@@ -19,11 +20,11 @@ export class BossView {
  private id=0;private age=0;private hitAge=10;private hits=0;private exiting=0;private noticeAge=10;
 
  constructor(private scene:T.Scene,private host:HTMLElement,private project:(x:number,y:number,height:number)=>{x:number;y:number},private sound:(cue:SoundCue,cell:number,level:number)=>void=()=>{}){
-  this.root.add(this.body,this.halo,this.death);scene.add(this.root);
+  this.root.add(this.body,this.halo,this.death,this.engulf);scene.add(this.root);
   this.bar.className='boss-health';this.bar.hidden=true;this.bar.innerHTML='<div class="territory-track" role="progressbar" aria-label="Boss territory" aria-valuemin="0" aria-valuemax="64"><em></em><i></i><span class="health-ticks"></span></div>';host.append(this.bar);
   this.notice.className='boss-notice';this.notice.hidden=true;this.notice.setAttribute('role','status');host.append(this.notice);
  }
- private clear(){const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();this.body.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.death.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.halo.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());this.body.clear();this.halo.clear();this.death.clear();}
+ private clear(){const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();this.body.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.death.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.halo.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.engulf.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());this.body.clear();this.halo.clear();this.death.clear();this.engulf.clear();}
  private build(b:Boss){
   this.clear();this.id=b.id;this.age=0;this.exiting=0;this.hits=b.hits;this.hitAge=10;this.hitSoundDelay=-1;this.deathSound=false;this.burstSound=false;
   this.sound('bossSpawn',b.cell,b.element==='water'?1:2);
@@ -46,6 +47,17 @@ export class BossView {
   const debrisGeometry=new T.BoxGeometry(1,1,1),debrisMaterial=new T.MeshBasicMaterial({color:water?'#a3ded7':'#ffcf75',transparent:true,opacity:0,depthWrite:false});
   for(let i=0;i<18;i++){const piece=new T.Mesh(debrisGeometry,debrisMaterial);piece.userData.index=i;this.death.add(piece);}
   const ring=new T.Mesh(new T.RingGeometry(.86,1,24),new T.MeshBasicMaterial({color:water?'#b1efed':'#ffe0a1',transparent:true,opacity:0,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.userData.ring=true;this.death.add(ring);this.death.visible=false;
+  // Fixed-size pixel surf closes inward, always inside the four held tiles.
+  const cube=new T.BoxGeometry(1,1,1);
+  const opposing=[water?'#d9522b':'#248ab2',water?'#ffb957':'#72c9cf',water?'#f58236':'#3eafc4'].map(color=>new T.MeshBasicMaterial({color,transparent:true,opacity:0}));
+  for(let side=0;side<4;side++)for(let i=0;i<8;i++){
+   const m=new T.Mesh(cube,opposing[(i+side)%3]);m.userData={side,index:i,kind:'surf'};this.engulf.add(m);
+  }
+  const crust=new T.MeshBasicMaterial({color:'#d9c9a5',transparent:true,opacity:0});
+  for(let i=0;i<4;i++){const m=new T.Mesh(cube,crust);m.userData={kind:'crust',index:i};this.engulf.add(m);}
+  const steam=new T.MeshBasicMaterial({color:'#fff0d7',transparent:true,opacity:0,depthWrite:false});
+  for(let i=0;i<12;i++){const m=new T.Mesh(cube,steam);m.userData={kind:'steam',index:i};this.engulf.add(m);}
+  this.engulf.visible=false;
   const mark=new T.MeshBasicMaterial({color:water?'#a3ded7':'#ffd185',transparent:true,opacity:.48,depthWrite:false});
   const geometry=new T.RingGeometry(1.27,1.32,4);geometry.rotateZ(Math.PI/4);
   for(let c=0;c<64;c++){const m=new T.Mesh(geometry,mark);m.rotation.x=-Math.PI/2;m.position.set(gridWorld(c%8),.13,gridWorld(Math.floor(c/8)));m.userData.cell=c;this.halo.add(m);}
@@ -59,15 +71,16 @@ export class BossView {
     this.halo.visible=false;
     this.hitSoundDelay=-1;
     if(!this.deathSound){this.deathSound=true;this.sound('bossDeath',b.cell,b.element==='water'?1:2);}
-    this.exiting=BOSS_DEATH_SECONDS-b.deathRemaining;const t=this.exiting,collapse=Math.max(0,Math.min(1,(t-1.75)/.6));
-    if(t>=1.75&&!this.burstSound){this.burstSound=true;this.sound('bossBurst',b.cell,b.element==='water'?1:2);}
+    this.exiting=BOSS_DEATH_SECONDS-b.deathRemaining;const t=this.exiting,collapse=Math.max(0,Math.min(1,(t-.65)/1.45));
+    if(t>=1.75&&!this.burstSound){this.burstSound=true;this.sound('bossBurst',b.cell,b.element==='water'?2:1);this.sound('steam',b.cell,1);}
     this.bar.querySelector('i')!.style.width='0%';this.bar.querySelector('em')!.style.width='0%';this.bar.hidden=t>1.75;
     const gather=Math.min(1,t/1.75);
-    this.body.scale.set(1.25*(1-.18*gather+collapse*.85),1.25*(1+.35*gather)*(1-collapse),1.25*(1-.18*gather+collapse*.85));
-    this.body.position.y=reduced?0:Math.sin(gather*Math.PI/2)*.55*(1-collapse);
-    this.body.rotation.z=reduced?0:Math.sin(t*46)*.12*gather*(1-collapse);
+    this.body.scale.set(1.25*(1-collapse*.6),1.25*(1-collapse*.8),1.25*(1-collapse*.6));
+    this.body.position.y=-collapse*.45;
+    this.body.rotation.x=0;
+    this.body.rotation.z=reduced?0:Math.sin(t*22)*.045*gather*(1-collapse);
     this.body.traverse(o=>{if(o instanceof T.Mesh){const m=o.material as T.MeshBasicMaterial;m.transparent=true;m.opacity=1-collapse;m.color.copy(o.userData.baseColor).lerp(this.hitColor,gather*.65);}});
-    this.burst(Math.max(0,(t-1.75)/1.25),!reduced&&t>=1.75,3.8);
+    this.death.visible=false;this.consume(t,reduced);
     if(t>BOSS_DEATH_SECONDS){this.clear();this.id=0;this.bar.hidden=true;}return;
   }
   if(b.id!==this.id)this.build(b);
@@ -97,6 +110,29 @@ export class BossView {
   const position=this.project(b.x,b.y,3.5+this.body.position.y);this.bar.style.left=`${Math.max(70,Math.min(this.host.clientWidth-70,position.x))}px`;this.bar.style.top=`${Math.max(6,position.y-12)}px`;
   this.halo.visible=true;for(const m of this.halo.children)m.visible=b.remaining.has(m.userData.cell);
 
+ }
+ private consume(t:number,reduced:boolean){
+  this.engulf.visible=true;this.engulf.position.set(this.body.position.x,0,this.body.position.z);
+  const clamp=(v:number)=>Math.max(0,Math.min(1,v));
+  const flow=clamp((t-.25)/1.5),ease=flow*flow*(3-2*flow),cool=clamp((t-2.1)/.8);
+  const fade=clamp(t/.25)*(1-cool),depth=.15+1.72*ease;
+  for(const child of this.engulf.children){const m=child as T.Mesh<T.BufferGeometry,T.MeshBasicMaterial>,i=m.userData.index;
+   if(m.userData.kind==='surf'){
+    const side=m.userData.side,tangent=(i-3.5)*.46,radius=1.88-depth/2;
+    const crest=(reduced?.18:Math.sin(flow*Math.PI)*(.8+.25*Math.sin(i*1.7+side)))*(1-cool);
+    const height=.09+crest;
+    m.position.set(side%2===0?tangent:(side===1?radius:-radius),.14+height/2,side%2===0?(side===0?radius:-radius):tangent);
+    m.scale.set(side%2===0?.47:depth,height,side%2===0?depth:.47);m.material.opacity=fade;
+   }else if(m.userData.kind==='crust'){
+    m.position.set(i%2===0?-1:1,.17,Math.floor(i/2)===0?-1:1);
+    m.scale.set(1.94,.09,1.94);m.material.opacity=cool*.95;
+   }else{
+    const rise=clamp((t-1.3)/1.7),angle=i*2.399,r=.35+(i%3)*.38;
+    m.position.set(Math.cos(angle)*r,.35+rise*(1.1+i%3*.3),Math.sin(angle)*r);
+    m.scale.setScalar((.15+.21*Math.sin(rise*Math.PI))*(reduced?.5:1));
+    m.rotation.y=i*.7;m.material.opacity=Math.sin(rise*Math.PI)*.52;
+   }
+  }
  }
  // Reuse a fixed set of pooled droplets/embers and a ground ring for both entrances and exits.
  private burst(t:number,visible:boolean,radius:number){
