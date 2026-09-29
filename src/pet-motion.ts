@@ -4,11 +4,8 @@ export const PET_LEAP_MIN=.5;
 export const PET_LEAP_MAX=1.28;
 export const PET_LEAP_SPEED=15; // World units per second, bounded by the stone reaction beats.
 
-interface PetShuffle {members:PetMotion[];targets:number[];retreat:boolean}
-
 export class PetMotion {
-  private shuffle:PetShuffle|null=null;
-  private shuffleRetry=0;
+  visualOffsetX=0;visualOffsetY=0;
   attacking=false;
   leaping=false;
   leapProgress=0;
@@ -66,9 +63,8 @@ export class PetMotion {
     else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
   }
-  // Moving pets reserve their destination, not the tile they are leaving.
-  // Resting, hatching, and charging pets hold the tile underneath them.
-  private available(cell:number){return !this.peers?.().some(p=>p!==this&&((p.next??p.cell)===cell||p.shuffle?.members.some(member=>member.cell===cell)));}
+  // Ability landings keep exclusive destinations; wandering uses soft occupancy.
+  private available(cell:number){return !this.peers?.().some(p=>p!==this&&((p.next??p.cell)===cell));}
   private routingKey(){
     return this.boardVersion?`${this.cell}:${this.boardVersion()}:${this.peers?.().filter(p=>p!==this).map(p=>p.next??p.cell).join(',')??''}`:null;
   }
@@ -89,46 +85,43 @@ export class PetMotion {
     }
     return result;
   }
-  private tryShuffle(){
-    if(this.shuffleRetry>0)return false;
-    this.shuffleRetry=.25+this.random()*.25;
+  private wanderChoices(){
     const peers=this.peers?.()??[];
-    const readiness=new Map<PetMotion,boolean>();
-    const ready=(p:PetMotion)=>{if(!readiness.has(p))readiness.set(p,p.next===null&&!p.shuffle&&!p.hatchRemaining&&!p.planting&&!p.leaping&&p.allowed(p.cell)&&!p.busy);return readiness.get(p)!;};
-    if(!ready(this))return false;
-    const at=new Map(peers.filter(ready).map(p=>[p.cell,p]));at.set(this.cell,this);
-    let budget=96;
-    const search=(path:PetMotion[]):PetMotion[]|null=>{
-      if(--budget<0)return null;
-      const last=path[path.length-1];
-      const options=last.neighbors(last.cell).filter(c=>Math.abs(c%8-last.cell%8)+Math.abs(Math.floor(c/8)-Math.floor(last.cell/8))===1)
-        .filter(c=>!peers.some(p=>!path.includes(p)&&!ready(p)&&((p.next??p.cell)===c||p.shuffle?.members.some(m=>m.cell===c))));
-      // Randomized order avoids always shuffling the same pair; favor a small loop over a swap.
-      for(let i=options.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[options[i],options[j]]=[options[j],options[i]];}
-      if(path.length<4)for(const c of options){const next=at.get(c);if(next&&!path.includes(next)){const result=search([...path,next]);if(result)return result;}}
-      return path.length>=2&&options.includes(this.cell)?path:null;
-    };
-    const members=search([this]);if(!members)return false;
-    const group:PetShuffle={members,targets:members.map((_,i)=>members[(i+1)%members.length].cell),retreat:false};
-    members.forEach((p,i)=>{p.shuffle=group;p.next=group.targets[i];p.progress=0;p.retreating=false;p.escapingStep=false;p.revision++;});
-    return true;
+    const candidates=this.neighbors(this.cell).map(cell=>({cell,arrivals:peers.filter(p=>p!==this&&(p.next??p.cell)===cell)}))
+      .filter(({arrivals})=>!arrivals.some(p=>p.leaping||p.hatchRemaining>0||p.planting>0));
+    const roomy=candidates.filter(({arrivals})=>arrivals.length<2);
+    if(roomy.length)return roomy.map(({cell})=>cell);
+    // In an already packed pocket, let one pet circulate toward the least
+    // crowded neighbor instead of requiring an empty reservation to start.
+    const here=peers.filter(p=>(p.next??p.cell)===this.cell).length;
+    const least=Math.min(...candidates.map(({arrivals})=>arrivals.length));
+    return least<=here?candidates.filter(({arrivals})=>arrivals.length===least).map(({cell})=>cell):[];
   }
-  private updateShuffle(dt:number){
-    const group=this.shuffle!;
-    // If terrain changes under a coordinated path, everyone returns together.
-    if(group.members.some((p,i)=>!p.allowed(group.targets[i])))group.retreat=true;
-    const target=group.targets[group.members.indexOf(this)],sx=this.cell%8,sy=Math.floor(this.cell/8),dx=target%8-sx,dy=Math.floor(target/8)-sy;
-    this.progress=Math.max(0,Math.min(1,this.progress+(group.retreat?-1:1)*dt*1.7/2));
-    // A small passing lane keeps a swapping pair from walking through each other.
-    const side=group.members.length===2?Math.sin(this.progress*Math.PI)*.14:0;
-    this.x=sx+dx*this.progress-dy*side;this.y=sy+dy*this.progress+dx*side;
-    this.heading=Math.atan2(-dx,-dy)+(group.retreat?Math.PI:0);
-    const complete=group.members.every(p=>group.retreat?p.progress===0:p.progress===1);
-    if(!complete)return;
-    group.members.forEach((p,i)=>{
-      if(!group.retreat){p.recent.push(p.cell);if(p.recent.length>8)p.recent.shift();p.cell=group.targets[i];p.completed++;}
-      p.x=p.cell%8;p.y=Math.floor(p.cell/8);p.next=null;p.progress=0;p.shuffle=null;p.shuffleRetry=.2;p.revision++;
+
+  private chooseWander(choices:number[]){
+    const peers=this.peers?.()??[];
+    const weights=choices.map(c=>{
+      const dx=c%8-this.cell%8,dy=Math.floor(c/8)-Math.floor(this.cell/8);
+      const alignment=(-dx*Math.sin(this.heading)-dy*Math.cos(this.heading))/Math.hypot(dx,dy);
+      const crowd=peers.filter(p=>p!==this&&(p.next??p.cell)===c).length;
+      return (.35+2.6*Math.max(0,alignment))*(crowd?.25:1)*(this.recent.includes(c)?.25:1)*(c===this.recent.at(-1)?.12:1);
     });
+    let roll=this.random()*weights.reduce((a,b)=>a+b,0);
+    for(let i=0;i<choices.length;i++){roll-=weights[i];if(roll<=0)return choices[i];}
+    return choices[choices.length-1];
+  }
+  private updateSpacing(dt:number){
+    let ox=0,oy=0;
+    if(!this.leaping&&!this.hatchRemaining&&!this.planting){
+      const peers=this.peers?.()??[],index=peers.indexOf(this);
+      for(let i=0;i<peers.length;i++){const p=peers[i];if(p===this||p.leaping)continue;
+        let dx=this.x-p.x,dy=this.y-p.y;const d=Math.hypot(dx,dy);if(d>=.7)continue;
+        if(d<.001){const angle=(Math.min(index,i)+1)*2.399;dx=Math.cos(angle)*(index<i?1:-1);dy=Math.sin(angle)*(index<i?1:-1);}
+        const length=Math.hypot(dx,dy);ox+=dx/length*(.7-d)*.4;oy+=dy/length*(.7-d)*.4;
+      }
+    }
+    const size=Math.hypot(ox,oy),scale=size>.22?.22/size:1,blend=1-Math.exp(-dt*9);
+    this.visualOffsetX+=(ox*scale-this.visualOffsetX)*blend;this.visualOffsetY+=(oy*scale-this.visualOffsetY)*blend;
   }
   // A tile can become unsafe underneath a pet. Only in that case allow a
   // cardinal escape across hostile liquid/shoreline to the nearest safe tile.
@@ -143,7 +136,7 @@ export class PetMotion {
       if(c!==this.cell&&this.allowed(c)){result=first[c];break;}
       const x=c%8,y=Math.floor(c/8);
       for(const n of [x>0?c-1:-1,x<7?c+1:-1,y>0?c-8:-1,y<7?c+8:-1]){
-        if(n<0||seen.has(n)||this.board[n]==='stone'||!this.available(n))continue;
+        if(n<0||seen.has(n)||this.board[n]==='stone'||(this.peers?.().filter(p=>p!==this&&(p.next??p.cell)===n).length??0)>=2)continue;
         seen.add(n);first[n]=c===this.cell?n:first[c];queue.push(n);
       }
     }
@@ -153,8 +146,7 @@ export class PetMotion {
   // Cosmetic wandering must never keep a lost run alive indefinitely.
   get busy(){return this.hatchRemaining>0||this.leaping||this.planting>0||(this.queued>0&&(this.attack?.()?.cells.some(c=>this.available(c))||this.leapTarget()!==null));}
   update(dt:number){
-    this.shuffleRetry=Math.max(0,this.shuffleRetry-dt);
-    if(this.shuffle){this.updateShuffle(dt);return;}
+    this.updateSpacing(dt);
     if(this.hatchRemaining>0){const used=Math.min(dt,this.hatchRemaining);this.hatchRemaining-=used;dt-=used;if(this.hatchRemaining===0)this.revision++;}
     while(dt>0){
       if(this.flight){
@@ -171,11 +163,11 @@ export class PetMotion {
         const target=unsafe?this.escapeRoute():null;
         if(unsafe&&target===null)break;
         this.escapingStep=unsafe;
-        let choices=this.neighbors(this.cell).filter(n=>this.available(n));
+        let choices=this.wanderChoices();
         if(target!==null)choices=[target];
         else{const fresh=choices.filter(n=>!this.recent.includes(n));if(fresh.length)choices=fresh;}
-        if(!choices.length){if(!unsafe&&this.tryShuffle())this.updateShuffle(dt);break;}
-        this.next=choices[Math.min(choices.length-1,Math.floor(this.random()*choices.length))];this.progress=0;this.retreating=false;
+        if(!choices.length)break;
+        this.next=this.chooseWander(choices);this.progress=0;this.retreating=false;
       }
       const sx=this.cell%8,sy=Math.floor(this.cell/8),dx=this.next%8-sx,dy=Math.floor(this.next/8)-sy;
       const blocked=this.escapingStep?this.board[this.next]==='stone':!this.allowed(this.next)||(dx&&dy&&(!this.allowed(sy*8+sx+dx)||!this.allowed((sy+dy)*8+sx)));

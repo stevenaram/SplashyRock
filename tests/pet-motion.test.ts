@@ -84,14 +84,13 @@ test('an invalidated landing does not overwrite liquid or spend the queued abili
  p.update(.8);assert.equal(planted,1);assert.equal(p.queued,0);
 });
 
-test('pets reserve distinct wandering destinations and can follow a departing pet',()=>{
+test('wandering can share a destination with one walker and follow a departing pet',()=>{
  const b=board(),pets:PetMotion[]=[];
  const add=(cell:number)=>{const p=new PetMotion(cell,'lava',b,()=>{},()=>0,()=>0,()=>pets);pets.push(p);return p;};
  const first=add(0),second=add(2),follower=add(8);
  first.update(.1);assert.equal(first.next,1);
- second.update(.1);assert.notEqual(second.next,1);
+ second.update(.1);assert.equal(second.next,1);
  follower.update(.1);assert.equal(follower.next,0);
- const destinations=pets.map(p=>p.next??p.cell);assert.equal(new Set(destinations).size,pets.length);
 });
 test('hatching and charging pets hold their tiles against incoming pets',()=>{
  const b=board(),pets:PetMotion[]=[];
@@ -116,14 +115,14 @@ test('ability routing invalidates a cached choice when another pet reserves it',
  const other=new PetMotion(2,'lava',b,()=>{},()=>0,()=>0,()=>pets);pets.push(other);other.next=1;
  p.update(.1);assert.equal(p.next,8);
 });
-test('crowded wandering keeps all next destinations unique over many updates',()=>{
+test('crowded wandering keeps moving with at most two pets assigned to each tile',()=>{
  const b=board(),pets:PetMotion[]=[];let seed=19;
  const random=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
  for(let i=0;i<24;i++)pets.push(new PetMotion(i,'water',b,()=>{},random,()=>0,()=>pets));
  for(let step=0;step<600;step++){
   for(const p of pets)p.update(1/30);
   const reserved=pets.map(p=>p.next??p.cell);
-  assert.equal(new Set(reserved).size,pets.length);
+  assert.ok(reserved.every(c=>reserved.filter(n=>n===c).length<=2));
  }
  assert.ok(pets.every(p=>p.completed>0));
 });
@@ -148,24 +147,26 @@ test('queued leaps keep distinct reserved destinations and all earned actions',(
  assert.equal(drops,6);assert.ok(pets.every(p=>p.queued===0));
 });
 
-test('crowded pets swap without shared destinations or midpoint overlap',()=>{
+test('crowded pets keep walking with bounded visual spacing',()=>{
  const b=Array<Tile|null>(64).fill('stone');b[27]=b[28]='lava';const peers:PetMotion[]=[];
  for(const c of [27,28])peers.push(new PetMotion(c,'lava',b,()=>{},()=>.3,undefined,()=>peers));
- peers[0].update(.01);assert.equal(peers[0].next,28);assert.equal(peers[1].next,27);
- for(let i=0;i<58;i++)peers.forEach(p=>p.update(.01));
- assert.ok(Math.hypot(peers[0].x-peers[1].x,peers[0].y-peers[1].y)>.25);
- for(let i=0;i<65;i++)peers.forEach(p=>p.update(.01));
- assert.deepEqual(peers.map(p=>p.cell),[28,27]);assert.ok(peers.every(p=>p.completed===1));
+ let spaced=false;
+ for(let i=0;i<1200;i++){
+  peers.forEach(p=>p.update(.01));
+  for(const p of peers){const offset=Math.hypot(p.visualOffsetX,p.visualOffsetY);assert.ok(offset<=.220001);if(offset>.05)spaced=true;}
+ }
+ assert.ok(spaced);assert.ok(peers.every(p=>p.completed>=9));
 });
-test('a full 2x2 group rotates and changing terrain makes the group retreat safely',()=>{
- const b=Array<Tile|null>(64).fill('stone'),peers:PetMotion[]=[];
- for(const c of [27,28,35,36]){b[c]='lava';peers.push(new PetMotion(c,'lava',b,()=>{},()=>.2,undefined,()=>peers));}
- peers[0].update(.1);assert.ok(peers.every(p=>p.next!==null));assert.equal(new Set(peers.map(p=>p.next)).size,4);
- for(let i=0;i<10;i++)peers.forEach(p=>p.update(.02));b[28]='water';
- for(let i=0;i<20;i++)peers.forEach(p=>p.update(.02));
- assert.ok(peers.every(p=>p.completed===0));assert.equal(new Set(peers.map(p=>p.cell)).size,4);
+test('a full 2x2 group keeps moving and avoids newly hostile terrain',()=>{
+ const b=Array<Tile|null>(64).fill('stone'),peers:PetMotion[]=[];let seed=73;
+ const random=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
+ for(const c of [27,28,35,36]){b[c]='lava';peers.push(new PetMotion(c,'lava',b,()=>{},random,undefined,()=>peers));}
+ for(let i=0;i<600;i++)peers.forEach(p=>p.update(.02));
+ assert.ok(peers.every(p=>p.completed>=6));b[28]='water';
+ for(let i=0;i<300;i++)peers.forEach(p=>p.update(.02));
+ assert.ok(peers.every(p=>p.cell!==28&&p.next!==28));
 });
-test('hatching pets cannot be recruited into a swap',()=>{
+test('hatching pets keep exclusive space while neighbors wander',()=>{
  const b=Array<Tile|null>(64).fill('stone');b[27]=b[28]='lava';const peers:PetMotion[]=[];
  for(const c of [27,28])peers.push(new PetMotion(c,'lava',b,()=>{},()=>.3,undefined,()=>peers));
  peers[1].startHatch();peers[0].update(.2);assert.equal(peers[0].next,null);
@@ -176,4 +177,18 @@ test('revive cancels queued and in-flight abilities but permits new abilities af
  g.over=true;g.beginRevive();assert.equal(p.queued,0);g.finishRevive();p.update(2);
  assert.equal(g.board.filter(t=>t==='lava').length,0);assert.equal(p.abilitiesUsed,0);assert.equal(p.queued,0);
  p.queueAbility();p.update(2);assert.equal(p.abilitiesUsed,1);
+});
+
+test('a fully occupied board and a tightly packed pocket keep circulating',()=>{
+ for(const cells of [Array.from({length:64},(_,i)=>i),[27,28,35,36]]){
+  const b=Array<Tile|null>(64).fill('stone'),pets:PetMotion[]=[];let seed=913;
+  const random=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
+  for(const c of cells)b[c]='lava';
+  const count=cells.length===64?64:12;
+  for(let i=0;i<count;i++)pets.push(new PetMotion(cells[i%cells.length],'lava',b,()=>{},random,undefined,()=>pets));
+  const visited=pets.map(p=>new Set([p.cell]));
+  for(let frame=0;frame<900;frame++)pets.forEach((p,i)=>{p.update(1/30);visited[i].add(p.cell);});
+  assert.ok(pets.every(p=>p.completed>=8));
+  assert.ok(visited.every(v=>v.size>=3));
+ }
 });
