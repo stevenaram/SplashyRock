@@ -446,3 +446,9 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 #progress-menu{grid-column:2;grid-row:1;width:28px;height:28px}
 #egg-goal{grid-column:1/-1;grid-row:3;height:28px}
 @media(max-height:500px){#game{--hud-space:105px}#run-hud{grid-template-rows:24px 34px 25px;row-gap:3px;padding-block:6px 10px}#gem-wallet{height:24px}#progress-menu{height:24px}#egg-goal{height:25px}}
+
+/* Normalize native button padding and SVG baselines across mobile browsers. */
+#progress-menu,#sound-toggle{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;padding:0;line-height:0}
+#progress-menu svg,#sound-toggle svg{display:block;flex:none;margin:0;pointer-events:none}
+#progress-menu svg{width:18px;height:18px}
+#sound-toggle svg{width:32px;height:32px;overflow:hidden}
