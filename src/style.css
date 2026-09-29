@@ -471,3 +471,13 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 @media(max-height:500px){#notice-rail{gap:6px;width:min(380px,calc(100vw - 28px))}#notice-rail>:is(#clearing-tip,#pet-ability-tip,#fit-warning-tip){padding:8px 12px}#notice-rail>#gem-reward{padding-block:7px}}
 #guide-hand .guide-piece.pet{left:-23px;top:-25px}
 #guide-hand .guide-piece.pet .pet-icon{width:46px;height:50px}
+
+#no-space-sequence{position:absolute;inset:0;width:100%;height:100%;z-index:5;overflow:visible;pointer-events:none}
+#no-space-sequence[hidden]{display:none}
+.space-sand{fill:#fffbed;fill-opacity:.42;stroke:#fffbed;stroke-width:1.7;stroke-dasharray:3 3;stroke-linejoin:round}
+.space-attempt{fill:#fff2dc;fill-opacity:.5;stroke:#fff5d4;stroke-width:2.5;stroke-linejoin:round}
+.space-attempt.water{fill:#8be6ee}.space-attempt.lava{fill:#ffba75}
+.space-attempt.blocked{fill:#eb766b;fill-opacity:.55;stroke:#ffccc0}
+.space-cross{fill:#fff1dc;stroke:#743c40;stroke-width:2px;paint-order:stroke;dominant-baseline:central;text-anchor:middle;font:800 24px system-ui}
+.space-word{fill:#fff9e8;stroke:#194b5e;stroke-width:6px;paint-order:stroke;stroke-linejoin:round;font:900 36px system-ui;text-anchor:middle;dominant-baseline:central;filter:drop-shadow(0 4px 0 #12354255)}
+body:has(#game.ending) #notice-rail{visibility:hidden}

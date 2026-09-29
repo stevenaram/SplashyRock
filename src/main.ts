@@ -1,3 +1,4 @@
+import {NoSpaceSequence} from './no-space';
 import {noticeRail} from './notice-rail';
 import {HighScore} from './high-score';
 import {BossSpawnQueue} from './boss-spawns';
@@ -154,7 +155,8 @@ function settled(){
   endTimer=setTimeout(()=>{
     endTimer=undefined;
     if(!game.finishIfBlocked(game.bossesDying||reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy))return;
-    showEnd();
+    tutorial.dismiss();tutorial.dismissGoal();combo.reset();
+    noSpace.start(()=>showEnd());
     status.textContent=`Game Over. Final score ${game.score}. You can still try the remaining pieces, or play again.`;
   },400);
 }
@@ -164,6 +166,7 @@ const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
 // The clearing explanation also recognizes players who finished before completion tracking.
 const game = new Game(Math.random,()=>seenTips.has('intro-complete')||seenTips.has('clearing'));
 const bossSpawns=new BossSpawnQueue(game);
+const noSpace=new NoSpaceSequence(board,game,(x,y)=>world.gridScreen(x,y,.16),(cue,level)=>sound.play(cue,level));
 world.game=game;world.onPetChange=settled;world.onSound=(cue,cell,level=1)=>sound.play(cue,level,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
@@ -220,6 +223,7 @@ reviveButton.addEventListener('click',()=>{
 window.addEventListener('storage',()=>{refreshRevive();best=highScore.refresh();updateBest();},{signal:events.signal});
 let testBossElement:'water'|'lava'|'both'='water';
 function restartRun(){
+  noSpace.cancel();
   playedBeyondIntro=false;reviveInFlight=false;
   sound.stop();sound.play('restart');
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
@@ -372,4 +376,4 @@ const disposeScoreTest=scoreTestMode?scoreTestControls(amount=>{
   progressUI.render();refreshRevive();return true;
 },()=>progression.gems):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices();noSpace.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });
