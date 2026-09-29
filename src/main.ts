@@ -1,3 +1,4 @@
+import {BossSpawnQueue} from './boss-spawns';
 import {BossRewardCallout} from './boss-reward';
 import {bossTestMode} from './test-mode';
 import {seedBossTest,bossTestControls} from './boss-test';
@@ -124,7 +125,7 @@ function settled(){
     if(multiplier>1)combo.finish(bonus);
     shownCombo=0;
   }
-  game.trySpawnBoss(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy||game.bossesDying);
+  bossSpawns.update([...aftermaths,...reactions.activeAftermaths,...sweeps.activeAftermaths]);
   tutorial.settled(!reactions.busy&&!sweeps.busy);
   game.claimEggRewards();announceEggs();
   updateScore();
@@ -146,6 +147,7 @@ const bossReward=new BossRewardCallout(board,(x,y)=>world.gridScreen(x,y,1));
 const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
 // The clearing explanation also recognizes players who finished before completion tracking.
 const game = new Game(Math.random,()=>seenTips.has('intro-complete')||seenTips.has('clearing'));
+const bossSpawns=new BossSpawnQueue(game);
 world.game=game;world.onPetChange=settled;world.onSound=(cue,cell,level=1)=>sound.play(cue,level,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
@@ -200,7 +202,7 @@ function restartRun(){
   sound.stop();sound.play('restart');
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
   clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
-  world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
+  bossSpawns.reset();world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
   shownCombo=0;combo.reset();bossReward.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
   if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
   shownScore=0;gainLabel.textContent='';tutorial.start();updateScore();renderTray();

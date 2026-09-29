@@ -43,10 +43,16 @@ export class Game {
   bossNotice='';
   bossRewards:BossReward[]=[];
 
-  trySpawnBoss(pending=false){
+  bossSpawnCandidates(){
+    if(this.over||this.reviving)return [];
+    return elementalPools(this.board).filter(({element,cells})=>
+      !this.bosses.some(b=>b.element===element)&&this.pets.some(p=>p.element!==element&&p.hatchRemaining===0)&&poolBlocks(new Set(cells)).length>0);
+  }
+  trySpawnBoss(pending=false,onlyElement?:Element,source?:ReadonlySet<number>){
     if(pending||this.over||this.reviving)return false;
     let spawned=false;
-    for(const {element,cells:pool} of elementalPools(this.board)){
+    for(const {element,cells:pool} of this.bossSpawnCandidates()){
+      if(onlyElement&&element!==onlyElement||source&&!pool.some(c=>source.has(c)))continue;
       if(this.bosses.some(b=>b.element===element))continue;
       if(!this.pets.some(p=>p.element!==element&&p.hatchRemaining===0))continue;
       const remaining=new Set(pool),blocks=poolBlocks(remaining);if(!blocks.length)continue;
