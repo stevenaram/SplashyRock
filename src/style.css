@@ -410,3 +410,21 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 /* A single inventory egg represents all unplaced rewards. */
 .slot.pet .egg-count {position:absolute;right:12%;bottom:12%;z-index:2;min-width:25px;height:25px;padding:0 6px;display:grid;place-items:center;box-sizing:border-box;border:2px solid #e6e4ae;border-radius:10px;background:#244b59;color:#fff4ce;font:800 15px/1 ui-monospace,monospace;font-variant-numeric:tabular-nums;box-shadow:0 2px 0 #102f3c80,inset 0 1px 0 #719797;pointer-events:none}
 #boss-test.score-test{max-height:calc(100dvh - 130px);overflow-y:auto;overscroll-behavior:contain}
+
+/* Current score leads; the egg target is a secondary milestone beneath it. */
+#game{--hud-space:112px}
+#run-hud{display:grid;grid-template-columns:90px minmax(0,460px) 90px;grid-template-rows:58px 32px;justify-content:center;column-gap:12px;row-gap:5px;padding:8px max(12px,env(safe-area-inset-right)) 9px max(12px,env(safe-area-inset-left))}
+#hud{grid-column:2;grid-row:1;justify-self:stretch;align-items:center;justify-content:center;width:auto;min-width:0;padding:0;gap:2px;text-align:center}
+#hud>span:first-child{font:800 8px/1 system-ui,sans-serif;letter-spacing:2px;color:#c5e6e9;text-shadow:0 1px 3px #082938}
+#score{display:block;font-size:48px;line-height:1;font-weight:900;color:#fff;letter-spacing:-1px;text-shadow:0 3px 0 #123d51,0 1px 7px #092f48,0 0 18px #092f48a0;-webkit-text-stroke:.4px #fff}
+#score-gain{left:50%;top:100%;padding:0;transform:translateX(-50%);white-space:nowrap;color:#fff3bc;font-size:13px}
+#gem-wallet{grid-column:1;grid-row:1;justify-self:start;width:90px;height:36px;padding:3px 8px;gap:5px}
+#gem-wallet strong{font-size:16px}
+#gem-wallet .gem-icon{width:23px;height:28px}
+#progress-menu{grid-column:3;grid-row:1;justify-self:end;width:36px;height:36px}
+#egg-goal{grid-column:1/-1;grid-row:2;justify-self:center;flex:none;width:min(330px,90%);max-width:330px;height:32px;padding:3px 9px 3px 4px;gap:8px;border-color:#accfc533;background:#10344766;box-shadow:inset 0 1px #e7efc610}
+#egg-goal>img{width:25px;height:28px;filter:none}
+#egg-goal>strong{font-size:10px;font-weight:600;color:#a8c9c7;letter-spacing:0}
+#egg-goal .egg-track{height:8px}
+@media(max-width:450px){#run-hud{grid-template-columns:64px minmax(0,1fr) 64px;column-gap:6px}#gem-wallet{width:64px;padding-inline:5px;gap:3px}#gem-wallet strong{font-size:13px}#gem-wallet .gem-icon{width:18px;height:24px}}
+@media(max-height:500px){#game{--hud-space:88px}#run-hud{grid-template-rows:43px 27px;padding-block:6px;row-gap:4px}#score{font-size:36px}#egg-goal{height:27px;width:min(290px,90%)}#egg-goal>img{height:24px;width:22px}#egg-goal>strong{font-size:9px}}

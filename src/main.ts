@@ -70,14 +70,14 @@ function updateScore(){
   if(gain>0){gainLabel.textContent=`+${gain}`;gainLabel.getAnimations().forEach(a=>a.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-14px)'}],{duration:750,fill:'forwards',easing:'cubic-bezier(.2,.7,.3,1)'});}
   // Fit the number inside its reserved column without moving the goal bar.
   const scoreWidth=scoreLabel.clientWidth;
-  scoreLabel.style.fontSize=`${Math.min(25,scoreWidth/Math.max(1,scoreLabel.textContent!.length)/.62)}px`;
+  scoreLabel.style.fontSize=`${Math.min(window.innerHeight<=500?36:48,scoreWidth/Math.max(1,scoreLabel.textContent!.length)/.62)}px`;
   shownScore=game.score;
   const earned=game.earnedEggs,index=Math.min(earned,MAX_PETS-1),target=EGG_GOALS[index],previous=index?EGG_GOALS[index-1]:0;
   const progress=earned===MAX_PETS?1:Math.max(0,Math.min(1,(game.score-previous)/(target-previous)));
   goal.style.setProperty('--progress',String(progress));goal.querySelector('strong')!.textContent=earned===MAX_PETS?'64 / 64':target.toLocaleString();
   const pending=Math.max(0,earned-game.rewardsDealt);goal.classList.toggle('ready',pending>0);
   goal.querySelector('.egg-pending')!.textContent=pending?`+${pending}`:'';
-  goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===MAX_PETS?'All egg rewards earned':`Next egg at ${target.toLocaleString()} points`);
+  goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===MAX_PETS?'All egg rewards earned':`Next egg at ${target.toLocaleString()} score`);
 }
 function refreshRevive(){
   const eligible=!game.won&&game.reviveTargets().length>0;
