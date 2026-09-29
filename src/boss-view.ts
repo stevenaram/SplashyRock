@@ -11,14 +11,14 @@ export class BossView {
  private halo=new T.Group();
  private death=new T.Group();
  private bar=document.createElement('div');
- private lastDefeats=0;
+ private health=1;private trail=1;private lastHealth=1;private trailDelay=0;
 
  private notice=document.createElement('div');
  private id=0;private age=0;private hitAge=10;private hits=0;private exiting=0;private noticeAge=10;
 
  constructor(private scene:T.Scene,private host:HTMLElement,private project:(cell:number,height:number)=>{x:number;y:number}){
   this.root.add(this.body,this.halo,this.death);scene.add(this.root);
-  this.bar.className='boss-health';this.bar.hidden=true;this.bar.innerHTML='<strong></strong><div class="territory-track" role="progressbar" aria-label="Boss territory" aria-valuemin="0" aria-valuemax="64"><i></i></div><small></small>';host.append(this.bar);
+  this.bar.className='boss-health';this.bar.hidden=true;this.bar.innerHTML='<strong></strong><div class="territory-track" role="progressbar" aria-label="Boss territory" aria-valuemin="0" aria-valuemax="64"><em></em><i></i><span class="health-ticks"></span></div>';host.append(this.bar);
   this.notice.className='boss-notice';this.notice.hidden=true;this.notice.setAttribute('role','status');host.append(this.notice);
  }
  private clear(){const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();this.body.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.death.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.halo.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());this.body.clear();this.halo.clear();this.death.clear();}
@@ -47,16 +47,15 @@ export class BossView {
   const geometry=new T.RingGeometry(1.27,1.32,4);geometry.rotateZ(Math.PI/4);
   for(let c=0;c<64;c++){const m=new T.Mesh(geometry,mark);m.rotation.x=-Math.PI/2;m.position.set(gridWorld(c%8),.13,gridWorld(Math.floor(c/8)));m.userData.cell=c;this.halo.add(m);}
  }
- update(game:Game,dt:number,reduced:boolean){
+ update(game:Game,dt:number,reduced:boolean,b:Boss){
   if(game.bossNotice){this.notice.textContent=game.bossNotice;game.bossNotice='';this.notice.hidden=false;this.noticeAge=0;}
   this.noticeAge+=dt;if(this.noticeAge>4.5)this.notice.hidden=true;
-  const b=game.boss;
-  if(!b){
+  if(b.id!==this.id){this.build(b);this.body.position.set(gridWorld(b.x),0,gridWorld(b.y));}
+  if(b.deathRemaining>0){
+    this.body.position.x=gridWorld(b.x);this.body.position.z=gridWorld(b.y);
     this.halo.visible=false;
-    if(!this.id){this.bar.hidden=true;return;}
-    if(game.bossesDefeated<=this.lastDefeats){this.clear();this.id=0;this.bar.hidden=true;return;}
-    this.exiting+=dt;const t=this.exiting,dissolve=Math.max(0,Math.min(1,(t-.24)/.42));
-    this.bar.querySelector('i')!.style.width='0%';this.bar.querySelector('small')!.textContent='Defeated';this.bar.hidden=t>.7;
+    this.exiting=1.1-b.deathRemaining;const t=this.exiting,dissolve=Math.max(0,Math.min(1,(t-.24)/.42));
+    this.bar.querySelector('i')!.style.width='0%';this.bar.querySelector('em')!.style.width='0%';this.bar.hidden=t>.7;
     this.body.scale.set(1.25*(1+dissolve*.55),1.25*(1-dissolve),1.25*(1+dissolve*.55));
     this.body.position.y=reduced?0:Math.sin(Math.min(1,t/.24)*Math.PI)*.38;
     this.body.rotation.z=reduced?0:Math.sin(t*45)*.14*(1-dissolve);
@@ -65,7 +64,6 @@ export class BossView {
     for(const child of this.death.children){const m=child as T.Mesh<T.BufferGeometry,T.MeshBasicMaterial>;if(m.userData.ring){m.scale.setScalar(.5+3*(1-Math.pow(1-Math.min(1,burst),3)));m.material.opacity=.65*Math.pow(Math.max(0,1-burst),2);}else{const i=m.userData.index,angle=i*2.399,r=(.6+(i%3)*.3)*burst*2.3;m.position.set(Math.cos(angle)*r,.2+Math.sin(Math.min(1,burst)*Math.PI)*(.7+i%3*.22),Math.sin(angle)*r);m.scale.setScalar((.12+i%3*.035)*Math.max(0,1-burst));m.rotation.set(burst*3,angle,burst*2);m.material.opacity=Math.max(0,1-burst);}}
     if(t>1.1){this.clear();this.id=0;this.bar.hidden=true;}return;
   }
-  this.lastDefeats=game.bossesDefeated;
   if(b.id!==this.id)this.build(b);
   this.age+=dt;this.hitAge+=dt;if(b.hits!==this.hits){this.hits=b.hits;this.hitAge=0;}
   const hit=reduced?0:Math.max(0,1-this.hitAge/.6),intro=reduced?1:Math.min(1,this.age/.45);
@@ -75,7 +73,17 @@ export class BossView {
   this.body.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshBasicMaterial).color.copy(o.userData.baseColor).lerp(this.hitColor,hit*.65);});
   this.bar.hidden=false;this.bar.dataset.element=b.element;
   this.bar.querySelector('strong')!.textContent=b.element==='water'?'Water Boss':'Lava Boss';
-  const count=b.remaining.size;this.bar.querySelector('i')!.style.width=`${count/64*100}%`;this.bar.querySelector('.territory-track')!.setAttribute('aria-valuenow',String(count));this.bar.querySelector('small')!.textContent=`${count} tiles`;
+  const target=b.remaining.size/b.maxTiles;
+  if(target<this.lastHealth)this.trailDelay=.28;
+  const healing=target>this.lastHealth;this.lastHealth=target;
+  this.health=reduced?target:this.health+(target-this.health)*(1-Math.exp(-dt*(healing?8:22)));
+  this.trailDelay=Math.max(0,this.trailDelay-dt);
+  if(reduced)this.trail=target;else if(target>=this.trail)this.trail=this.health;else if(!this.trailDelay)this.trail+=(this.health-this.trail)*(1-Math.exp(-dt*5));
+  this.bar.querySelector('i')!.style.width=`${this.health*100}%`;this.bar.querySelector('em')!.style.width=`${this.trail*100}%`;
+  const track=this.bar.querySelector('.territory-track')!;track.setAttribute('aria-valuemax',String(b.maxTiles));track.setAttribute('aria-valuenow',String(b.remaining.size));
+  const ticks=this.bar.querySelector('.health-ticks') as HTMLElement;ticks.style.setProperty('--tick',`${400/b.maxTiles}%`);
+  this.bar.classList.toggle('health-hit',this.hitAge<.25&&!reduced);
+
   const a=this.project(b.cell,3.5),z=this.project(b.cell+9,3.5);this.bar.style.left=`${Math.max(70,Math.min(this.host.clientWidth-70,(a.x+z.x)/2))}px`;this.bar.style.top=`${Math.max(6,(a.y+z.y)/2-30)}px`;
   this.halo.visible=true;for(const m of this.halo.children)m.visible=b.remaining.has(m.userData.cell);
 

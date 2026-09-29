@@ -62,7 +62,6 @@ let shownScore=0;
 let best=0;
 try { if(!bossTestMode)best=Math.max(0,Number(localStorage.getItem('splashy-rock-best'))||0); } catch {}
 let endTimer:ReturnType<typeof setTimeout>|undefined;
-let bossGrowthTimer:ReturnType<typeof setTimeout>|undefined;
 function updateScore(){
   const gain=game.score-shownScore;scoreLabel.textContent=game.score.toLocaleString();
   if(gain>0){gainLabel.textContent=`+${gain}`;gainLabel.getAnimations().forEach(a=>a.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-14px)'}],{duration:750,fill:'forwards',easing:'cubic-bezier(.2,.7,.3,1)'});}
@@ -100,10 +99,14 @@ function showEnd(won=false){
   endDialog.hidden=false;host!.classList.add('ended');host!.classList.toggle('won',won);
 }
 function settled(){
+  for(const events of [game.bossGrowthEvents,game.bossLiquidEvents]){
+    const pending=events.splice(0);
+    for(const element of ['water','lava'] as const){const cells=pending.filter(e=>e.element===element&&game.board[e.cell]===element).map(e=>e.cell);if(cells.length)world.addPiece(0,{tile:element,shape:{id:'boss-growth',name:'Pool surge',width:1,height:1,cells:cells.map(c=>[c%8,Math.floor(c/8)])}});}
+  }
+
 
 
   if(game.bossStoneEvents.length){for(const cell of game.bossStoneEvents.splice(0))world.addStone(cell);sweeps.schedule();}
-  if(!reactions.busy&&!sweeps.busy)game.trySpawnBoss();
   if(game.reviving){
     progression.observe(game,{calm:false,allowCleanBoard:false,suppressed:true});
     if(sweeps.busy)return;
@@ -119,23 +122,19 @@ function settled(){
     if(multiplier>1)combo.finish(bonus);
     shownCombo=0;
   }
-  if(game.resolveBossGrowth(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy||bossGrowthTimer!==undefined)){
-  if(game.bossGrowthEvents.length){const cells=game.bossGrowthEvents.splice(0);if(game.boss)world.addPiece(0,{tile:game.boss.element,shape:{id:'boss-growth',name:'Pool surge',width:1,height:1,cells:cells.map(c=>[c%8,Math.floor(c/8)])}});}
-    reactions.schedule();refreshPreview();
-    bossGrowthTimer=setTimeout(()=>{bossGrowthTimer=undefined;game.finishBossExpansion();settled();},400);
-  }
+  game.trySpawnBoss(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy||game.bossesDying);
   tutorial.settled(!reactions.busy&&!sweeps.busy);
   game.claimEggRewards();announceEggs();
   updateScore();
   updateTrayWarnings();
-  if(game.over||game.hasPendingBossGrowth||bossGrowthTimer!==undefined||reactions.busy||sweeps.busy||aftermaths.size>0||game.petsBusy||game.hasLegalMove()){
+  if(game.over||game.bossesDying||reactions.busy||sweeps.busy||aftermaths.size>0||game.petsBusy||game.hasLegalMove()){
     clearTimeout(endTimer);endTimer=undefined;return;
   }
   // Walking animation updates must not continually postpone this final check.
   if(endTimer!==undefined)return;
   endTimer=setTimeout(()=>{
     endTimer=undefined;
-    if(!game.finishIfBlocked(game.hasPendingBossGrowth||bossGrowthTimer!==undefined||reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy))return;
+    if(!game.finishIfBlocked(game.bossesDying||reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy))return;
     showEnd();
     status.textContent=`Game Over. Final score ${game.score}. You can still try the remaining pieces, or play again.`;
   },400);
@@ -192,16 +191,15 @@ reviveButton.addEventListener('click',()=>{
   status.textContent=`Revived for ${REVIVE_COST} Gems. ${stones.length} center tiles became stone.`;
 }, {signal:events.signal});
 window.addEventListener('storage',()=>refreshRevive(),{signal:events.signal});
-let testBossElement:'water'|'lava'='water';
+let testBossElement:'water'|'lava'|'both'='water';
 function restartRun(){
   playedBeyondIntro=false;reviveInFlight=false;
   sound.stop();sound.play('restart');
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
-  clearTimeout(bossGrowthTimer);bossGrowthTimer=undefined;
   clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
   world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
   shownCombo=0;combo.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
-  if(bossTestMode)seedBossTest(game,world,testBossElement);
+  if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
   shownScore=0;gainLabel.textContent='';tutorial.start();updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
 }
@@ -260,7 +258,6 @@ function updateTarget(x: number, y: number) {
 }
 function place() {
   if (game.over || selected === null || target === null) return false;
-  if(game.bossTurnLocked){sound.play('reject');return false;}
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
@@ -336,7 +333,7 @@ tray.addEventListener('click', event => {
  renderTray(); }
 }, { signal: events.signal });
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
-if(bossTestMode)seedBossTest(game,world,testBossElement);
+if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
 const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility();});}):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();clearTimeout(bossGrowthTimer);disposeBossTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });

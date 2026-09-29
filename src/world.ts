@@ -12,7 +12,7 @@ import {PetBatch} from './pet-batch';
 import { PixelRenderer } from './pixel-renderer';
 
 export class World {
-  private bossView:BossView;
+  private bossViews=new Map<number,BossView>();
   readonly scene = new THREE.Scene();
   // Same lens and fixed viewing angle as Diggy Splash.
   readonly camera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
@@ -40,7 +40,6 @@ export class World {
   private readonly observer: ResizeObserver;
 
   constructor(private readonly host: HTMLElement) {
-    this.bossView=new BossView(this.scene,host,(cell,height)=>this.cellScreen(cell,height));
     this.scene.background = new THREE.Color('#168eac');
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.autoUpdate = false;
@@ -80,8 +79,12 @@ export class World {
       if(revision!==pet.motion.revision||busy!==pet.motion.busy)petsChanged=true;
     }
     this.flushPetTiles();
-    if(this.game)for(const hit of this.game.bossHitEvents.splice(0)){if(!this.reducedMotion.matches)this.effects.burst(hit.cell,hit.element,true);this.onSound('steam',hit.cell);}
-    if(this.game){this.game.updateBoss(dt);this.bossView.update(this.game,dt,this.reducedMotion.matches);}
+
+    if(this.game){
+      if(this.game.updateBoss(dt))petsChanged=true;
+      for(const [id,view] of this.bossViews)if(!this.game.bosses.some(b=>b.id===id)){view.dispose();this.bossViews.delete(id);}
+      for(const boss of this.game.bosses){let view=this.bossViews.get(boss.id);if(!view){view=new BossView(this.scene,this.host,(cell,height)=>this.cellScreen(cell,height));this.bossViews.set(boss.id,view);}view.update(this.game,dt,this.reducedMotion.matches,boss);}
+    }
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {
@@ -187,6 +190,7 @@ export class World {
     const placed=footprint(piece,cell);
     for(const [x,y] of placed) {
       const index=y*8+x;this.effects.cancelEvaporation(index);this.surface.set(index,piece.tile);
+      for(const stone of [...this.stones.children])if(stone.userData.cell===index){this.arrivals=this.arrivals.filter(a=>a.group!==stone);disposeGroup(stone as THREE.Group);}
       if(!this.reducedMotion.matches)this.effects.burst(index,piece.tile,piece.shape.id==='pet-drop');
     }
     this.render();
@@ -260,7 +264,7 @@ export class World {
     this.render();
   }
 
-  dispose() {this.bossView.dispose();
+  dispose() {this.bossViews.forEach(view=>view.dispose());this.bossViews.clear();
     this.removePet();
     cancelAnimationFrame(this.frame);
     this.pixels.dispose();

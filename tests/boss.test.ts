@@ -1,74 +1,51 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,type Element} from '../src/game';
-import {poolSquares} from '../src/boss';
-function fixture(){
- const g=new Game(()=>.1,()=>true);
- for(const [i,element] of (['lava','water','lava'] as Element[]).entries()){
-  g.inventory[0]={tile:'pet',petElement:element,shape:{id:'egg',name:'Egg',width:1,height:1,cells:[[0,0]]}};
-  g.place(0,48+i);g.pet!.hatchRemaining=0;
- }
- for(const c of [18,19,20,26,27,28])g.board[c]='water';return g;
-}
-test('boss waits for actual hatches and a same-element 2x2 pool',()=>{
- const g=fixture();g.pet!.hatchRemaining=1;assert.equal(g.trySpawnBoss(),false);g.pet!.hatchRemaining=0;
- assert.equal(g.trySpawnBoss(),true);assert.equal(g.boss!.element,'water');assert.equal(g.boss!.x,g.boss!.cell%8+.5);
- assert.deepEqual(poolSquares(new Set([7,8,15,16])),[]);
+import {Game,type Element,type Piece} from '../src/game';
+import {poolBlocks} from '../src/boss';
+const block=(anchor:number)=>Array.from({length:16},(_,i)=>anchor+i%4+Math.floor(i/4)*8);
+const single:Piece={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};
+function fixture(){const g=new Game(()=>.1,()=>true);for(const c of block(18))g.board[c]='water';return g;}
+test('bosses require a settled solid 4x4 pool, without a pet requirement',()=>{
+ const g=fixture();assert.equal(g.trySpawnBoss(true),false);g.board[18]=null;assert.equal(g.trySpawnBoss(),false);g.board[18]='water';assert.equal(g.trySpawnBoss(),true);
+ assert.equal(g.boss!.element,'water');assert.equal(g.boss!.maxTiles,16);assert.equal(g.boss!.x,g.boss!.cell%8+.5);assert.equal(g.pets.length,0);
+ assert.deepEqual(poolBlocks(new Set([6,7,8,9,14,15,16,17,22,23,24,25,30,31,32,33])),[]);
 });
-test('pool loss staggers boss; destroying every 2x2 defeats it even with remaining tiles',()=>{
- const g=fixture();g.trySpawnBoss();g.clearCells([18]);assert.ok(g.boss);assert.equal(g.boss.hits,1);
- g.clearCells([20]);assert.equal(g.boss,null);assert.equal(g.bossesDefeated,1);assert.equal(g.bossStoneEvents.length,4);
- assert.ok(g.bossStoneEvents.every(c=>g.board[c]==='stone'));assert.equal(g.trySpawnBoss(),false);
+test('one boss per element including dying bosses, with a new disconnected pool eligible afterward',()=>{
+ const g=new Game();for(const c of [...block(0),...block(36)])g.board[c]='water';g.trySpawnBoss();assert.equal(g.bosses.length,1);
+ const first=g.boss!;g.clearCells([...first.remaining]);assert.ok(first.deathRemaining);assert.equal(g.trySpawnBoss(),false);
+ g.updateBoss(1.2);assert.equal(g.bosses.length,0);assert.equal(g.trySpawnBoss(true),false);assert.equal(g.trySpawnBoss(),true);assert.equal(g.bosses.length,1);
 });
-test('each shape expands exactly one layer, never overwrites tiles, and eggs do not expand it',()=>{
- const g=fixture();g.trySpawnBoss();g.board[9]='lava';const before=new Set(g.boss!.pool);
- g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};g.place(0,63);
- assert.equal(g.boss!.remaining.size,before.size);assert.equal(g.resolveBossGrowth(true),false);assert.equal(g.resolveBossGrowth(false),true);g.finishBossExpansion();
- assert.equal(g.board[9],'lava');assert.equal(g.board[10],'water');assert.equal(g.board[2],null);
- assert.ok(g.boss!.remaining.size>before.size);
- const size=g.boss!.remaining.size;g.inventory[0]={tile:'pet',shape:{id:'egg',name:'egg',width:1,height:1,cells:[[0,0]]}};g.place(0,60);assert.equal(g.boss!.remaining.size,size);
+test('water and lava bosses coexist and keep separate territory',()=>{
+ const g=new Game();for(const c of block(0))g.board[c]='water';for(const c of block(36))g.board[c]='lava';g.trySpawnBoss();assert.equal(g.bosses.length,2);
+ assert.equal(new Set(g.bosses.map(b=>b.element)).size,2);g.dealInventory();assert.equal(new Set(g.inventory.map(p=>p?.tile)).size,2);
+ const lava=g.bosses.find(b=>b.element==='lava')!;g.clearCells([...g.bosses.find(b=>b.element==='water')!.remaining]);assert.equal(lava.deathRemaining,0);
 });
-test('helpful pets plant reaction-enabling tiles instead of damaging boss directly',()=>{
- const g=fixture();g.trySpawnBoss();const pet=g.pets[0];pet.queueAbility();pet.update(.01);assert.equal(pet.attacking,false);pet.update(3);
- assert.equal(g.petTileEvents.length,1);assert.ok(g.stoneCandidates().length>0);assert.equal(g.boss!.hits,0);
+test('growth happens immediately once per placement without locking the next placement',()=>{
+ const g=fixture();g.trySpawnBoss();g.inventory=[single,single,single];assert.equal(g.place(0,63),true);assert.equal(g.board[9],'water');assert.equal(g.boss!.maxTiles,36);
+ assert.equal(g.place(1,62),true);assert.equal(g.shapeMoves,2);assert.ok(g.boss!.remaining.size>36);
 });
-test('boss wanders only between valid square centers and relocates after losing footing',()=>{
- const g=fixture();g.trySpawnBoss();const initial=g.boss!.cell;g.updateBoss(2);g.updateBoss(2);assert.notEqual(g.boss!.cell,initial);
- assert.ok(poolSquares(g.boss!.remaining).includes(g.boss!.cell));g.clearCells([18]);g.updateBoss(.1);assert.equal(g.boss!.cell,19);
- g.restart();assert.equal(g.boss,null);assert.equal(g.bossGrowthEvents.length,0);
+test('dying bosses keep exactly four liquid tiles until animation ends then emit stone',()=>{
+ const g=fixture();g.trySpawnBoss();const b=g.boss!;g.clearCells([...b.remaining]);assert.equal(b.remaining.size,4);assert.ok(b.deathRemaining);
+ for(const c of b.remaining)assert.equal(g.board[c],'water');assert.deepEqual(g.clearCells([...b.remaining]),[]);
+ g.updateBoss(.7);for(const c of b.remaining)assert.equal(g.board[c],'water');assert.equal(g.bossesDefeated,0);
+ g.updateBoss(.5);assert.equal(g.bosses.length,0);assert.equal(g.bossesDefeated,1);for(const c of b.remaining)assert.equal(g.board[c],'stone');assert.equal(g.bossStoneEvents.length,4);
 });
-test('empty or thin pools defer spawn and game over never spawns a boss',()=>{
- const g=fixture();g.board.fill(null);g.board[0]=g.board[1]='water';assert.equal(g.trySpawnBoss(),false);g.board[8]=g.board[9]='water';g.over=true;assert.equal(g.trySpawnBoss(),false);
+test('partial pool damage lowers health against its peak; no 2x2 patch begins death',()=>{
+ const g=fixture();g.trySpawnBoss();const b=g.boss!;g.clearCells([18]);assert.equal(b.maxTiles,16);assert.equal(b.remaining.size,15);assert.equal(b.deathRemaining,0);
+ g.clearCells([...b.remaining].filter(c=>c%8%2===0));assert.ok(b.deathRemaining);
 });
-
-test('sandbox-style dealing follows current elemental balance even with stone present',()=>{
- const g=fixture();g.board[0]='stone';g.dealInventory();assert.equal(g.inventory.filter(p=>p?.tile==='lava').length,2);assert.equal(g.inventory.filter(p=>p?.tile==='water').length,1);
- g.board.fill(null);g.board[0]='lava';g.board[1]='stone';g.board[2]='stone';g.dealInventory();assert.equal(g.inventory.filter(p=>p?.tile==='water').length,2);
+test('single-element boss refills counter it; ordinary hands resume once it dies',()=>{
+ for(const element of ['water','lava'] as Element[]){const g=fixture();for(const c of block(18))g.board[c]=element;g.trySpawnBoss();g.dealInventory();assert.ok(g.inventory.every(p=>p?.tile===(element==='water'?'lava':'water')));g.clearCells([...g.boss!.remaining]);g.updateBoss(1.2);g.dealInventory();assert.equal(new Set(g.inventory.map(p=>p?.tile)).size,2);}
 });
-test('boss turns block repeated placements until expansion finishes, without changing fit checks',()=>{
- const g=fixture();g.trySpawnBoss();const piece={tile:'lava' as const,shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]] as [number,number][]}};
- g.inventory=[piece,piece,piece];assert.equal(g.place(0,63),true);assert.equal(g.bossTurnLocked,true);
- assert.equal(g.canPlace(piece,62),true);assert.equal(g.place(1,62),false);assert.equal(g.resolveBossGrowth(true),false);
- assert.equal(g.resolveBossGrowth(false),true);assert.equal(g.place(1,62),false);
- g.finishBossExpansion();assert.equal(g.bossTurnLocked,false);assert.equal(g.place(1,62),true);
- g.clearCells([...g.boss!.remaining]);assert.equal(g.bossTurnLocked,false);assert.equal(g.resolveBossGrowth(false),false);
- g.restart();assert.equal(g.bossTurnLocked,false);
-});
-test('boss surge preserves all cells cleared during its aftermath, but later placements can grow there',()=>{
- const g=fixture();g.trySpawnBoss();g.board[10]='lava';
- const place=(cell:number)=>{g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};assert.equal(g.place(0,cell),true);};
- place(63);g.clearCells([18,10]);assert.ok(g.boss);assert.equal(g.resolveBossGrowth(false),true);
- assert.equal(g.board[18],null);assert.equal(g.board[10],null);assert.equal(g.board[11],'water');
- g.finishBossExpansion();place(62);g.resolveBossGrowth(false);assert.equal(g.board[18],'water');assert.equal(g.board[10],'water');
+test('restart removes bosses, death holds and pending visuals; death delays game over',()=>{
+ const g=fixture();g.trySpawnBoss();g.clearCells([...g.boss!.remaining]);g.inventory=[];assert.equal(g.finishIfBlocked(false),false);g.restart();assert.equal(g.bossesDying,false);assert.equal(g.bosses.length,0);assert.equal(g.bossGrowthEvents.length,0);assert.equal(g.bossLiquidEvents.length,0);
 });
 
-test('boss refills are entirely opposite-element and normal mixed hands return after defeat',()=>{
- for(const element of ['water','lava'] as Element[]){
-  const g=fixture();g.trySpawnBoss();g.boss!.element=element;
-  g.inventory=[{tile:'pet',shape:{id:'egg',name:'egg',width:1,height:1,cells:[[0,0]]}},null,null];
-  assert.equal(g.place(0,60),true);
-  assert.equal(g.inventory.length,3);assert.ok(g.inventory.every(p=>p?.tile===(element==='water'?'lava':'water')));
-  g.clearCells([...g.boss!.remaining]);assert.equal(g.boss,null);g.dealInventory();
-  assert.equal(new Set(g.inventory.map(p=>p?.tile)).size,2);
- }
+test('a settled pet-created 4x4 can spawn a boss, while a pending aftermath cannot',()=>{
+ const g=fixture();g.board[18]=null;assert.equal(g.trySpawnBoss(),false);assert.equal(g.plantPetTile(18,'water'),true);
+ assert.equal(g.trySpawnBoss(true),false);assert.equal(g.trySpawnBoss(false),true);
+});
+test('death hold does not double-count cleared tiles and ignores unrelated sweeps',()=>{
+ const g=fixture();g.trySpawnBoss();const b=g.boss!;const removed=g.clearCells([...b.remaining]);assert.equal(removed.length,12);assert.equal(g.tilesCleared,12);
+ assert.equal(g.clearCells([...b.remaining]).length,0);g.updateBoss(1.2);g.clearCells([...b.remaining]);assert.equal(g.tilesCleared,16);
 });
