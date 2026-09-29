@@ -6,13 +6,14 @@ import {Game,type Piece} from '../src/game';
 const shape={id:'single',name:'Single',width:1,height:1,cells:[[0,0] as const]};
 const egg:Piece={tile:'pet',petElement:'water',shape};
 function deal(g:Game){g.inventory=[{tile:'water',shape},null,null];g.board[0]=null;g.place(0,0);g.board[0]=null;}
-test('egg milestones grow the incremental requirement by 1.2 with exact early targets',()=>{
- assert.deepEqual(EGG_GOALS.slice(0,5),[5000,11000,18200,26840,37208]);assert.equal(EGG_GOALS.length,64);
+test('egg milestones grow the incremental requirement by 1.033 and reach 64 just above one million',()=>{
+ assert.deepEqual(EGG_GOALS.slice(0,5),[5000,10165,15500,21012,26705]);assert.equal(EGG_GOALS.length,64);assert.equal(EGG_GOALS[63],1058739);
+ assert.equal(earnedEggs(1058738),63);assert.equal(earnedEggs(1058739),64);
  EGG_GOALS.forEach((goal,i)=>{assert.ok(Number.isSafeInteger(goal));if(i)assert.ok(goal>EGG_GOALS[i-1]);});
- assert.equal(earnedEggs(4999),0);assert.equal(earnedEggs(5000),1);assert.equal(earnedEggs(26840),4);assert.equal(earnedEggs(Number.MAX_SAFE_INTEGER),64);
+ assert.equal(earnedEggs(4999),0);assert.equal(earnedEggs(5000),1);assert.equal(earnedEggs(EGG_GOALS[3]),4);assert.equal(earnedEggs(Number.MAX_SAFE_INTEGER),64);
 });
 test('large score jumps immediately preserve every egg without replacing shapes',()=>{
- const g=new Game(()=>.2),original=[...g.inventory];g.score=26840;
+ const g=new Game(()=>.2),original=[...g.inventory];g.score=EGG_GOALS[3];
  assert.equal(g.claimEggRewards(),4);assert.equal(g.inventory.length,7);
  assert.deepEqual(g.inventory.slice(0,3),original);assert.equal(g.rewardsDealt,4);
  assert.equal(g.claimEggRewards(),0);assert.equal(g.inventory.filter(p=>p?.tile==='pet').length,4);
