@@ -65,6 +65,9 @@ const progression=new Progression(sandboxMode?undefined:progressStorage);
 let playedBeyondIntro=false;
 let reviveInFlight=false;
 let shownScore=0;
+let placementGain=0;
+let gainTimer:ReturnType<typeof setTimeout>|undefined;
+function resetGain(){placementGain=0;clearTimeout(gainTimer);gainLabel.getAnimations().forEach(a=>a.cancel());gainLabel.textContent='';gainLabel.style.opacity='0';}
 let bestStorage:Storage|undefined;
 try {if(!sandboxMode)bestStorage=localStorage;}catch{}
 const highScore=new HighScore(bestStorage);
@@ -79,7 +82,12 @@ function updateScore(){
   best=highScore.record(game.score);
   updateBest();
   const gain=game.score-shownScore;const digits=document.querySelector<HTMLElement>('#score-digits')!;digits.textContent=game.score.toLocaleString();
-  if(gain>0){gainLabel.textContent=`+${gain}`;gainLabel.getAnimations().forEach(a=>a.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-14px)'}],{duration:750,fill:'forwards',easing:'cubic-bezier(.2,.7,.3,1)'});}
+  if(gain>0){
+    placementGain+=gain;gainLabel.textContent=`+${placementGain.toLocaleString()}`;
+    clearTimeout(gainTimer);gainLabel.getAnimations().forEach(a=>a.cancel());gainLabel.style.opacity='1';
+    if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0) scale(1.08)'},{opacity:1,transform:'translateY(-2px) scale(1)',offset:.25},{opacity:0,transform:'translateY(-14px) scale(1)'}],{duration:1100,fill:'forwards',easing:'cubic-bezier(.2,.7,.3,1)'});
+    else gainTimer=setTimeout(()=>{gainLabel.style.opacity='0';},1100);
+  }
   // Fit the number inside its reserved column without moving the goal bar.
   const scoreWidth=scoreLabel.clientWidth;
   scoreLabel.style.fontSize=`${Math.min(window.innerHeight<=500?36:48,scoreWidth/Math.max(1,scoreLabel.textContent!.length)/.62)}px`;
@@ -231,7 +239,7 @@ function restartRun(){
   bossSpawns.reset();world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
   shownCombo=0;combo.reset();bossReward.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
   if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
-  shownScore=0;gainLabel.textContent='';tutorial.start();updateScore();renderTray();
+  shownScore=game.score;resetGain();tutorial.start();updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
 }
 again.addEventListener('click',restartRun,{signal:events.signal});
@@ -292,9 +300,9 @@ function place() {
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
-  const oldMultiplier=game.combo;
+  const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
   if (!game.place(selected, target)){sound.play('reject');return false;}
-  if(piece.tile!=='pet'){if(oldMultiplier>1)combo.finish(0);else combo.reset();shownCombo=0;}
+  if(piece.tile!=='pet'){resetGain();shownScore=scoreBeforePlacement;if(oldMultiplier>1)combo.finish(0);else combo.reset();shownCombo=0;}
   if(piece.tile!=='pet'&&!tutorial.guiding)playedBeyondIntro=true;
   tutorial.placed(piece,target);
   world.addPiece(target, piece);
@@ -376,4 +384,4 @@ const disposeScoreTest=scoreTestMode?scoreTestControls(amount=>{
   progressUI.render();refreshRevive();return true;
 },()=>progression.gems):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices();noSpace.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices();noSpace.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer);clearTimeout(gainTimer); combo.dispose();bossReward.reset(); world.dispose(); });
