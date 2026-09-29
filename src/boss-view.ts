@@ -33,7 +33,7 @@ export class BossView {
   this.sound('bossSpawn',b.cell,b.element==='water'?1:2);
   const water=b.element==='water',base=new T.MeshBasicMaterial({color:water?'#248ab2':'#d9522b'}),shade=new T.MeshBasicMaterial({color:water?'#17465a':'#6c343b'}),light=new T.MeshBasicMaterial({color:water?'#72c9cf':'#ffb957'}),cream=new T.MeshBasicMaterial({color:'#fff0c5'});this.body.rotation.y=Math.PI;
   const silhouettes:T.Mesh[]=[];
-  const outline=new T.MeshBasicMaterial({color:'#a6e9f4',side:T.BackSide,depthWrite:false});
+  const outline=new T.MeshBasicMaterial({color:water?'#a6e9f4':'#ffd18a',side:T.BackSide,depthWrite:false});
   const mesh=(geo:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1,silhouette=true)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);this.body.add(m);if(silhouette)silhouettes.push(m);return m;};
   mesh(new T.SphereGeometry(1,10,7),shade,0,.55,0,1.05,.6,.82);
   mesh(new T.SphereGeometry(1,10,7),base,0,.88,-.12,.95,.83,.73);
