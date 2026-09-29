@@ -20,7 +20,12 @@ export class Game {
   private handsDealt=0;
   boardRevision = 0;
   score = 0;
-  over = false;
+  private runOver = false;
+  get over(){return this.runOver;}
+  set over(value:boolean){
+    if(value&&!this.runOver)for(const pet of this.pets)pet.cancelAbilities();
+    this.runOver=value;
+  }
   won=false;
   rewardsDealt=0;
   boardChange=0;

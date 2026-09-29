@@ -192,3 +192,21 @@ test('a fully occupied board and a tightly packed pocket keep circulating',()=>{
   assert.ok(visited.every(v=>v.size>=3));
  }
 });
+
+test('game over discards blocked abilities before wandering frees their destination',()=>{
+ const g=new Game();g.board.fill('lava');g.board[1]=null;
+ const waiting=new PetMotion(0,'lava',g.board,(c,run)=>g.plantPetTile(c,'lava',run),()=>0,undefined,()=>g.pets);
+ const blocker=new PetMotion(1,'lava',g.board,()=>{},()=>0,undefined,()=>g.pets);
+ g.pets.push(waiting,blocker);waiting.queueAbility(1);waiting.queueAbility(1);
+ g.inventory=[{tile:'water',shape:{id:'two',name:'two',width:2,height:1,cells:[[0,0],[1,0]]}}];
+ assert.equal(g.petsBusy,false);assert.equal(g.finishIfBlocked(false),true);
+ assert.equal(waiting.queued,0);assert.equal(waiting.hasAbilityFor(1),false);
+ for(let i=0;i<600;i++){blocker.update(.02);waiting.update(.02);assert.equal(waiting.leaping,false);}
+ assert.ok(waiting.completed>0);assert.equal(waiting.abilitiesUsed,0);assert.equal(g.board[1],null);
+});
+test('ending a run during a jump lets it land once without planting or retrying',()=>{
+ const g=new Game(),p=new PetMotion(27,'water',g.board,c=>g.plantPetTile(c,'water'),()=>0);
+ g.pets.push(p);p.queueAbility();p.queueAbility();p.update(.1);assert.ok(p.leaping);
+ g.over=true;p.update(.41);assert.equal(p.leaping,false);assert.equal(p.queued,0);
+ p.update(10);assert.ok(p.completed>0);assert.equal(p.abilitiesUsed,0);assert.ok(g.board.every(c=>c===null));
+});
