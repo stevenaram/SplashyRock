@@ -458,3 +458,5 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 #hud-best{width:max-content;min-width:92px;font-size:16px}
 #hud-best svg{width:18px;height:18px}
 @media(max-width:450px){#hud-best{min-width:76px;font-size:13px}#hud-best svg{width:16px;height:16px}#hud-wallets{gap:10px}}
+
+#score-gain{left:auto;top:auto;transform:none;font-size:20px;line-height:1;color:#b5ffac;text-shadow:0 2px 0 #17533f,0 0 6px #153e5080;font-weight:800;letter-spacing:0;pointer-events:none}
