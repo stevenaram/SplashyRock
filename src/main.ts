@@ -21,7 +21,7 @@ import { StoneReactions, SandSweeps } from './reactions';
 
 const host = document.querySelector<HTMLElement>('#game');
 if (!host) throw new Error('Missing game container');
-host.innerHTML = `<header id="run-hud"><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div><div id="egg-goal" role="progressbar"><img alt=""/><div class="egg-track"><i></i></div><strong></strong><span class="egg-pending"></span></div></header><section id="board" aria-label="Eight by eight board"></section>
+host.innerHTML = `<header id="run-hud"><div id="hud-best" aria-label="Best score"><svg viewBox="0 0 24 20" aria-hidden="true"><path d="m2 5 5 4 5-7 5 7 5-4-3 12H5z"/><path d="M5 19h14"/></svg><strong>0</strong></div><div id="hud"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" aria-hidden="true"></span></div><div id="egg-goal" role="progressbar"><img alt=""/><div class="egg-track"><i></i></div><strong></strong><span class="egg-pending"></span></div></header><section id="board" aria-label="Eight by eight board"></section>
   <div id="egg-unlocked" role="status" hidden><img alt=""/><strong>Egg Unlocked</strong></div>
   <nav id="tray" aria-label="Available tiles"></nav><p id="inventory-end-note">No space left.</p>
   <div id="ghost" aria-hidden="true" hidden></div>
@@ -65,7 +65,14 @@ let shownScore=0;
 let best=0;
 try { if(!sandboxMode)best=Math.max(0,Number(localStorage.getItem('splashy-rock-best'))||0); } catch {}
 let endTimer:ReturnType<typeof setTimeout>|undefined;
+function updateBest(){
+  const bestHud=document.querySelector<HTMLElement>('#hud-best')!;
+  bestHud.querySelector('strong')!.textContent=best.toLocaleString();
+  bestHud.setAttribute('aria-label',`Best score: ${best.toLocaleString()}`);
+  bestHud.querySelector<HTMLElement>('strong')!.style.fontSize=`${Math.min(11,(bestHud.clientWidth-19)/Math.max(1,best.toLocaleString().length)/.62)}px`;
+}
 function updateScore(){
+  updateBest();
   const gain=game.score-shownScore;scoreLabel.textContent=game.score.toLocaleString();
   if(gain>0){gainLabel.textContent=`+${gain}`;gainLabel.getAnimations().forEach(a=>a.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)gainLabel.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-14px)'}],{duration:750,fill:'forwards',easing:'cubic-bezier(.2,.7,.3,1)'});}
   // Fit the number inside its reserved column without moving the goal bar.
@@ -95,6 +102,7 @@ function showEnd(won=false){
   sound.play(won?'win':'over');
   tutorial.dismiss();tutorial.dismissGoal();
   best=Math.max(best,game.score);try{if(!sandboxMode)localStorage.setItem('splashy-rock-best',String(best));}catch{}
+  updateBest();
   document.querySelector('#end-title')!.textContent=won?'The game is beat!':'Game Over';
   endDialog.style.setProperty('--end-digits',String(Math.max(game.score.toLocaleString().length,best.toLocaleString().length)));
   document.querySelector('#final-score')!.textContent=game.score.toLocaleString();document.querySelector('#best-score')!.textContent=best.toLocaleString();
