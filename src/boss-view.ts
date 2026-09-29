@@ -1,6 +1,6 @@
 import * as T from 'three';
 import type {Game} from './game';
-import {BOSS_ENTRANCE_SECONDS,BOSS_DEATH_SECONDS,type Boss} from './boss';
+import {bossHealth,BOSS_ENTRANCE_SECONDS,BOSS_DEATH_SECONDS,type Boss} from './boss';
 import type {SoundCue} from './sound';
 import {gridWorld} from './map';
 
@@ -73,7 +73,7 @@ export class BossView {
     if(!this.deathSound){this.deathSound=true;this.sound('bossDeath',b.cell,b.element==='water'?1:2);}
     this.exiting=BOSS_DEATH_SECONDS-b.deathRemaining;const t=this.exiting,collapse=Math.max(0,Math.min(1,(t-.65)/1.45));
     if(t>=1.75&&!this.burstSound){this.burstSound=true;this.sound('bossBurst',b.cell,b.element==='water'?2:1);this.sound('steam',b.cell,1);}
-    this.bar.querySelector('i')!.style.width='0%';this.bar.querySelector('em')!.style.width='0%';this.bar.hidden=t>1.75;
+    this.bar.querySelector('i')!.style.width='0%';this.bar.querySelector('em')!.style.width='0%';this.bar.hidden=t>1.75;this.bar.querySelector('.territory-track')!.setAttribute('aria-valuenow','0');
     const gather=Math.min(1,t/1.75);
     this.body.scale.set(1.25*(1-collapse*.6),1.25*(1-collapse*.8),1.25*(1-collapse*.6));
     this.body.position.y=-collapse*.45;
@@ -96,15 +96,15 @@ export class BossView {
   this.burst(Math.min(1,this.age/BOSS_ENTRANCE_SECONDS),!reduced&&this.age<BOSS_ENTRANCE_SECONDS,2.7);
   this.bar.hidden=false;this.bar.dataset.element=b.element;
   this.bar.setAttribute('aria-label',b.element==='water'?'Water boss health':'Lava boss health');
-  const target=b.remaining.size/b.maxTiles;
+  const hp=bossHealth(b),target=hp.fraction;
   if(target<this.lastHealth)this.trailDelay=.28;
   const healing=target>this.lastHealth;this.lastHealth=target;
   this.health=reduced?target:this.health+(target-this.health)*(1-Math.exp(-dt*(healing?8:22)));
   this.trailDelay=Math.max(0,this.trailDelay-dt);
   if(reduced)this.trail=target;else if(target>=this.trail)this.trail=this.health;else if(!this.trailDelay)this.trail+=(this.health-this.trail)*(1-Math.exp(-dt*5));
   this.bar.querySelector('i')!.style.width=`${this.health*100}%`;this.bar.querySelector('em')!.style.width=`${this.trail*100}%`;
-  const track=this.bar.querySelector('.territory-track')!;track.setAttribute('aria-valuemax',String(b.maxTiles));track.setAttribute('aria-valuenow',String(b.remaining.size));
-  const ticks=this.bar.querySelector('.health-ticks') as HTMLElement;ticks.style.setProperty('--tick',`${400/b.maxTiles}%`);
+  const track=this.bar.querySelector('.territory-track')!;track.setAttribute('aria-valuemax',String(hp.max));track.setAttribute('aria-valuenow',String(hp.current));
+  const ticks=this.bar.querySelector('.health-ticks') as HTMLElement;ticks.style.setProperty('--tick',`${400/hp.max}%`);
   this.bar.classList.toggle('health-hit',this.hitAge<.25&&!reduced);
 
   const position=this.project(b.x,b.y,3.5+this.body.position.y);this.bar.style.left=`${Math.max(70,Math.min(this.host.clientWidth-70,position.x))}px`;this.bar.style.top=`${Math.max(6,position.y-12)}px`;

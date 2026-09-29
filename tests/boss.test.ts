@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,type Element,type Piece} from '../src/game';
-import {poolBlocks} from '../src/boss';
+import {bossHealth,poolBlocks} from '../src/boss';
 const block=(anchor:number)=>Array.from({length:16},(_,i)=>anchor+i%4+Math.floor(i/4)*8);
 const single:Piece={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};
 function fixture(){const g=new Game(()=>.1,()=>true);for(const c of block(18))g.board[c]='water';return g;}
@@ -113,4 +113,14 @@ test('boss payout counts repeated actual tile damage, excludes detached tiles an
 });
 test('revive damage does not inflate a boss reward',()=>{
  const g=fixture();g.trySpawnBoss();const b=g.boss!;g.reviving=true;g.clearCells([18]);assert.equal(b.damageTaken,0);
+});
+
+test('boss health reserves the last four tiles and scales against peak minus four',()=>{
+ const state={remaining:new Set(Array.from({length:16},(_,i)=>i)),maxTiles:16,deathRemaining:0};
+ assert.deepEqual(bossHealth(state),{current:12,max:12,fraction:1});
+ state.remaining=new Set(Array.from({length:10},(_,i)=>i));assert.equal(bossHealth(state).fraction,.5);
+ state.remaining=new Set([0,1,8,9]);assert.equal(bossHealth(state).current,0);
+ state.remaining=new Set([0,1]);assert.equal(bossHealth(state).fraction,0);
+ state.maxTiles=4;assert.ok(Number.isFinite(bossHealth(state).fraction));
+ state.deathRemaining=3;assert.equal(bossHealth(state).current,0);
 });

@@ -31,3 +31,9 @@ export const BOSS_DEATH_SECONDS=3;
 
 export interface BossReward {element:Element;x:number;y:number;damage:number;score:number}
 export const bossRewardScore=(damage:number)=>500+50*damage;
+
+export function bossHealth(b:Pick<Boss,'remaining'|'maxTiles'|'deathRemaining'>){
+ const max=Math.max(1,b.maxTiles-4);
+ const current=b.deathRemaining>0?0:Math.max(0,b.remaining.size-4);
+ return {current,max,fraction:Math.min(1,current/max)};
+}
