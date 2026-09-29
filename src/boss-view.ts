@@ -47,10 +47,8 @@ export class BossView {
   const debrisGeometry=new T.BoxGeometry(1,1,1),debrisMaterial=new T.MeshBasicMaterial({color:water?'#a3ded7':'#ffcf75',transparent:true,opacity:0,depthWrite:false});
   for(let i=0;i<18;i++){const piece=new T.Mesh(debrisGeometry,debrisMaterial);piece.userData.index=i;this.death.add(piece);}
   const ring=new T.Mesh(new T.RingGeometry(.86,1,24),new T.MeshBasicMaterial({color:water?'#b1efed':'#ffe0a1',transparent:true,opacity:0,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.userData.ring=true;this.death.add(ring);this.death.visible=false;
-  // A restrained steam-to-stone finish stays inside the four held tiles.
+  // Steam accompanies the body; the held liquid tiles keep their normal renderer.
   const cube=new T.BoxGeometry(1,1,1);
-  const crust=new T.MeshBasicMaterial({color:'#d9c9a5',transparent:true,opacity:0});
-  for(let i=0;i<4;i++){const m=new T.Mesh(cube,crust);m.userData={kind:'crust',index:i};this.aftermath.add(m);}
   const steam=new T.MeshBasicMaterial({color:'#fff0d7',transparent:true,opacity:0,depthWrite:false});
   for(let i=0;i<12;i++){const m=new T.Mesh(cube,steam);m.userData={kind:'steam',index:i};this.aftermath.add(m);}
   this.aftermath.visible=false;
@@ -110,17 +108,11 @@ export class BossView {
  private settleDeath(t:number,reduced:boolean){
   this.aftermath.visible=true;this.aftermath.position.set(this.body.position.x,0,this.body.position.z);
   const clamp=(v:number)=>Math.max(0,Math.min(1,v));
-  const cool=clamp((t-2.1)/.8);
   for(const child of this.aftermath.children){const m=child as T.Mesh<T.BufferGeometry,T.MeshBasicMaterial>,i=m.userData.index;
-   if(m.userData.kind==='crust'){
-    m.position.set(i%2===0?-1:1,.17,Math.floor(i/2)===0?-1:1);
-    m.scale.set(1.94,.09,1.94);m.material.opacity=cool*.95;
-   }else{
     const rise=clamp((t-1.3)/1.7),angle=i*2.399,r=.35+(i%3)*.38;
     m.position.set(Math.cos(angle)*r,.35+rise*(1.1+i%3*.3),Math.sin(angle)*r);
     m.scale.setScalar((.15+.21*Math.sin(rise*Math.PI))*(reduced?.5:1));
     m.rotation.y=i*.7;m.material.opacity=Math.sin(rise*Math.PI)*.52;
-   }
   }
  }
  // Reuse a fixed set of pooled droplets/embers and a ground ring for both entrances and exits.
