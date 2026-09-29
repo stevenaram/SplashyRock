@@ -1,3 +1,4 @@
+import {hopTuning,createHopControls} from './hop-tuning';
 import {gemIcon,REVIVE_COST} from './gems';
 import {Progression} from './progression';
 import {ProgressUI} from './progress-ui';
@@ -53,7 +54,7 @@ let shownCombo=0;
 const again=document.querySelector<HTMLButtonElement>('#play-again')!;
 const reviveButton=document.querySelector<HTMLButtonElement>('#revive')!;
 let progressStorage:Storage|undefined;try{progressStorage=localStorage;}catch{}
-const progression=new Progression(progressStorage);
+const progression=new Progression(hopTuning.enabled?undefined:progressStorage);
 let playedBeyondIntro=false;
 let reviveInFlight=false;
 let shownScore=0;
@@ -88,7 +89,7 @@ function showEnd(won=false){
   refreshRevive();
   sound.play(won?'win':'over');
   tutorial.dismiss();tutorial.dismissGoal();
-  best=Math.max(best,game.score);try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
+  best=Math.max(best,game.score);try{if(!hopTuning.enabled)localStorage.setItem('splashy-rock-best',String(best));}catch{}
   document.querySelector('#end-title')!.textContent=won?'The game is beat!':'Game Over';
   endDialog.style.setProperty('--end-digits',String(Math.max(game.score.toLocaleString().length,best.toLocaleString().length)));
   document.querySelector('#final-score')!.textContent=game.score.toLocaleString();document.querySelector('#best-score')!.textContent=best.toLocaleString();
@@ -131,6 +132,9 @@ const world = new World(board);
 const combo=new ComboCallout(board,cell=>world.cellScreen(cell));
 // The clearing explanation also recognizes players who finished before completion tracking.
 const game = new Game(Math.random,()=>seenTips.has('intro-complete')||seenTips.has('clearing'));
+function seedTestEgg(){if(hopTuning.enabled)game.inventory[1]={tile:'pet',shape:{id:'pet-egg',name:'Mystery Egg',width:1,height:1,cells:[[0,0]]}};}
+seedTestEgg();
+const disposeHopControls=createHopControls(()=>game.pets.forEach(p=>{if(!p.busy)p.queueAbility();}));
 world.game=game;world.onPetChange=settled;world.onSound=(cue,cell)=>sound.play(cue,1,cell===undefined?0:(cell%8/7-.5)*.6);
 const aftermaths=new Set<Aftermath>();
 const events = new AbortController();
@@ -184,7 +188,7 @@ again.addEventListener('click',()=>{
   sound.stop();sound.play('restart');
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
   clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
-  world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
+  world.removePet();game.restart();seedTestEgg();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
   shownCombo=0;combo.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
   shownScore=0;gainLabel.textContent='';tutorial.start();updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
@@ -318,4 +322,4 @@ tray.addEventListener('click', event => {
 }, { signal: events.signal });
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeHopControls();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });

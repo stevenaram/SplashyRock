@@ -1,3 +1,4 @@
+import {hopTuning} from './hop-tuning';
 export type TipId='intro-complete'|'intro'|'clearing'|'egg-goal'|'blocked-shape'|'pet-ability';
 const PREFIX='splashy-rock-tip-v1:';
 
@@ -14,4 +15,6 @@ export class SeenTips {
 }
 let storage:Storage|undefined;
 try{storage=globalThis.localStorage;}catch{}
-export const seenTips=new SeenTips(storage);
+export const seenTips=new SeenTips(hopTuning.enabled?undefined:storage);
+
+if(hopTuning.enabled)for(const id of ['intro','intro-complete','clearing','egg-goal','blocked-shape','pet-ability'] as TipId[])seenTips.mark(id);
