@@ -21,7 +21,7 @@ test('water and lava bosses coexist and keep separate territory',()=>{
  const lava=g.bosses.find(b=>b.element==='lava')!;g.clearCells([...g.bosses.find(b=>b.element==='water')!.remaining]);assert.equal(lava.deathRemaining,0);
 });
 test('growth happens immediately once per placement without locking the next placement',()=>{
- const g=fixture();g.trySpawnBoss();g.inventory=[single,single,single];assert.equal(g.place(0,63),true);assert.equal(g.board[9],'water');assert.ok(g.boss!.maxTiles>16&&g.boss!.maxTiles<36);
+ const g=fixture();g.trySpawnBoss();g.inventory=[single,single,single];assert.equal(g.place(0,63),true);assert.equal(g.board[9],null);assert.ok(g.boss!.maxTiles>16&&g.boss!.maxTiles<36);
  assert.equal(g.place(1,62),true);assert.equal(g.shapeMoves,2);assert.ok(g.boss!.remaining.size>16);
 });
 test('dying bosses keep exactly four liquid tiles until animation ends then emit stone',()=>{
@@ -83,4 +83,19 @@ test('death never converts a detached same-element pool to stone',()=>{
  assert.ok(b.deathRemaining);g.updateBoss(3.1);
  for(const c of detached)assert.equal(g.board[c],'water');
  assert.ok(g.bossStoneEvents.every(c=>!detached.includes(c)));
+});
+
+test('each checkerboard surge expands only cardinal neighbors of the pre-surge pool',()=>{
+ for(const element of ['water','lava'] as Element[]){
+  const g=fixture();for(const c of block(18))g.board[c]=element;g.trySpawnBoss();g.inventory=[single,single,single];
+  for(const [turn,anchor] of [63,62].entries()){
+   const before=new Set(g.boss!.remaining);g.bossGrowthEvents.length=0;
+   assert.equal(g.place(turn,anchor),true);assert.ok(g.bossGrowthEvents.length);
+   for(const {cell} of g.bossGrowthEvents){
+    assert.ok([...before].some(c=>Math.abs(c%8-cell%8)+Math.abs(Math.floor(c/8)-Math.floor(cell/8))===1));
+    assert.equal((cell%8+Math.floor(cell/8))%2,turn);
+   }
+   if(turn===0){assert.equal(g.board[9],null);assert.equal(g.board[54],null);}
+  }
+ }
 });
