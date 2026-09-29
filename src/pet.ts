@@ -66,10 +66,14 @@ export class PetWalker {
  private readonly wake=new T.Group();
  private readonly wakeMaterial:T.ShaderMaterial;
  private readonly shadow:T.Mesh;
+ private readonly landing:T.Mesh<T.RingGeometry,T.MeshBasicMaterial>;
  constructor(readonly motion:PetMotion){this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root,this.egg.group);this.model.root.visible=false;
   // A small contact shadow follows the pet without re-rendering the island shadow map.
   const shadow=this.shadow=new T.Mesh(new T.CircleGeometry(.48,12),new T.MeshBasicMaterial({color:'#705536',transparent:true,opacity:.24,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.8,1);shadow.position.y=.005;this.group.add(shadow);
+  const frame=new T.RingGeometry(.88*Math.SQRT2,.94*Math.SQRT2,4);frame.rotateZ(Math.PI/4);
+  this.landing=new T.Mesh(frame,new T.MeshBasicMaterial({color:motion.element==='water'?'#bcf5ed':'#ffcf75',transparent:true,opacity:0,depthWrite:false}));
+  this.landing.rotation.x=-Math.PI/2;this.landing.position.y=.035;this.landing.visible=false;this.group.add(this.landing);
   this.wakeMaterial=new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{color:{value:new T.Color(motion.element==='water'?'#a3ded7':'#ffb957')},alpha:{value:0},bounds:{value:new T.Vector4()}},vertexShader:`varying vec2 ground;void main(){vec4 p=modelMatrix*vec4(position,1.);ground=p.xz;gl_Position=projectionMatrix*viewMatrix*p;}`,fragmentShader:`varying vec2 ground;uniform vec3 color;uniform float alpha;uniform vec4 bounds;void main(){if(ground.x<bounds.x||ground.y<bounds.y||ground.x>bounds.z||ground.y>bounds.w)discard;gl_FragColor=vec4(color,alpha);#include <colorspace_fragment>}`.replace(';#include',';\n#include')});
   for(let i=0;i<2;i++){const ring=new T.Mesh(new T.RingGeometry(.91,1,24,1,.25,Math.PI*1.5),this.wakeMaterial);ring.rotation.x=-Math.PI/2;ring.position.set(0,.012,i*.30);ring.scale.set(.55+i*.08,.33+i*.05,1);this.wake.add(ring);}
   this.group.add(this.wake);
@@ -99,9 +103,15 @@ export class PetWalker {
   const targetSwim=this.motion.onOwnLiquid&&!leaping&&this.motion.planting===0?1:0;
   this.swim+=(targetSwim-this.swim)*Math.min(1,dt*9);
   this.shadow.visible=leaping||this.swim<.15;
-  const height=leaping?Math.sin(this.motion.leapProgress*Math.PI)*1.65:0;
+  const flightArc=leaping?Math.pow(Math.sin(this.motion.leapProgress*Math.PI),.85):0;
+  const height=reduced?0:flightArc*3.3;
+  this.landing.visible=leaping;
+  if(leaping&&this.motion.next!==null){
+    this.landing.position.set(gridWorld(this.motion.next%8)-gridWorld(this.motion.x),.035,gridWorld(Math.floor(this.motion.next/8))-gridWorld(this.motion.y));
+    this.landing.material.opacity=reduced?.6:.3+this.motion.leapProgress*.5;
+  }
   this.shadow.scale.set(1+height*.16,.8+height*.12,1);
-  (this.shadow.material as T.MeshBasicMaterial).opacity=.24-height*.045;
+  (this.shadow.material as T.MeshBasicMaterial).opacity=.27-height*.035;
   this.wake.visible=this.swim>.02&&this.motion.onOwnLiquid;
   this.wake.rotation.y=this.model.body.rotation.y;
   this.wakeMaterial.uniforms.alpha.value=this.swim*(walking?.48:.23);
@@ -122,12 +132,12 @@ export class PetWalker {
   this.model.glowMaterials.forEach(material=>{const glow=charge>.66?.55:charge>.25?.25:0;material.color.setRGB(1+glow*(this.motion.element==='lava'?1:.2),1+glow*.5,1+glow*(this.motion.element==='water'?1:.1));});
   this.model.body.scale.setScalar(1);this.model.tail.rotation.x=0;
   if(leaping&&!reduced){
-    this.model.body.position.y=height;this.model.body.scale.set(1-charge*.08,1+charge*.13,1-charge*.08);
-    this.model.head.rotation.x=-Math.sin(this.motion.leapProgress*Math.PI*2)*.16;this.model.tail.rotation.x=-charge*.4;
+    this.model.body.position.y=height;this.model.body.scale.set(1-charge*.12,1+charge*.22,1-charge*.12);
+    this.model.head.rotation.x=-Math.sin(this.motion.leapProgress*Math.PI*2)*.26;this.model.tail.rotation.x=-charge*.4;
     this.model.legs.forEach(leg=>{leg.rotation.x=-charge*.65;leg.rotation.z=0;});
   }else if(planting>0&&!reduced){
     const squash=Math.sin((planting/.18)*Math.PI);
-    this.model.body.scale.set(1+squash*.18,1-squash*.3,1+squash*.18);
+    this.model.body.scale.set(1+squash*.28,1-squash*.4,1+squash*.28);
     this.model.body.position.y=-squash*.07;this.model.head.rotation.x=squash*.12;
   }
   const blink=this.age%5.3;this.model.eyes.forEach(eye=>eye.scale.y=blink>4.95&&blink<5.08?.12:1);

@@ -182,7 +182,7 @@ export class World {
     const placed=footprint(piece,cell);
     for(const [x,y] of placed) {
       const index=y*8+x;this.effects.cancelEvaporation(index);this.surface.set(index,piece.tile);
-      if(!this.reducedMotion.matches)this.effects.burst(index,piece.tile);
+      if(!this.reducedMotion.matches)this.effects.burst(index,piece.tile,piece.shape.id==='pet-drop');
     }
     this.render();
   }

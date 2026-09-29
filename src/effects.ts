@@ -67,15 +67,19 @@ export class Effects {
     const mesh=new T.Mesh(this.tileGeometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.set(gridWorld(cell%8),.10,gridWorld(Math.floor(cell/8)));this.group.add(mesh);this.fades.push({mesh,age:0,stone:tile==='stone'});
     if(tile==='stone')this.burst(cell,'stone');
   }
-  burst(cell:number,tile:Tile){
+  burst(cell:number,tile:Tile,petImpact=false){
+    if(petImpact){
+      const material=new T.MeshBasicMaterial({color:tile==='water'?'#b1efed':'#ffcf75',transparent:true,opacity:.6,depthWrite:false});
+      const mesh=new T.Mesh(this.tileGeometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.set(gridWorld(cell%8),.115,gridWorld(Math.floor(cell/8)));this.group.add(mesh);this.fades.push({mesh,age:0,stone:false});
+    }
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
     if(tile!=='stone'){
       const ring=new T.Mesh(this.ring,new T.MeshBasicMaterial({color:tile==='water'?'#a3ded7':'#ffb957',transparent:true,opacity:.65,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(x,.09,z);this.group.add(ring);this.ripples.push({mesh:ring,age:0});
     }
-    for(let i=0;i<(tile==='stone'?6:5);i++){
-      const angle=i*2.399+cell, speed=.7+(i%3)*.35;
+    for(let i=0;i<(tile==='stone'?6:petImpact?9:5);i++){
+      const angle=i*2.399+cell, speed=(.7+(i%3)*.35)*(petImpact?1.3:1);
       const mesh=new T.Mesh(this.geometry,this.materials[tile]);
-      mesh.scale.setScalar(tile==='stone'?.14:.0625+(i%2)*.03125);mesh.position.set(x+Math.cos(angle)*.25,.15,z+Math.sin(angle)*.25);this.group.add(mesh);
+      mesh.scale.setScalar(tile==='stone'?.14:(.0625+(i%2)*.03125)*(petImpact?1.4:1));mesh.position.set(x+Math.cos(angle)*.25,.15,z+Math.sin(angle)*.25);this.group.add(mesh);
       this.particles.push({mesh,vx:Math.cos(angle)*speed,vy:tile==='stone'?.8+(i%3)*.2:1.4+(i%4)*.3,vz:Math.sin(angle)*speed,age:0,life:tile==='stone'?.55:.48,steam:tile==='stone',size:mesh.scale.x});
     }
   }

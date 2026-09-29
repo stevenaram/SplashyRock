@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Effects} from '../src/effects';
 test('layered placement and clearing effects finish without leaving scene objects',()=>{
  const effects=new Effects();
- effects.burst(27,'water');effects.burst(28,'lava');effects.burst(29,'stone');
+ effects.burst(27,'water',true);effects.burst(28,'lava',true);effects.burst(29,'stone');
  effects.sand(27);effects.sandWave(27);effects.dissolve(28,'lava');
  assert.ok(effects.group.children.length>0);
  for(let i=0;i<60;i++)effects.update(1/30);
