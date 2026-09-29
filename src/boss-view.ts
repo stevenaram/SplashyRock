@@ -26,7 +26,7 @@ export class BossView {
  }
  private clear(){const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();this.body.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.death.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.halo.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});this.aftermath.traverse(o=>{if(o instanceof T.Mesh){gs.add(o.geometry);ms.add(o.material as T.Material);}});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());this.body.clear();this.halo.clear();this.death.clear();this.aftermath.clear();}
  private build(b:Boss){
-  this.clear();this.id=b.id;this.age=0;this.exiting=0;this.hits=b.hits;this.hitAge=10;this.hitSoundDelay=-1;this.deathSound=false;this.burstSound=false;
+  this.clear();this.health=1;this.trail=1;this.lastHealth=1;this.trailDelay=0;this.id=b.id;this.age=0;this.exiting=0;this.hits=b.hits;this.hitAge=10;this.hitSoundDelay=-1;this.deathSound=false;this.burstSound=false;
   this.sound('bossSpawn',b.cell,b.element==='water'?1:2);
   const water=b.element==='water',base=new T.MeshBasicMaterial({color:water?'#248ab2':'#d9522b'}),shade=new T.MeshBasicMaterial({color:water?'#17465a':'#6c343b'}),light=new T.MeshBasicMaterial({color:water?'#72c9cf':'#ffb957'}),cream=new T.MeshBasicMaterial({color:'#fff0c5'});this.body.rotation.y=Math.PI;
   const mesh=(geo:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);this.body.add(m);return m;};
@@ -64,10 +64,11 @@ export class BossView {
     this.body.position.x=gridWorld(b.x);this.body.position.z=gridWorld(b.y);
     this.halo.visible=false;
     this.hitSoundDelay=-1;
-    if(!this.deathSound){this.deathSound=true;this.sound('bossDeath',b.cell,b.element==='water'?1:2);}
+    this.hitAge+=dt;
+    if(!this.deathSound){this.hitAge=0;this.deathSound=true;this.sound('bossDeath',b.cell,b.element==='water'?1:2);}
     this.exiting=BOSS_DEATH_SECONDS-b.deathRemaining;const t=this.exiting,collapse=Math.max(0,Math.min(1,(t-.65)/1.45));
     if(t>=1.75&&!this.burstSound){this.burstSound=true;this.sound('bossBurst',b.cell,b.element==='water'?1:2);this.sound('steam',b.cell,1);}
-    this.bar.querySelector('i')!.style.width='0%';this.bar.querySelector('em')!.style.width='0%';this.bar.hidden=t>1.75;this.bar.querySelector('.territory-track')!.setAttribute('aria-valuenow','0');
+    this.updateHealth(b,dt,reduced);this.bar.hidden=t>1.75;
     const gather=Math.min(1,t/1.75);
     this.body.scale.set(1.25*(1-collapse*.6),1.25*(1-collapse*.8),1.25*(1-collapse*.6));
     this.body.position.y=-collapse*.45;
@@ -88,6 +89,11 @@ export class BossView {
   this.body.rotation.z=reduced?0:Math.sin(this.hitAge*30)*hit*.22;
   this.body.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshBasicMaterial).color.copy(o.userData.baseColor).lerp(this.hitColor,hit*.65);});
   this.burst(Math.min(1,this.age/BOSS_ENTRANCE_SECONDS),!reduced&&this.age<BOSS_ENTRANCE_SECONDS,2.7);
+  this.updateHealth(b,dt,reduced);
+  this.halo.visible=true;for(const m of this.halo.children)m.visible=b.remaining.has(m.userData.cell);
+
+ }
+ private updateHealth(b:Boss,dt:number,reduced:boolean){
   this.bar.hidden=false;this.bar.dataset.element=b.element;
   this.bar.setAttribute('aria-label',b.element==='water'?'Water boss health':'Lava boss health');
   const hp=bossHealth(b),target=hp.fraction;
@@ -102,8 +108,6 @@ export class BossView {
   this.bar.classList.toggle('health-hit',this.hitAge<.25&&!reduced);
 
   const position=this.project(b.x,b.y,3.5+this.body.position.y);this.bar.style.left=`${Math.max(70,Math.min(this.host.clientWidth-70,position.x))}px`;this.bar.style.top=`${Math.max(6,position.y-12)}px`;
-  this.halo.visible=true;for(const m of this.halo.children)m.visible=b.remaining.has(m.userData.cell);
-
  }
  private settleDeath(t:number,reduced:boolean){
   this.aftermath.visible=true;this.aftermath.position.set(this.body.position.x,0,this.body.position.z);
