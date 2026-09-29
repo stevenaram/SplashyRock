@@ -122,7 +122,6 @@ function settled(){
     if(multiplier>1)combo.finish(bonus);
     shownCombo=0;
   }
-  game.settleExpansionProtection(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy||game.bossesDying);
   game.trySpawnBoss(reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy||game.bossesDying);
   tutorial.settled(!reactions.busy&&!sweeps.busy);
   game.claimEggRewards();announceEggs();

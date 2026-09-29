@@ -1,4 +1,4 @@
-import {elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
+import {BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
 import { SHAPES, type Shape, type Offset } from './shapes';
@@ -41,9 +41,6 @@ export class Game {
   readonly bossLiquidEvents:{cell:number;element:Element}[]=[];
   readonly bossGrowthEvents:{cell:number;element:Element}[]=[];
   bossNotice='';
-  private expansionProtected=new Set<number>();
-  private protectionSettled=false;
-  settleExpansionProtection(pending:boolean){if(!pending&&this.expansionProtected.size)this.protectionSettled=true;}
 
   trySpawnBoss(pending=false){
     if(pending||this.over||this.reviving)return false;
@@ -52,7 +49,7 @@ export class Game {
       if(this.bosses.some(b=>b.element===element))continue;
       const remaining=new Set(pool),blocks=poolBlocks(remaining);if(!blocks.length)continue;
       const anchor=blocks[Math.floor(this.random()*blocks.length)],cell=anchor+9;
-      this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange});spawned=true;
+      this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange,expansionParity:0});spawned=true;
       this.bossNotice=`${element==='lava'?'Lava':'Water'} boss! Break up its pool until no 2×2 patch remains.`;
     }return spawned;
   }
@@ -72,7 +69,7 @@ export class Game {
   private heldByDyingBoss(cell:number){return this.bosses.some(b=>b.deathRemaining>0&&b.remaining.has(cell));}
   private beginBossDeath(b:Boss){
     if(b.deathRemaining)return;
-    b.deathRemaining=1.1;b.x=b.cell%8+.5;b.y=Math.floor(b.cell/8)+.5;
+    b.deathRemaining=BOSS_DEATH_SECONDS;b.x=b.cell%8+.5;b.y=Math.floor(b.cell/8)+.5;
     const held=[b.cell,b.cell+1,b.cell+8,b.cell+9];
     for(const c of b.remaining)if(!held.includes(c)&&this.board[c]===b.element){this.write(c,'stone');this.stoneDepth[c]=1;this.bossStoneEvents.push(c);}
     b.remaining=new Set(held);
@@ -82,13 +79,14 @@ export class Game {
   dealInventory(){this.inventory=this.deal();}
   private growBosses(){
     for(const b of this.bosses)if(b.regionRevision!==this.boardChange)this.reconcileBossRegion(b);
-    // Snapshot every frontier before expansion: each boss grows only one layer.
+    // Alternate checkerboard colors each shape placement, including blocked turns.
+    // Snapshot every frontier first so a surge never grows more than one layer.
     const proposals=this.bosses.filter(b=>!b.deathRemaining).map(b=>{
       const cells=new Set<number>();for(const c of b.remaining)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
-        const x=c%8+dx,y=Math.floor(c/8)+dy;if(x>=0&&x<8&&y>=0&&y<8&&this.board[y*8+x]===null&&!this.expansionProtected.has(y*8+x))cells.add(y*8+x);
+        const x=c%8+dx,y=Math.floor(c/8)+dy;if(x>=0&&x<8&&y>=0&&y<8&&this.board[y*8+x]===null&&(x+y)%2===b.expansionParity)cells.add(y*8+x);
       }return {b,cells};
     });
-    for(const {b,cells} of proposals){for(const c of cells)if(this.board[c]===null){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});}
+    for(const {b,cells} of proposals){b.expansionParity=1-b.expansionParity;for(const c of cells)if(this.board[c]===null){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});}
       this.reconcileBossRegion(b);
     }
   }
@@ -138,8 +136,6 @@ export class Game {
     for(const cell of new Set(cells)){if(this.board[cell]!==null&&!this.heldByDyingBoss(cell)){this.write(cell,null);removed.push(cell);}}
     for(const boss of this.bosses)if(!boss.deathRemaining)this.reconcileBossRegion(boss);
     const cleared=removed.filter(c=>this.board[c]===null);
-    for(const c of cleared)this.expansionProtected.add(c);
-    if(cleared.length)this.protectionSettled=false;
     if(!this.reviving){this.tilesCleared+=cleared.length;this.score+=cleared.length*10;if(this.combo>0)this.chainPoints+=cleared.length*10;}
     this.claimEggRewards();
     return cleared;
@@ -161,7 +157,6 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.expansionProtected.clear();this.protectionSettled=false;
     this.bosses.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.moves=0;
@@ -257,7 +252,6 @@ export class Game {
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;
       this.growBosses();
-      if(this.protectionSettled){this.expansionProtected.clear();this.protectionSettled=false;}
     }
     this.inventory[slot] = null;
     this.claimEggRewards();

@@ -1,6 +1,6 @@
 import * as T from 'three';
 import type {Game} from './game';
-import type {Boss} from './boss';
+import {BOSS_ENTRANCE_SECONDS,BOSS_DEATH_SECONDS,type Boss} from './boss';
 import type {SoundCue} from './sound';
 import {gridWorld} from './map';
 
@@ -59,27 +59,28 @@ export class BossView {
     this.halo.visible=false;
     this.hitSoundDelay=-1;
     if(!this.deathSound){this.deathSound=true;this.sound('bossDeath',b.cell,b.element==='water'?1:2);}
-    this.exiting=1.1-b.deathRemaining;const t=this.exiting,collapse=Math.max(0,Math.min(1,(t-.4)/.28));
-    if(t>=.4&&!this.burstSound){this.burstSound=true;this.sound('bossBurst',b.cell,b.element==='water'?1:2);}
-    this.bar.querySelector('i')!.style.width='0%';this.bar.querySelector('em')!.style.width='0%';this.bar.hidden=t>.4;
-    const gather=Math.min(1,t/.4);
+    this.exiting=BOSS_DEATH_SECONDS-b.deathRemaining;const t=this.exiting,collapse=Math.max(0,Math.min(1,(t-1.75)/.6));
+    if(t>=1.75&&!this.burstSound){this.burstSound=true;this.sound('bossBurst',b.cell,b.element==='water'?1:2);}
+    this.bar.querySelector('i')!.style.width='0%';this.bar.querySelector('em')!.style.width='0%';this.bar.hidden=t>1.75;
+    const gather=Math.min(1,t/1.75);
     this.body.scale.set(1.25*(1-.18*gather+collapse*.85),1.25*(1+.35*gather)*(1-collapse),1.25*(1-.18*gather+collapse*.85));
     this.body.position.y=reduced?0:Math.sin(gather*Math.PI/2)*.55*(1-collapse);
     this.body.rotation.z=reduced?0:Math.sin(t*46)*.12*gather*(1-collapse);
     this.body.traverse(o=>{if(o instanceof T.Mesh){const m=o.material as T.MeshBasicMaterial;m.transparent=true;m.opacity=1-collapse;m.color.copy(o.userData.baseColor).lerp(this.hitColor,gather*.65);}});
-    this.burst(Math.max(0,(t-.4)/.7),!reduced&&t>=.4,3.8);
-    if(t>1.1){this.clear();this.id=0;this.bar.hidden=true;}return;
+    this.burst(Math.max(0,(t-1.75)/1.25),!reduced&&t>=1.75,3.8);
+    if(t>BOSS_DEATH_SECONDS){this.clear();this.id=0;this.bar.hidden=true;}return;
   }
   if(b.id!==this.id)this.build(b);
   this.age+=dt;this.hitAge+=dt;if(b.hits!==this.hits){this.hits=b.hits;this.hitAge=0;if(this.hitSoundDelay<0)this.hitSoundDelay=.105;}
   if(this.hitSoundDelay>=0){this.hitSoundDelay-=dt;if(this.hitSoundDelay<=0){this.hitSoundDelay=-1;this.sound('bossHit',b.cell,b.element==='water'?1:2);}}
-  const hit=reduced?0:Math.max(0,1-this.hitAge/.6),intro=reduced?1:Math.min(1,this.age/.9);
+  const hit=reduced?0:Math.max(0,1-this.hitAge/.6),intro=reduced?1:Math.min(1,this.age/BOSS_ENTRANCE_SECONDS);
   const rise=1-Math.pow(1-Math.min(1,intro/.65),3),settle=Math.sin(Math.max(0,(intro-.5)/.5)*Math.PI)*(1-intro);
   this.body.position.set(gridWorld(b.x),reduced?0:-1.5*(1-rise)+settle*.8+Math.sin(this.age*2)*.07+Math.sin(hit*Math.PI)*.35,gridWorld(b.y));
   this.body.scale.set(1.25*(.65+.35*rise)*(1+hit*.26),1.25*(.45+.55*rise+settle*.35)*(1-hit*.32),1.25*(.65+.35*rise)*(1+hit*.26));
+  this.body.rotation.x=reduced?0:-Math.sin(intro*Math.PI)*.18;
   this.body.rotation.z=reduced?0:Math.sin(this.hitAge*30)*hit*.22;
   this.body.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshBasicMaterial).color.copy(o.userData.baseColor).lerp(this.hitColor,hit*.65);});
-  this.burst(Math.min(1,this.age/.9),!reduced&&this.age<.9,2.7);
+  this.burst(Math.min(1,this.age/BOSS_ENTRANCE_SECONDS),!reduced&&this.age<BOSS_ENTRANCE_SECONDS,2.7);
   this.bar.hidden=false;this.bar.dataset.element=b.element;
   this.bar.setAttribute('aria-label',b.element==='water'?'Water boss health':'Lava boss health');
   const target=b.remaining.size/b.maxTiles;

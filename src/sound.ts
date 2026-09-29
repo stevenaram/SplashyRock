@@ -47,15 +47,26 @@ export class SoundEngine {
     const c=this.context!,osc=c.createOscillator(),filter=c.createBiquadFilter();osc.type=type;osc.detune.value=(Math.random()-.5)*8;osc.frequency.setValueAtTime(from,c.currentTime+delay);osc.frequency.exponentialRampToValueAtTime(Math.max(20,to),c.currentTime+delay+duration);filter.type='lowpass';filter.frequency.value=4400;this.voice(osc,filter,duration,volume,delay,wet);
   }
   private air(frequency:number,duration:number,volume:number,delay=0,q=.7){const c=this.context!,source=c.createBufferSource(),filter=c.createBiquadFilter();source.buffer=this.noise;filter.type='bandpass';filter.frequency.setValueAtTime(frequency,c.currentTime+delay);filter.frequency.exponentialRampToValueAtTime(Math.max(180,frequency*.45),c.currentTime+delay+duration);filter.Q.value=q;this.voice(source,filter,duration,volume,delay);}
+  private roar(water:boolean,dying=false){
+    // Voiced growl through two broad formants: a rounded aquatic call or a gravelly lava roar.
+    const c=this.context!,at=c.currentTime+.24,pitch=water?100:68,duration=dying?1.65:1.9;
+    for(const [formant,volume] of [[water?470:310,.12],[water?1050:740,.065]]){
+      const osc=c.createOscillator(),filter=c.createBiquadFilter();osc.type='sawtooth';
+      osc.frequency.setValueAtTime(pitch*.8,at);osc.frequency.exponentialRampToValueAtTime(pitch*(dying?1.1:1.5),at+.3);osc.frequency.exponentialRampToValueAtTime(pitch*(dying?.38:.65),at+duration);
+      filter.type='bandpass';filter.Q.value=2.2;filter.frequency.setValueAtTime(formant,at);filter.frequency.exponentialRampToValueAtTime(formant*(dying?.4:.7),at+duration);
+      this.voice(osc,filter,duration,volume,.24,true);
+    }
+    this.air(water?900:480,.56,.065,.31,1.5);
+  }
   play(cue:SoundCue,level=1,pan=0){
     if(this.muted||document.hidden||!this.context||this.context.state!=='running')return;
     const now=this.context.currentTime,gap=cue==='snap'?.085:['charge','hatch','reward','combo'].includes(cue)?.24:.065;
     if(now-(this.last.get(cue)??-100)<gap)return;this.last.set(cue,now);this.pan=Math.max(-.4,Math.min(.4,pan));
     const note=(f:number,d=.25,v=.1,at=0)=>{this.tone(f,f*.998,d,v,at,'sine',true);this.tone(f*2,f*2,d*.55,v*.2,at,'sine');};
     switch(cue){
-      case 'bossSpawn':{const water=level===1;this.air(water?700:420,.65,.12);this.tone(55,water?180:130,.48,.12,0,'triangle',true);this.tone(water?220:145,water?85:55,.48,.17,.28,'triangle',true);this.air(water?1800:900,.38,.11,.3);break;}
+      case 'bossSpawn':{const water=level===1;this.air(water?700:420,.65,.12);this.tone(55,water?180:130,.48,.12,0,'triangle',true);this.tone(water?220:145,water?85:55,.48,.17,.28,'triangle',true);this.air(water?1800:900,.38,.11,.3);this.roar(water);break;}
       case 'bossHit':{const f=level===1?145:95;this.tone(f,f*.52,.29,.15,0,'triangle',true);this.tone(f*1.48,f*.8,.22,.065,.035,'sine');this.air(level===1?650:390,.2,.07);break;}
-      case 'bossDeath':this.tone(level===1?210:145,45,.56,.18,0,'triangle',true);this.air(620,.48,.10);break;
+      case 'bossDeath':this.roar(level===1,true);this.tone(level===1?210:145,45,.56,.18,0,'triangle',true);this.air(620,.48,.10);break;
       case 'bossBurst':this.tone(95,30,.36,.18,0,'sine',true);this.air(level===1?2400:1300,.53,.15);[523,784,1046].forEach((f,i)=>note(f,.4,.035,.06+i*.07));break;
       case 'pick':this.tone(390,590,.075,.075);this.air(1800,.045,.025);break;
       case 'snap':this.tone(740,670,.035,.024);break;
