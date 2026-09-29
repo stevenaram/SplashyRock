@@ -1,22 +1,28 @@
+import {PetMotion} from '../src/pet-motion';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,type Element,type Piece} from '../src/game';
 import {bossHealth,poolBlocks} from '../src/boss';
 const block=(anchor:number)=>Array.from({length:16},(_,i)=>anchor+i%4+Math.floor(i/4)*8);
 const single:Piece={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};
-function fixture(){const g=new Game(()=>.1,()=>true);for(const c of block(18))g.board[c]='water';return g;}
-test('bosses require a settled solid 3x3 pool, without a pet requirement',()=>{
- const g=new Game(()=>.1,()=>true);for(const c of [18,19,20,26,27,28,34,35,36])g.board[c]='water';assert.equal(g.trySpawnBoss(true),false);g.board[18]=null;assert.equal(g.trySpawnBoss(),false);g.board[18]='water';assert.equal(g.trySpawnBoss(),true);
- assert.equal(g.boss!.element,'water');assert.equal(g.boss!.maxTiles,9);assert.equal(g.boss!.x,g.boss!.cell%8+.5);assert.equal(g.pets.length,0);
+function readyGame(random:()=>number=Math.random,completed:()=>boolean=()=>false){
+ const g=new Game(random,completed);
+ for(const [i,element] of (['water','lava'] as Element[]).entries())g.pets.push(new PetMotion(56+i,element,g.board,()=>{}));
+ return g;
+}
+function fixture(){const g=readyGame(()=>.1,()=>true);for(const c of block(18))g.board[c]='water';return g;}
+test('bosses require a settled solid 3x3 pool, with an opposing pet',()=>{
+ const g=readyGame(()=>.1,()=>true);for(const c of [18,19,20,26,27,28,34,35,36])g.board[c]='water';assert.equal(g.trySpawnBoss(true),false);g.board[18]=null;assert.equal(g.trySpawnBoss(),false);g.board[18]='water';assert.equal(g.trySpawnBoss(),true);
+ assert.equal(g.boss!.element,'water');assert.equal(g.boss!.maxTiles,9);assert.equal(g.boss!.x,g.boss!.cell%8+.5);assert.equal(g.pets.length,2);
  assert.deepEqual(poolBlocks(new Set([6,7,8,9,14,15,16,17,22,23,24,25,30,31,32,33])),[]);
 });
 test('one boss per element including dying bosses, with a new disconnected pool eligible afterward',()=>{
- const g=new Game();for(const c of [...block(0),...block(36)])g.board[c]='water';g.trySpawnBoss();assert.equal(g.bosses.length,1);
+ const g=readyGame();for(const c of [...block(0),...block(36)])g.board[c]='water';g.trySpawnBoss();assert.equal(g.bosses.length,1);
  const first=g.boss!;g.clearCells([...first.remaining]);assert.ok(first.deathRemaining);assert.equal(g.trySpawnBoss(),false);
  g.updateBoss(3.1);assert.equal(g.bosses.length,0);assert.equal(g.trySpawnBoss(true),false);assert.equal(g.trySpawnBoss(),true);assert.equal(g.bosses.length,1);
 });
 test('water and lava bosses coexist and keep separate territory',()=>{
- const g=new Game();for(const c of block(0))g.board[c]='water';for(const c of block(36))g.board[c]='lava';g.trySpawnBoss();assert.equal(g.bosses.length,2);
+ const g=readyGame();for(const c of block(0))g.board[c]='water';for(const c of block(36))g.board[c]='lava';g.trySpawnBoss();assert.equal(g.bosses.length,2);
  assert.equal(new Set(g.bosses.map(b=>b.element)).size,2);g.dealInventory();assert.equal(new Set(g.inventory.map(p=>p?.tile)).size,2);
  const lava=g.bosses.find(b=>b.element==='lava')!;g.clearCells([...g.bosses.find(b=>b.element==='water')!.remaining]);assert.equal(lava.deathRemaining,0);
 });
@@ -42,7 +48,7 @@ test('restart removes bosses, death holds and pending visuals; death delays game
 });
 
 test('a settled pet-created 3x3 can spawn a boss, while a pending aftermath cannot',()=>{
- const g=new Game();for(const c of [19,20,26,27,28,34,35,36])g.board[c]='water';assert.equal(g.trySpawnBoss(),false);assert.equal(g.plantPetTile(18,'water'),true);
+ const g=readyGame();for(const c of [19,20,26,27,28,34,35,36])g.board[c]='water';assert.equal(g.trySpawnBoss(),false);assert.equal(g.plantPetTile(18,'water'),true);
  assert.equal(g.trySpawnBoss(true),false);assert.equal(g.trySpawnBoss(false),true);
 });
 test('death hold does not double-count cleared tiles and ignores unrelated sweeps',()=>{
@@ -61,7 +67,7 @@ test('boss surges alternate checkerboard colors and can refill recently cleared 
 });
 
 test('splitting a pool removes detached tiles from health and cannot rescue a stranded boss',()=>{
- const g=new Game(()=>0,()=>true);
+ const g=readyGame(()=>0,()=>true);
  const home=[0,1,2,8,9,10,16,17,18],island=[6,7,14,15];
  for(const c of [...home,...island,11,12,13])g.board[c]='water';g.trySpawnBoss();const b=g.boss!;
  assert.equal(b.maxTiles,16);g.clearCells([12]);assert.equal(b.remaining.size,10);assert.equal(b.maxTiles,16);
@@ -69,7 +75,7 @@ test('splitting a pool removes detached tiles from health and cannot rescue a st
  g.clearCells([1,9,17]);assert.ok(b.deathRemaining);assert.ok(island.every(c=>g.board[c]==='water'));
 });
 test('detached pools cannot expand for the boss, but reconnecting them restores connected health',()=>{
- const g=new Game(()=>0,()=>true);for(const c of [0,1,2,8,9,10,16,17,18,11,12,13,6,7,14,15])g.board[c]='water';g.trySpawnBoss();const b=g.boss!;
+ const g=readyGame(()=>0,()=>true);for(const c of [0,1,2,8,9,10,16,17,18,11,12,13,6,7,14,15])g.board[c]='water';g.trySpawnBoss();const b=g.boss!;
  g.clearCells([12]);g.inventory=[single];g.place(0,63);
  assert.equal(g.board[23],null); // Only adjacent to the detached island.
  assert.equal(g.board[12],null);assert.ok(!b.remaining.has(15));
@@ -77,7 +83,7 @@ test('detached pools cannot expand for the boss, but reconnecting them restores 
 });
 
 test('death never converts a detached same-element pool to stone',()=>{
- const g=new Game(()=>0,()=>true);const detached=[6,7,14,15];
+ const g=readyGame(()=>0,()=>true);const detached=[6,7,14,15];
  for(const c of [0,1,2,8,9,10,16,17,18,11,12,13,...detached])g.board[c]='water';
  g.trySpawnBoss();g.clearCells([12]);const b=g.boss!;g.clearCells([...b.remaining]);
  assert.ok(b.deathRemaining);g.updateBoss(3.1);
@@ -123,4 +129,15 @@ test('boss health reserves the last four tiles and scales against peak minus fou
  state.remaining=new Set([0,1]);assert.equal(bossHealth(state).fraction,0);
  state.maxTiles=4;assert.ok(Number.isFinite(bossHealth(state).fraction));
  state.deathRemaining=3;assert.equal(bossHealth(state).current,0);
+});
+
+test('each boss needs a hatched opposite-element pet and rechecks existing pools after hatching',()=>{
+ for(const element of ['water','lava'] as Element[]){
+  const g=new Game();for(const c of [18,19,20,26,27,28,34,35,36])g.board[c]=element;
+  assert.equal(g.trySpawnBoss(),false);
+  g.pets.push(new PetMotion(56,element,g.board,()=>{}));assert.equal(g.trySpawnBoss(),false);
+  const opposite=new PetMotion(57,element==='water'?'lava':'water',g.board,()=>{});opposite.startHatch();g.pets.push(opposite);
+  assert.equal(g.trySpawnBoss(),false);opposite.hatchRemaining=0;
+  assert.equal(g.trySpawnBoss(true),false);assert.equal(g.trySpawnBoss(),true);assert.equal(g.boss!.element,element);
+ }
 });

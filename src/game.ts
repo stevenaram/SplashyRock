@@ -48,6 +48,7 @@ export class Game {
     let spawned=false;
     for(const {element,cells:pool} of elementalPools(this.board)){
       if(this.bosses.some(b=>b.element===element))continue;
+      if(!this.pets.some(p=>p.element!==element&&p.hatchRemaining===0))continue;
       const remaining=new Set(pool),blocks=poolBlocks(remaining);if(!blocks.length)continue;
       const anchor=blocks[Math.floor(this.random()*blocks.length)],cell=anchor+9;
       this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange,expansionParity:0,damageTaken:0});spawned=true;
