@@ -104,14 +104,16 @@ export class PetWalker {
   this.swim+=(targetSwim-this.swim)*Math.min(1,dt*9);
   this.shadow.visible=leaping||this.swim<.15;
   const flightArc=leaping?Math.pow(Math.sin(this.motion.leapProgress*Math.PI),.85):0;
-  const height=reduced?0:flightArc*3.3;
+  // Height is purely visual: the ability still lands on the same gameplay frame.
+  const height=reduced?0:flightArc*16.5;
   this.landing.visible=leaping;
   if(leaping&&this.motion.next!==null){
     this.landing.position.set(gridWorld(this.motion.next%8)-gridWorld(this.motion.x),.035,gridWorld(Math.floor(this.motion.next/8))-gridWorld(this.motion.y));
     this.landing.material.opacity=reduced?.6:.3+this.motion.leapProgress*.5;
   }
-  this.shadow.scale.set(1+height*.16,.8+height*.12,1);
-  (this.shadow.material as T.MeshBasicMaterial).opacity=.27-height*.035;
+  const shadowLift=reduced?0:flightArc;
+  this.shadow.scale.set(1+shadowLift*.65,.8+shadowLift*.5,1);
+  (this.shadow.material as T.MeshBasicMaterial).opacity=.27-shadowLift*.16;
   this.wake.visible=this.swim>.02&&this.motion.onOwnLiquid;
   this.wake.rotation.y=this.model.body.rotation.y;
   this.wakeMaterial.uniforms.alpha.value=this.swim*(walking?.48:.23);
