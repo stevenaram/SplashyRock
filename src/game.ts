@@ -61,21 +61,21 @@ export class Game {
     this.bossNotice='Boss defeated! No 2×2 pool remains.';
   }
   readonly bossGrowthEvents:number[]=[];
-  private bossGrowthQueue:number[]=[];
-  get hasPendingBossGrowth(){return !!this.boss&&this.bossGrowthQueue.includes(this.boss.id);}
+  private bossGrowthQueue:{bossId:number;cleared:Set<number>}[]=[];
+  get hasPendingBossGrowth(){return !!this.boss&&this.bossGrowthQueue.some(job=>job.bossId===this.boss!.id);}
   resolveBossGrowth(pending:boolean){
-    this.bossGrowthQueue=this.bossGrowthQueue.filter(id=>id===this.boss?.id);
+    this.bossGrowthQueue=this.bossGrowthQueue.filter(job=>job.bossId===this.boss?.id);
     if(pending||this.over||this.reviving||!this.bossGrowthQueue.length)return false;
-    this.bossGrowthQueue.shift();this.growBoss();return true;
+    const job=this.bossGrowthQueue.shift()!;this.growBoss(job.cleared);return true;
   }
   dealInventory(){this.inventory=this.deal();}
 
-  private growBoss(){
+  private growBoss(protectedCells:ReadonlySet<number>){
     const b=this.boss;if(!b)return;
     const additions=new Set<number>();
     for(const c of b.remaining)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
       const x=c%8+dx,y=Math.floor(c/8)+dy;if(x<0||x>7||y<0||y>7)continue;
-      const n=y*8+x;if(this.board[n]===null)additions.add(n);
+      const n=y*8+x;if(this.board[n]===null&&!protectedCells.has(n))additions.add(n);
     }
     for(const c of additions){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push(c);}
     // Connected same-element pieces become part of the territory too.
@@ -118,6 +118,9 @@ export class Game {
   clearCells(cells: readonly number[]): number[] {
     const removed: number[]=[];
     for(const cell of new Set(cells)){if(this.board[cell]!==null){this.write(cell,null);removed.push(cell);}}
+    // Overlapping placements share the board's aftermath. Every waiting surge
+    // preserves the space cleared while it was queued, including pet reactions.
+    for(const job of this.bossGrowthQueue)for(const cell of removed)job.cleared.add(cell);
     if(!this.reviving){this.tilesCleared+=removed.length;this.score+=removed.length*10;
     if(this.combo>0)this.chainPoints+=removed.length*10;}
     if(this.boss){let damage=0;for(const c of removed)if(this.boss.remaining.delete(c))damage++;if(damage)this.damageBoss();}
@@ -233,7 +236,7 @@ export class Game {
       this.shapeMoves++;
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;
-      if(this.boss)this.bossGrowthQueue.push(this.boss.id);
+      if(this.boss)this.bossGrowthQueue.push({bossId:this.boss.id,cleared:new Set()});
     }
     this.inventory[slot] = null;
     this.claimEggRewards();

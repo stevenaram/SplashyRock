@@ -61,3 +61,18 @@ test('boss refills are entirely opposite-element and normal mixed hands return a
   assert.equal(new Set(g.inventory.map(p=>p?.tile)).size,2);
  }
 });
+
+test('boss surge preserves all cells cleared during its aftermath, but later placements can grow there',()=>{
+ const g=fixture();g.trySpawnBoss();g.board[10]='lava';
+ const place=(cell:number)=>{g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};assert.equal(g.place(0,cell),true);};
+ place(63);g.clearCells([18,10]);assert.ok(g.boss);assert.equal(g.resolveBossGrowth(false),true);
+ assert.equal(g.board[18],null);assert.equal(g.board[10],null);assert.equal(g.board[11],'water');
+ place(62);g.resolveBossGrowth(false);assert.equal(g.board[18],'water');assert.equal(g.board[10],'water');
+});
+test('overlapping placement surges all protect cells cleared while they wait',()=>{
+ const g=fixture();g.trySpawnBoss();
+ for(const cell of [62,63]){g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};g.place(0,cell);}
+ g.clearCells([18]);assert.equal(g.resolveBossGrowth(true),false);
+ assert.equal(g.resolveBossGrowth(false),true);assert.equal(g.board[18],null);
+ assert.equal(g.resolveBossGrowth(false),true);assert.equal(g.board[18],null);
+});
