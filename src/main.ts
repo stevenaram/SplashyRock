@@ -145,7 +145,7 @@ function settled(){
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
   if (!game.over) reactions.schedule();
-  if(!reactions.busy&&!sweeps.busy&&!game.pets.some(p=>p.hasAbilityFor(game.comboRun))&&game.combo>0){
+  if(!reactions.busy&&!sweeps.busy&&!game.bossesExpanding&&!game.pets.some(p=>p.hasAbilityFor(game.comboRun))&&game.combo>0){
     const multiplier=game.combo;const bonus=game.finishChain();
     if(multiplier>1)combo.finish(bonus);
     shownCombo=0;
@@ -155,14 +155,14 @@ function settled(){
   game.claimEggRewards();announceEggs();
   updateScore();
   updateTrayWarnings();
-  if(game.over||game.bossesDying||reactions.busy||sweeps.busy||aftermaths.size>0||game.petsBusy||game.hasLegalMove()){
+  if(game.over||game.bossesDying||game.bossesExpanding||reactions.busy||sweeps.busy||aftermaths.size>0||game.petsBusy||game.hasLegalMove()){
     clearTimeout(endTimer);endTimer=undefined;return;
   }
   // Walking animation updates must not continually postpone this final check.
   if(endTimer!==undefined)return;
   endTimer=setTimeout(()=>{
     endTimer=undefined;
-    if(!game.finishIfBlocked(game.bossesDying||reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy))return;
+    if(!game.finishIfBlocked(game.bossesDying||game.bossesExpanding||reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy))return;
     tutorial.dismiss();tutorial.dismissGoal();combo.reset();
     noSpace.start(()=>showEnd());
     status.textContent=`Game Over. Final score ${game.score}. You can still try the remaining pieces, or play again.`;

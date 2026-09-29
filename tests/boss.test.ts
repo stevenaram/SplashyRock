@@ -26,9 +26,9 @@ test('water and lava bosses coexist and keep separate territory',()=>{
  assert.equal(new Set(g.bosses.map(b=>b.element)).size,2);g.dealInventory();assert.equal(new Set(g.inventory.map(p=>p?.tile)).size,2);
  const lava=g.bosses.find(b=>b.element==='lava')!;g.clearCells([...g.bosses.find(b=>b.element==='water')!.remaining]);assert.equal(lava.deathRemaining,0);
 });
-test('growth happens immediately once per placement without locking the next placement',()=>{
- const g=fixture();g.trySpawnBoss();g.inventory=[single,single,single];assert.equal(g.place(0,63),true);assert.equal(g.board[9],null);assert.equal(g.boss!.maxTiles,32);
- assert.equal(g.place(1,62),true);assert.equal(g.shapeMoves,2);assert.ok(g.boss!.remaining.size>16);
+test('growth waits for the slam while allowing more placements to queue waves',()=>{
+ const g=fixture();g.trySpawnBoss();g.inventory=[single,single,single];assert.equal(g.place(0,63),true);assert.equal(g.board[9],null);assert.equal(g.boss!.maxTiles,16);assert.ok(g.bossReservedCells.size);g.updateBoss(.4);assert.equal(g.boss!.maxTiles,16);
+ assert.equal(g.place(1,62),true);assert.equal(g.shapeMoves,2);assert.equal(g.boss!.surges.length,2);g.updateBoss(1.5);assert.ok(g.boss!.remaining.size>16);assert.equal(g.bossesExpanding,false);
 });
 test('dying bosses keep exactly four liquid tiles until animation ends then emit stone',()=>{
  const g=fixture();g.trySpawnBoss();const b=g.boss!;g.clearCells([...b.remaining]);assert.equal(b.remaining.size,4);assert.ok(b.deathRemaining);
@@ -58,10 +58,10 @@ test('death hold does not double-count cleared tiles and ignores unrelated sweep
 
 test('full boss surges can refill recently cleared cells of either checkerboard color',()=>{
  const g=fixture();g.trySpawnBoss();g.inventory=[single,single,single];
- g.clearCells([18,19]);assert.equal(g.place(0,63),true);
+ g.clearCells([18,19]);assert.equal(g.place(0,63),true);g.updateBoss(1.5);
  assert.equal(g.board[18],'water');assert.equal(g.board[19],'water');
  assert.equal(g.board[63],'lava');assert.equal(g.board[0],null);
- assert.equal(g.place(1,62),true);assert.equal(g.board[4],'water');assert.equal(g.board[62],'lava');
+ assert.equal(g.place(1,62),true);g.updateBoss(1.5);assert.equal(g.board[4],'water');assert.equal(g.board[62],'lava');
 });
 
 test('splitting a pool removes detached tiles from health and cannot rescue a stranded boss',()=>{
@@ -74,7 +74,7 @@ test('splitting a pool removes detached tiles from health and cannot rescue a st
 });
 test('detached pools cannot expand for the boss, but reconnecting them restores connected health',()=>{
  const g=readyGame(()=>0,()=>true);for(const c of [0,1,2,8,9,10,16,17,18,11,12,13,6,7,14,15])g.board[c]='water';g.trySpawnBoss();const b=g.boss!;
- g.clearCells([12]);g.inventory=[single];g.place(0,63);
+ g.clearCells([12]);g.inventory=[single];g.place(0,63);g.updateBoss(1.5);
  assert.equal(g.board[23],null); // Only adjacent to the detached island.
  assert.equal(g.board[12],'water');assert.ok(b.remaining.has(15));
  g.plantPetTile(12,'water');g.updateBoss(.01);assert.ok(b.remaining.has(15));
@@ -95,7 +95,7 @@ test('each full surge fills every empty cardinal neighbor but no diagonal corner
   for(const [turn,anchor] of [63,62].entries()){
    const before=new Set(g.boss!.remaining),expected:number[]=[];g.bossGrowthEvents.length=0;
    for(let cell=0;cell<64;cell++)if(cell!==anchor&&g.board[cell]===null&&[...before].some(c=>Math.abs(c%8-cell%8)+Math.abs(Math.floor(c/8)-Math.floor(cell/8))===1))expected.push(cell);
-   assert.equal(g.place(turn,anchor),true);
+   assert.equal(g.place(turn,anchor),true);g.updateBoss(1.5);
    assert.deepEqual(g.bossGrowthEvents.map(e=>e.cell).sort((a,b)=>a-b),expected);
    if(turn===0){assert.equal(g.board[9],null);assert.equal(g.board[54],null);assert.equal(g.board[0],null);}
   }
@@ -136,4 +136,24 @@ test('each boss needs a hatched opposite-element pet and rechecks existing pools
   assert.equal(g.trySpawnBoss(),false);opposite.hatchRemaining=0;
   assert.equal(g.trySpawnBoss(true),false);assert.equal(g.trySpawnBoss(),true);assert.equal(g.boss!.element,element);
  }
+});
+
+test('waves retarget cleared source edges and do not grow into disconnected territory',()=>{
+ const g=fixture();g.trySpawnBoss();g.inventory=[single];g.place(0,63);
+ assert.ok(g.bossReservedCells.has(10));g.clearCells([18,19,20,21]);
+ assert.equal(g.bossReservedCells.has(10),false);assert.ok(g.bossReservedCells.has(18));
+ g.updateBoss(1.5);assert.equal(g.board[10],null);assert.equal(g.board[18],'water');
+});
+test('pet leaps avoid pending expansion cells, and a dying boss releases reservations',()=>{
+ const g=fixture();g.trySpawnBoss();g.inventory=[single];g.place(0,63);
+ const reserved=new Set(g.bossReservedCells);assert.ok(reserved.has(10));
+ const p=new PetMotion(10,'water',g.board,c=>g.plantPetTile(c,'water'),()=>0,()=>g.boardChange,()=>g.pets,undefined,undefined,()=>g.bossReservedCells);g.pets.push(p);
+ p.queueAbility();p.update(.01);assert.ok(p.leaping);assert.ok(!reserved.has(p.next!));
+ g.clearCells([...g.boss!.remaining]);assert.equal(g.bossesExpanding,false);assert.equal(g.bossReservedCells.size,0);
+});
+test('growth respects a pet already in flight, newly occupied targets, and revive cancellation',()=>{
+ const g=fixture();g.trySpawnBoss();const p=new PetMotion(10,'water',g.board,c=>g.plantPetTile(c,'water'),()=>0);g.pets.push(p);p.queueAbility();p.update(.01);assert.equal(p.next,10);
+ g.inventory=[single];g.place(0,63);assert.equal(g.bossReservedCells.has(10),false);
+ g.board[11]='stone';g.updateBoss(1.5);assert.equal(g.board[10],null);assert.equal(g.board[11],'stone');
+ g.inventory=[single];g.place(0,62);g.over=true;g.beginRevive();assert.equal(g.bossReservedCells.size,0);assert.equal(g.bossesExpanding,false);
 });

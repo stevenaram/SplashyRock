@@ -28,15 +28,16 @@ export class PetMotion {
   private escapingStep=false;
   private escapeCache:{key:string;value:number|null}|null=null;
   private recent:number[]=[];
-  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number,comboRun?:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[]){this.x=cell%8;this.y=Math.floor(cell/8);}
+  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number,comboRun?:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[],private readonly reserved?:()=>ReadonlySet<number>){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
   queueAbility(comboRun=0){this.abilityRuns.push(comboRun);this.queued++;this.revision++;}
   cancelAbilities(){this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
   private leapTarget(){
     let distance=Infinity;const choices:number[]=[];
-    const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c))??[];
+    const reserved=this.reserved?.();
+    const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c))??[];
     for(let c=0;c<64;c++){
-      if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||(preferred.length&&!preferred.includes(c)))continue;
+      if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||reserved?.has(c)||(preferred.length&&!preferred.includes(c)))continue;
       const d=Math.hypot(c%8-this.x,Math.floor(c/8)-this.y);
       if(d<distance-1e-9){distance=d;choices.length=0;choices.push(c);}
       else if(Math.abs(d-distance)<1e-9)choices.push(c);

@@ -1,4 +1,4 @@
-import {bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
+import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
 import { SHAPES, type Shape, type Offset } from './shapes';
@@ -62,7 +62,7 @@ export class Game {
       if(!this.pets.some(p=>p.element!==element&&p.hatchRemaining===0))continue;
       const remaining=new Set(pool),blocks=poolBlocks(remaining);if(!blocks.length)continue;
       const anchor=blocks[Math.floor(this.random()*blocks.length)],cell=anchor+9;
-      this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange,damageTaken:0});spawned=true;
+      this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange,damageTaken:0,surges:[]});spawned=true;
     }return spawned;
   }
   private reconcileBossRegion(b:Boss){
@@ -81,7 +81,7 @@ export class Game {
   private heldByDyingBoss(cell:number){return this.bosses.some(b=>b.deathRemaining>0&&b.remaining.has(cell));}
   private beginBossDeath(b:Boss){
     if(b.deathRemaining)return;
-    b.deathRemaining=BOSS_DEATH_SECONDS;b.x=b.cell%8+.5;b.y=Math.floor(b.cell/8)+.5;
+    b.surges.length=0;b.deathRemaining=BOSS_DEATH_SECONDS;b.x=b.cell%8+.5;b.y=Math.floor(b.cell/8)+.5;
     const held=[b.cell,b.cell+1,b.cell+8,b.cell+9];
     for(const c of b.remaining)if(!held.includes(c)&&this.board[c]===b.element){this.write(c,'stone');this.stoneDepth[c]=1;this.bossStoneEvents.push(c);}
     b.remaining=new Set(held);
@@ -89,17 +89,39 @@ export class Game {
     this.bossNotice='Boss defeated!';
   }
   dealInventory(){this.inventory=this.deal();}
-  private growBosses(){
-    for(const b of this.bosses)if(b.regionRevision!==this.boardChange)this.reconcileBossRegion(b);
-    // Snapshot every frontier first so a surge never grows more than one layer.
-    const proposals=this.bosses.filter(b=>!b.deathRemaining).map(b=>{
-      const cells=new Set<number>();for(const c of b.remaining)for(const n of this.neighbors(c)){
-        if(this.board[n]===null)cells.add(n);
-      }return {b,cells};
-    });
-    for(const {b,cells} of proposals){for(const c of cells)if(this.board[c]===null){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});}
-      this.reconcileBossRegion(b);
+  get bossesExpanding(){return this.bosses.some(b=>b.surges.length>0);}
+  private surgeFrontier(b:Boss,wave:BossSurge):Set<number>{
+    const cells=new Set<number>();
+    if(b.deathRemaining||this.over||this.reviving)return cells;
+    // Only surviving, connected source cells feed this wave: its own growth
+    // cannot grow another layer. Recompute after clears so erased edges retarget.
+    for(const c of wave.source)if(b.remaining.has(c)&&this.board[c]===b.element)for(const n of this.neighbors(c)){
+      if(this.board[n]===null&&!wave.grown.has(n)&&!this.pets.some(p=>p.leaping&&p.next===n))cells.add(n);
     }
+    return cells;
+  }
+  get bossReservedCells():ReadonlySet<number>{
+    const result=new Set<number>();for(const b of this.bosses)for(const wave of b.surges)for(const c of this.surgeFrontier(b,wave))result.add(c);
+    return result;
+  }
+  private growBosses(){
+    for(const b of this.bosses){
+      if(b.regionRevision!==this.boardChange)this.reconcileBossRegion(b);
+      if(!b.deathRemaining)b.surges.push({age:0,x:b.x,y:b.y,source:new Set(b.remaining),grown:new Set()});
+    }
+  }
+  private advanceSurges(b:Boss,dt:number){
+    let changed=false;
+    for(const wave of b.surges){
+      wave.age+=dt;if(wave.age<BOSS_SLAM_DELAY)continue;
+      const radius=(wave.age-BOSS_SLAM_DELAY)*BOSS_WAVE_SPEED;
+      for(const c of this.surgeFrontier(b,wave))if(Math.hypot(c%8-wave.x,Math.floor(c/8)-wave.y)<=radius){
+        this.write(c,b.element);wave.grown.add(c);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});changed=true;
+      }
+    }
+    const count=b.surges.length;b.surges=b.surges.filter(w=>w.age<BOSS_SURGE_DURATION);
+    if(changed)this.reconcileBossRegion(b);
+    return changed||count!==b.surges.length;
   }
   updateBoss(dt:number){
     let finished=false;
@@ -110,6 +132,8 @@ export class Game {
         this.bosses.splice(this.bosses.indexOf(b),1);this.bossesDefeated++;if(!this.reviving){const score=bossRewardScore(b.damageTaken);this.score+=score;this.bossRewards.push({element:b.element,x:b.x,y:b.y,damage:b.damageTaken,score});this.claimEggRewards();}
         for(const c of b.remaining){this.write(c,'stone');this.stoneDepth[c]=1;this.bossStoneEvents.push(c);}finished=true;
       }continue;}
+      if(this.advanceSurges(b,dt))finished=true;
+      if(b.surges.length)continue;
       const squares=poolSquares(b.remaining);if(!squares.length)continue;
       if(!squares.includes(b.cell)){b.cell=squares.reduce((a,c)=>Math.hypot(c%8+.5-b.x,Math.floor(c/8)+.5-b.y)<Math.hypot(a%8+.5-b.x,Math.floor(a/8)+.5-b.y)?c:a);b.x=b.cell%8+.5;b.y=Math.floor(b.cell/8)+.5;}
       const tx=b.cell%8+.5,ty=Math.floor(b.cell/8)+.5,d=Math.hypot(tx-b.x,ty-b.y);
@@ -179,7 +203,7 @@ export class Game {
     return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
   }
   finishIfBlocked(pending: boolean): boolean {
-    if(!pending&&!this.bossesDying&&!this.petsBusy&&!this.hasLegalMove()){this.finishChain();if(!this.hasLegalMove())this.over=true;}
+    if(!pending&&!this.bossesDying&&!this.bossesExpanding&&!this.petsBusy&&!this.hasLegalMove()){this.finishChain();if(!this.hasLegalMove())this.over=true;}
     return this.over;
   }
   restart() {
@@ -196,6 +220,7 @@ export class Game {
     if(!this.over||this.won||this.reviving)return [];
     const cells=this.reviveTargets().filter(c=>!this.heldByDyingBoss(c));if(!cells.length)return [];
     for(const pet of this.pets)pet.cancelAbilities();
+    for(const b of this.bosses)b.surges.length=0;
     this.comboRun++;this.lastComboWave=-Infinity;
     this.reviving=true;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;
     for(const cell of cells){this.write(cell,'stone');this.stoneDepth[cell]=1;}
@@ -282,7 +307,7 @@ export class Game {
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');
-      const pet=new PetMotion(anchor,element,this.board,(cell,run)=>this.plantPetTile(cell,element,run),this.random,()=>this.boardChange,()=>this.pets,undefined,()=>this.helpfulPetTargets(element));
+      const pet=new PetMotion(anchor,element,this.board,(cell,run)=>this.plantPetTile(cell,element,run),this.random,()=>this.boardChange,()=>this.pets,undefined,()=>this.helpfulPetTargets(element),()=>this.bossReservedCells);
       pet.startHatch();this.pets.push(pet);
     }
     else {
