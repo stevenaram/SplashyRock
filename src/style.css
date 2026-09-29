@@ -452,3 +452,9 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 #progress-menu svg,#sound-toggle svg{display:block;flex:none;margin:0;pointer-events:none}
 #progress-menu svg{width:18px;height:18px}
 #sound-toggle svg{width:32px;height:32px;overflow:hidden}
+
+#gem-wallet{width:max-content;min-width:84px;flex:0 0 auto}
+#gem-wallet strong{white-space:nowrap}
+#hud-best{width:max-content;min-width:92px;font-size:16px}
+#hud-best svg{width:18px;height:18px}
+@media(max-width:450px){#hud-best{min-width:76px;font-size:13px}#hud-best svg{width:16px;height:16px}#hud-wallets{gap:10px}}

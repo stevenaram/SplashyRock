@@ -72,7 +72,6 @@ function updateBest(){
   const bestHud=document.querySelector<HTMLElement>('#hud-best')!;
   bestHud.querySelector('strong')!.textContent=best.toLocaleString();
   bestHud.setAttribute('aria-label',`Best score: ${best.toLocaleString()}`);
-  bestHud.querySelector<HTMLElement>('strong')!.style.fontSize=`${Math.min(11,(bestHud.clientWidth-19)/Math.max(1,best.toLocaleString().length)/.62)}px`;
 }
 function updateScore(){
   best=highScore.record(game.score);
