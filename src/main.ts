@@ -351,6 +351,9 @@ const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=el
 const disposeScoreTest=scoreTestMode?scoreTestControls(amount=>{
   if(game.over)return false;
   game.score+=amount;game.claimEggRewards();settled();renderTray();return true;
-},()=>game.score,()=>EGG_GOALS[game.earnedEggs],restartRun):()=>{};
+},()=>game.score,()=>EGG_GOALS[game.earnedEggs],restartRun,amount=>{
+  if(!progression.addTestGems(amount))return false;
+  progressUI.render();refreshRevive();return true;
+},()=>progression.gems):()=>{};
 tutorial.start();updateScore();renderTray();
 if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });

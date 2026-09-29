@@ -409,3 +409,4 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 
 /* A single inventory egg represents all unplaced rewards. */
 .slot.pet .egg-count {position:absolute;right:12%;bottom:12%;z-index:2;min-width:25px;height:25px;padding:0 6px;display:grid;place-items:center;box-sizing:border-box;border:2px solid #e6e4ae;border-radius:10px;background:#244b59;color:#fff4ce;font:800 15px/1 ui-monospace,monospace;font-variant-numeric:tabular-nums;box-shadow:0 2px 0 #102f3c80,inset 0 1px 0 #719797;pointer-events:none}
+#boss-test.score-test{max-height:calc(100dvh - 130px);overflow-y:auto;overscroll-behavior:contain}

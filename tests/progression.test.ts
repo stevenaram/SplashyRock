@@ -54,3 +54,8 @@ test('corrupt or blocked storage does not break progression',()=>{
  const storage=memory();storage.setItem(PROGRESS_KEY,'not json');const p=new Progression(storage);assert.equal(p.gems,0);
  const blocked=new Progression({getItem(){throw Error();},setItem(){throw Error();}});const g=new Game();g.maxCombo=2;blocked.observe(g,normal);assert.equal(blocked.gems,3);assert.equal(blocked.observe(g,normal).length,0);
 });
+test('test gems fund revives without modifying persistent wallets',()=>{
+ const p=new Progression();assert.equal(p.addTestGems(20),true);assert.equal(p.gems,20);assert.equal(p.spend(REVIVE_COST),true);assert.equal(p.gems,0);
+ for(const amount of [0,-1,1.5,NaN,Infinity,1000001])assert.equal(p.addTestGems(amount),false);
+ const saved=new Progression(memory());assert.equal(saved.addTestGems(100),false);assert.equal(saved.gems,0);
+});

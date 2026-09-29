@@ -28,6 +28,10 @@ export class Progression {
   this.state={gems:0,completed:[],first:random()<.5?'water':'lava',networkStep:0,petBest:0,comboBest:0,clearBest:0,networkBest:0};
   this.reload();this.save();
  }
+ addTestGems(amount:number){
+  if(this.storage||!Number.isSafeInteger(amount)||amount<1||amount>1000000||!Number.isSafeInteger(this.state.gems+amount))return false;
+  this.state.gems+=amount;return true;
+ }
  get gems(){return this.state.gems;}
  get completedCount(){return this.state.completed.length;}
  private catalog():Achievement[]{
