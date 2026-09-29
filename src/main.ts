@@ -1,3 +1,5 @@
+import {bossTestMode} from './test-mode';
+import {seedBossTest,bossTestControls} from './boss-test';
 import {gemIcon,REVIVE_COST} from './gems';
 import {Progression} from './progression';
 import {ProgressUI} from './progress-ui';
@@ -53,12 +55,12 @@ let shownCombo=0;
 const again=document.querySelector<HTMLButtonElement>('#play-again')!;
 const reviveButton=document.querySelector<HTMLButtonElement>('#revive')!;
 let progressStorage:Storage|undefined;try{progressStorage=localStorage;}catch{}
-const progression=new Progression(progressStorage);
+const progression=new Progression(bossTestMode?undefined:progressStorage);
 let playedBeyondIntro=false;
 let reviveInFlight=false;
 let shownScore=0;
 let best=0;
-try { best=Math.max(0,Number(localStorage.getItem('splashy-rock-best'))||0); } catch {}
+try { if(!bossTestMode)best=Math.max(0,Number(localStorage.getItem('splashy-rock-best'))||0); } catch {}
 let endTimer:ReturnType<typeof setTimeout>|undefined;
 function updateScore(){
   const gain=game.score-shownScore;scoreLabel.textContent=game.score.toLocaleString();
@@ -81,6 +83,7 @@ function refreshRevive(){
   document.querySelector('#revive-detail')!.textContent=!eligible?'Revive unavailable.':progression.gems<REVIVE_COST?'Earn gems through achievements to revive.':'Turn the four center tiles into clearing stones.';
 }
 function checkAchievements(){
+  if(bossTestMode)return;
   const awards=progression.observe(game,{calm:!reactions.busy&&!sweeps.busy&&!game.petsBusy&&aftermaths.size===0,allowCleanBoard:playedBeyondIntro&&!tutorial.guiding,suppressed:game.reviving});
   if(awards.length){progressUI.earned(awards);sound.play('reward');refreshRevive();}
 }
@@ -88,7 +91,7 @@ function showEnd(won=false){
   refreshRevive();
   sound.play(won?'win':'over');
   tutorial.dismiss();tutorial.dismissGoal();
-  best=Math.max(best,game.score);try{localStorage.setItem('splashy-rock-best',String(best));}catch{}
+  best=Math.max(best,game.score);try{if(!bossTestMode)localStorage.setItem('splashy-rock-best',String(best));}catch{}
   document.querySelector('#end-title')!.textContent=won?'The game is beat!':'Game Over';
   endDialog.style.setProperty('--end-digits',String(Math.max(game.score.toLocaleString().length,best.toLocaleString().length)));
   document.querySelector('#final-score')!.textContent=game.score.toLocaleString();document.querySelector('#best-score')!.textContent=best.toLocaleString();
@@ -181,16 +184,19 @@ reviveButton.addEventListener('click',()=>{
   status.textContent=`Revived for ${REVIVE_COST} Gems. ${stones.length} center tiles became stone.`;
 }, {signal:events.signal});
 window.addEventListener('storage',()=>refreshRevive(),{signal:events.signal});
-again.addEventListener('click',()=>{
+let testBossElement:'water'|'lava'='water';
+function restartRun(){
   playedBeyondIntro=false;reviveInFlight=false;
   sound.stop();sound.play('restart');
   aftermaths.forEach(a=>a.cancel());aftermaths.clear();
   clearTimeout(endTimer);endTimer=undefined;reactions.dispose();sweeps.dispose();cancel();
   world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
   shownCombo=0;combo.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
+  if(bossTestMode)seedBossTest(game,world,testBossElement);
   shownScore=0;gainLabel.textContent='';tutorial.start();updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
-}, {signal:events.signal});
+}
+again.addEventListener('click',restartRun,{signal:events.signal});
 
 
 let blockedSlots=0;
@@ -319,5 +325,7 @@ tray.addEventListener('click', event => {
  renderTray(); }
 }, { signal: events.signal });
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
+if(bossTestMode)seedBossTest(game,world,testBossElement);
+const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility();});}):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose(); world.dispose(); });
