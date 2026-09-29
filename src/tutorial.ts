@@ -23,6 +23,8 @@ export class Tutorial {
   private paused=false;
   private animation:Animation|undefined;
   private frame=0;
+  private guideKey="";
+  private guideBoard=-1;
   constructor(private board:HTMLElement,goal:HTMLElement,private tray:HTMLElement,private game:Game,private screen:(cell:number)=>{x:number;y:number}){
     this.hand.id='guide-hand';this.hand.setAttribute('aria-hidden','true');this.target.id='guide-target';this.target.setAttribute('aria-hidden','true');
     this.tip.id='clearing-tip';this.tip.hidden=true;this.tip.innerHTML='<p>Place water and lava one space apart to clear tiles and build your score.</p><button type="button">Got it</button>';
@@ -55,11 +57,12 @@ export class Tutorial {
     return piece.tile!==this.firstElement&&piece.tile!=='pet'&&straight&&distance===2&&this.game.board[(cell+this.firstCell)/2]===null;
   }
   placed(piece:Piece,cell:number){
+    if(piece.tile==='pet'){seenTips.mark('egg-drag');this.paused=false;this.refresh();return;}
     if(this.phase===0){this.firstElement=piece.tile;this.firstCell=cell;this.phase=1;}
     else if(this.phase===1)this.phase=2;
     this.paused=false;this.refresh();
   }
-  settled(ready:boolean){if(this.phase===2&&ready){seenTips.mark('intro-complete');this.phase=3;this.showClearingTip();}}
+  settled(ready:boolean){if(this.phase===2&&ready){seenTips.mark('intro-complete');this.phase=3;this.showClearingTip();}if(this.guideBoard!==this.game.boardChange){this.guideBoard=this.game.boardChange;this.refresh();}}
   private showClearingTip(){
     if(seenTips.has('clearing')){this.showGoal();return;}
     seenTips.mark('clearing');this.tip.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.showGoal(),TOOLTIP_DURATION);
@@ -73,11 +76,15 @@ export class Tutorial {
   endDrag(){this.paused=false;this.refresh();}
   refresh(){cancelAnimationFrame(this.frame);this.frame=requestAnimationFrame(()=>this.layout());}
   private layout(){
-    this.animation?.cancel();this.hand.hidden=this.target.hidden=this.phase>1||this.game.over;
-    if(this.hand.hidden)return;
-    const slot=this.game.inventory.findIndex(p=>p&&p.shape.cells.length===1&&(this.phase===0||p.tile!==this.firstElement));
-    const button=this.tray.querySelector<HTMLElement>(`[data-slot="${slot}"]`),piece=this.game.inventory[slot];if(!button||!piece)return;
-    const r=button.getBoundingClientRect(),b=this.board.getBoundingClientRect(),point=this.screen(this.destination()),neighbor=this.screen(this.destination()%8<7?this.destination()+1:this.destination()-1);
+    const eggGuide=this.phase>2&&!seenTips.has('egg-drag')&&this.game.pets.length===0;
+    const slot=this.game.inventory.findIndex(p=>p&&(eggGuide?p.tile==='pet':p.tile!=='pet'&&p.shape.cells.length===1&&(this.phase===0||p.tile!==this.firstElement)));
+    const piece=this.game.inventory[slot],button=this.tray.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
+    const empty=eggGuide?this.game.board.map((_,c)=>c).filter(c=>piece&&this.game.canPlace(piece,c)).sort((a,b)=>Math.hypot(a%8-3.5,Math.floor(a/8)-3.5)-Math.hypot(b%8-3.5,Math.floor(b/8)-3.5))[0]:undefined;
+    const destination=eggGuide?empty:this.destination();
+    if(this.game.over||(!eggGuide&&this.phase>1)||!button||!piece||destination===undefined){this.animation?.cancel();this.guideKey="";this.hand.hidden=this.target.hidden=true;return;}
+    const r=button.getBoundingClientRect(),b=this.board.getBoundingClientRect(),point=this.screen(destination),neighbor=this.screen(destination%8<7?destination+1:destination-1);
+    const key=[slot,destination,this.paused,r.x,r.y,r.width,r.height,b.x,b.y,b.width,b.height].join(':');
+    if(key===this.guideKey)return;this.guideKey=key;this.animation?.cancel();this.hand.hidden=this.target.hidden=false;
     const x=point.x+b.left,y=point.y+b.top,size=Math.abs(neighbor.x-point.x)*.86;
     Object.assign(this.target.style,{left:`${x}px`,top:`${y}px`,width:`${size}px`,height:`${size*.86}px`});
     this.hand.hidden=this.paused;if(this.paused)return;

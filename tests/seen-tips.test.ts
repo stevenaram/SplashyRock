@@ -7,9 +7,9 @@ test('tips persist independently across new sessions',()=>{
   const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>{data.set(key,value);}};
   const first=new SeenTips(storage);
   assert.equal(first.has('intro'),false);
-  first.mark('intro');first.mark('blocked-shape');
+  first.mark('intro');first.mark('blocked-shape');first.mark('egg-drag');
   const next=new SeenTips(storage);
-  assert.equal(next.has('intro'),true);
+  assert.equal(next.has('intro'),true);assert.equal(next.has('egg-drag'),true);
   assert.equal(next.has('blocked-shape'),true);
   assert.equal(next.has('pet-ability'),false);
   next.mark('pet-ability');

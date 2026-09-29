@@ -255,7 +255,7 @@ function renderTray() {
   const fresh=game.inventory.map((piece,i)=>!!piece&&piece!==trayPieces[i]);
   if(markup===trayMarkup&&!fresh.some(Boolean)){updateTrayWarnings();return;}
   if(trayPieces.length&&fresh.length===3&&fresh.every(Boolean))sound.play('deal');
-  trayMarkup=markup;tray.innerHTML=markup;trayPieces=[...game.inventory];updateTrayWarnings();
+  trayMarkup=markup;tray.innerHTML=markup;trayPieces=[...game.inventory];updateTrayWarnings();tutorial.refresh();
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
     tray.querySelectorAll<HTMLElement>('.slot').forEach((slot,i)=>{
       if(fresh[i])slot.animate([{opacity:0,transform:'translateY(14px) scale(.88)'},{opacity:1,transform:'translateY(-2px) scale(1.025)',offset:.72},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:320,delay:i*55,easing:'cubic-bezier(.2,.7,.3,1)',fill:'backwards'});

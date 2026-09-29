@@ -469,3 +469,5 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 #notice-rail>#gem-reward{gap:9px;padding:10px 13px}
 #notice-rail>#gem-reward>span:first-of-type{min-width:0;flex:1}
 @media(max-height:500px){#notice-rail{gap:6px;width:min(380px,calc(100vw - 28px))}#notice-rail>:is(#clearing-tip,#pet-ability-tip,#fit-warning-tip){padding:8px 12px}#notice-rail>#gem-reward{padding-block:7px}}
+#guide-hand .guide-piece.pet{left:-23px;top:-25px}
+#guide-hand .guide-piece.pet .pet-icon{width:46px;height:50px}
