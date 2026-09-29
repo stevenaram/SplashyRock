@@ -179,6 +179,7 @@ export class Game {
   beginRevive():number[]{
     if(!this.over||this.won||this.reviving)return [];
     const cells=this.reviveTargets().filter(c=>!this.heldByDyingBoss(c));if(!cells.length)return [];
+    for(const pet of this.pets)pet.cancelAbilities();
     this.reviving=true;this.combo=0;this.chainPoints=0;
     for(const cell of cells){this.write(cell,'stone');this.stoneDepth[cell]=1;}
     return cells;

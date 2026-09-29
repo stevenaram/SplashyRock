@@ -147,3 +147,33 @@ test('queued leaps keep distinct reserved destinations and all earned actions',(
  }
  assert.equal(drops,6);assert.ok(pets.every(p=>p.queued===0));
 });
+
+test('crowded pets swap without shared destinations or midpoint overlap',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]=b[28]='lava';const peers:PetMotion[]=[];
+ for(const c of [27,28])peers.push(new PetMotion(c,'lava',b,()=>{},()=>.3,undefined,()=>peers));
+ peers[0].update(.01);assert.equal(peers[0].next,28);assert.equal(peers[1].next,27);
+ for(let i=0;i<58;i++)peers.forEach(p=>p.update(.01));
+ assert.ok(Math.hypot(peers[0].x-peers[1].x,peers[0].y-peers[1].y)>.25);
+ for(let i=0;i<65;i++)peers.forEach(p=>p.update(.01));
+ assert.deepEqual(peers.map(p=>p.cell),[28,27]);assert.ok(peers.every(p=>p.completed===1));
+});
+test('a full 2x2 group rotates and changing terrain makes the group retreat safely',()=>{
+ const b=Array<Tile|null>(64).fill('stone'),peers:PetMotion[]=[];
+ for(const c of [27,28,35,36]){b[c]='lava';peers.push(new PetMotion(c,'lava',b,()=>{},()=>.2,undefined,()=>peers));}
+ peers[0].update(.1);assert.ok(peers.every(p=>p.next!==null));assert.equal(new Set(peers.map(p=>p.next)).size,4);
+ for(let i=0;i<10;i++)peers.forEach(p=>p.update(.02));b[28]='water';
+ for(let i=0;i<20;i++)peers.forEach(p=>p.update(.02));
+ assert.ok(peers.every(p=>p.completed===0));assert.equal(new Set(peers.map(p=>p.cell)).size,4);
+});
+test('hatching pets cannot be recruited into a swap',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]=b[28]='lava';const peers:PetMotion[]=[];
+ for(const c of [27,28])peers.push(new PetMotion(c,'lava',b,()=>{},()=>.3,undefined,()=>peers));
+ peers[1].startHatch();peers[0].update(.2);assert.equal(peers[0].next,null);
+});
+test('revive cancels queued and in-flight abilities but permits new abilities afterward',()=>{
+ const g=new Game(),p=new PetMotion(0,'lava',g.board,c=>g.plantPetTile(c,'lava'),()=>0);g.pets.push(p);
+ p.queueAbility();p.queueAbility();p.update(.1);assert.equal(p.leaping,true);
+ g.over=true;g.beginRevive();assert.equal(p.queued,0);g.finishRevive();p.update(2);
+ assert.equal(g.board.filter(t=>t==='lava').length,0);assert.equal(p.abilitiesUsed,0);assert.equal(p.queued,0);
+ p.queueAbility();p.update(2);assert.equal(p.abilitiesUsed,1);
+});
