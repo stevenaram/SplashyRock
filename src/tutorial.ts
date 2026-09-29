@@ -1,3 +1,4 @@
+import {FIRST_EGG_SCORE} from './egg-goals';
 import {seenTips} from './seen-tips';
 import {eggIcon} from './egg';
 import {pieceIcon} from './piece-icon';
@@ -25,7 +26,7 @@ export class Tutorial {
   constructor(private board:HTMLElement,goal:HTMLElement,private tray:HTMLElement,private game:Game,private screen:(cell:number)=>{x:number;y:number}){
     this.hand.id='guide-hand';this.hand.setAttribute('aria-hidden','true');this.target.id='guide-target';this.target.setAttribute('aria-hidden','true');
     this.tip.id='clearing-tip';this.tip.hidden=true;this.tip.innerHTML='<p>Place water and lava one space apart to clear tiles and build your score.</p><button type="button">Got it</button>';
-    this.goalHint.id='goal-hint';this.goalHint.hidden=true;this.goalHint.innerHTML=`<img src="${eggIcon()}" alt=""/><p>Earn <strong>5,000</strong> score<br/>to hatch a pet</p><button aria-label="Dismiss pet goal">×</button>`;
+    this.goalHint.id='goal-hint';this.goalHint.hidden=true;this.goalHint.innerHTML=`<img src="${eggIcon()}" alt=""/><p>Earn <strong>${FIRST_EGG_SCORE.toLocaleString()}</strong> score<br/>to hatch a pet</p><button aria-label="Dismiss pet goal">×</button>`;
     this.petTip.id='pet-ability-tip';this.petTip.hidden=true;this.petTip.setAttribute('role','status');this.petTip.innerHTML='<p></p><button type="button">Got it</button>';board.append(this.petTip);
     this.petTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.petTimer);this.petTip.hidden=true;});
     this.warningTip.id='fit-warning-tip';this.warningTip.hidden=true;this.warningTip.setAttribute('role','status');this.warningTip.innerHTML='<p>When none of your remaining shapes fit, it&#39;s game over.</p><button type="button">Got it</button>';board.append(this.warningTip);

@@ -5,12 +5,12 @@ import {SHAPES} from '../src/shapes';
 const single=SHAPES.find(s=>s.id==='single')!;
 const egg:Piece={tile:'pet',shape:single};
 test('threshold-crossing placement immediately fills its vacated slot with an egg',()=>{
- const g=new Game(()=>.2);g.score=4999;g.inventory[0]={tile:'water',shape:single};const other=g.inventory[1];
+ const g=new Game(()=>.2);g.score=2999;g.inventory[0]={tile:'water',shape:single};const other=g.inventory[1];
  assert.ok(g.place(0,0));assert.equal(g.inventory[0]?.tile,'pet');assert.equal(g.inventory[1],other);assert.equal(g.rewardsDealt,1);
 });
 test('chain, stone and clearing rewards deliver eggs immediately, without duplicates',()=>{
  for(const kind of ['chain','stone','clear']){
-  const g=new Game();g.score=4990;
+  const g=new Game();g.score=2990;
   if(kind==='chain'){g.combo=2;g.chainPoints=20;g.finishChain();}
   if(kind==='stone'){g.board[0]='water';g.board[2]='lava';g.formStone(1);}
   if(kind==='clear'){g.board[0]='water';g.clearCells([0]);}

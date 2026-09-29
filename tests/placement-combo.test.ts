@@ -51,9 +51,9 @@ test('live combo pays the running total and never awards it twice',()=>{
  g.restart();stone(g,g.comboRun,0);stone(g,g.comboRun,1000);assert.equal(g.score,80);
 });
 test('live multiplied clears unlock eggs before the chain ends',()=>{
- const g=new Game();g.score=4890;
- stone(g,g.comboRun,0);stone(g,g.comboRun,1000);assert.equal(g.score,4970);
+ const g=new Game();g.score=2890;
+ stone(g,g.comboRun,0);stone(g,g.comboRun,1000);assert.equal(g.score,2970);
  g.board[26]='water';g.clearCells([26,27]);
- assert.equal(g.score,5010);assert.equal(g.earnedEggs,1);assert.ok(g.inventory.some(p=>p?.tile==='pet'));
- assert.equal(g.combo,2);assert.equal(g.finishChain(),0);assert.equal(g.score,5010);
+ assert.equal(g.score,3010);assert.equal(g.earnedEggs,1);assert.ok(g.inventory.some(p=>p?.tile==='pet'));
+ assert.equal(g.combo,2);assert.equal(g.finishChain(),0);assert.equal(g.score,3010);
 });
