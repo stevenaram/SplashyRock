@@ -129,6 +129,7 @@ export class Game {
   readonly stoneComboRuns:number[]=Array(64).fill(0);
   combo = 0;
   chainPoints = 0;
+  private chainBonusPaid = 0;
   readonly stoneDepth: number[] = Array(64).fill(0);
   readonly versions: number[] = Array(64).fill(0);
   constructor(private readonly random: () => number = Math.random, private readonly tutorialCompleted:()=>boolean=()=>false) {
@@ -151,14 +152,21 @@ export class Game {
     for(const boss of this.bosses)if(!boss.deathRemaining)this.reconcileBossRegion(boss);
     const cleared=removed.filter(c=>this.board[c]===null);
     if(!this.reviving){this.tilesCleared+=cleared.length;this.score+=cleared.length*10;if(this.combo>0&&comboRun===this.comboRun)this.chainPoints+=cleared.length*10;}
+    this.payChainBonus();
     this.claimEggRewards();
     return cleared;
   }
-  // Base reaction points are shown as earned; pay the remaining multiplier
-  // once all reaction/sweep timers settle. Placements are never included.
+  // Reprice the whole active chain whenever its base score or multiplier grows.
+  // Base points are already credited; only pay the bonus not awarded before.
+  private payChainBonus(): number {
+    const earned=this.chainPoints*Math.max(0,this.combo-1);
+    const remaining=Math.max(0,earned-this.chainBonusPaid);
+    this.score+=remaining;this.chainBonusPaid+=remaining;
+    return remaining;
+  }
   finishChain(): number {
-    const bonus=this.chainPoints*Math.max(0,this.combo-1);
-    this.score+=bonus;this.combo=0;this.chainPoints=0;this.lastComboWave=-Infinity;
+    const bonus=this.payChainBonus();
+    this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;this.lastComboWave=-Infinity;
     this.claimEggRewards();
     return bonus;
   }
@@ -175,7 +183,7 @@ export class Game {
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
-    this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
+    this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   reviveTargets():number[]{
     return [27,28,35,36];
@@ -185,7 +193,7 @@ export class Game {
     const cells=this.reviveTargets().filter(c=>!this.heldByDyingBoss(c));if(!cells.length)return [];
     for(const pet of this.pets)pet.cancelAbilities();
     this.comboRun++;this.lastComboWave=-Infinity;
-    this.reviving=true;this.combo=0;this.chainPoints=0;
+    this.reviving=true;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;
     for(const cell of cells){this.write(cell,'stone');this.stoneDepth[cell]=1;}
     return cells;
   }
@@ -255,6 +263,7 @@ export class Game {
       // Creations within 150ms are one visible wave, not one combo per tile.
       if(now-this.lastComboWave>=150){this.combo++;this.lastComboWave=now;}
       this.combo=Math.max(this.combo,depth);this.chainPoints+=20;this.maxCombo=Math.max(this.maxCombo,this.combo);
+      this.payChainBonus();
     }
     this.claimEggRewards();
     return true;

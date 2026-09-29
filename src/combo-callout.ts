@@ -48,8 +48,8 @@ export class ComboCallout {
  finish(bonus:number){
   if(this.element.hidden)return;
   this.element.classList.add('paid');
-  this.element.querySelector('.combo-bonus')!.textContent=`+${bonus.toLocaleString()} BONUS`;
-  this.element.setAttribute('aria-label',`${this.element.getAttribute('aria-label')}, ${bonus} bonus points`);
+  this.element.querySelector('.combo-bonus')!.textContent=bonus>0?`+${bonus.toLocaleString()} BONUS`:"";
+  if(bonus>0)this.element.setAttribute('aria-label',`${this.element.getAttribute('aria-label')}, ${bonus} bonus score`);
   this.position();
   if(!this.reduced.matches)this.element.querySelector('.combo-bonus')!.animate([{opacity:0,transform:'translateY(5px) scale(.94)'},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:240,easing:'ease-out'});
   clearTimeout(this.timer);

@@ -10,7 +10,7 @@ test('later pet waves increase multiplier while simultaneous stones are grouped'
  const g=new Game();stone(g,g.comboRun,0);g.clearCells([27]);stone(g,g.comboRun,100);assert.equal(g.combo,1);
  g.clearCells([27]);stone(g,g.comboRun,2000);g.clearCells([27]);assert.equal(g.combo,2);
  stone(g,g.comboRun,4000);g.clearCells([27]);assert.equal(g.combo,3);assert.equal(g.chainPoints,120);
- assert.equal(g.finishChain(),240);assert.equal(g.score,360);assert.equal(g.finishChain(),0);
+ assert.equal(g.score,360);assert.equal(g.finishChain(),0);assert.equal(g.score,360);assert.equal(g.finishChain(),0);
 });
 test('only a successful shape placement interrupts the combo and stale aftermath earns base score',()=>{
  const g=new Game(),old=g.comboRun;stone(g,old,0);stone(g,old,1000);g.inventory=[piece];
@@ -38,4 +38,22 @@ test('pet reaction ownership flows through delayed stone and both sweep phases',
  g.inventory=[piece];g.place(0,7);const score=g.score;
  t.mock.timers.tick(500);assert.equal(g.combo,0);t.mock.timers.tick(500);t.mock.timers.tick(280);
  assert.equal(g.chainPoints,0);assert.equal(g.score-score,50);reactions.dispose();sweeps.dispose();
+});
+
+test('live combo pays the running total and never awards it twice',()=>{
+ const g=new Game();
+ for(let i=0;i<50;i++){stone(g,g.comboRun,Math.floor(i*7/50)*1000);assert.equal(g.score,g.chainPoints*g.combo);}
+ assert.equal(g.combo,7);assert.equal(g.chainPoints,1000);assert.equal(g.score,7000);
+ for(let i=0;i<450;i++){stone(g,g.comboRun,7000+Math.floor(i*6/450)*1000);assert.equal(g.score,g.chainPoints*g.combo);}
+ assert.equal(g.combo,13);assert.equal(g.chainPoints,10000);assert.equal(g.score,130000);
+ assert.equal(g.finishChain(),0);assert.equal(g.score,130000);
+ g.finishChain();assert.equal(g.score,130000);
+ g.restart();stone(g,g.comboRun,0);stone(g,g.comboRun,1000);assert.equal(g.score,80);
+});
+test('live multiplied clears unlock eggs before the chain ends',()=>{
+ const g=new Game();g.score=4890;
+ stone(g,g.comboRun,0);stone(g,g.comboRun,1000);assert.equal(g.score,4970);
+ g.board[26]='water';g.clearCells([26,27]);
+ assert.equal(g.score,5010);assert.equal(g.earnedEggs,1);assert.ok(g.inventory.some(p=>p?.tile==='pet'));
+ assert.equal(g.combo,2);assert.equal(g.finishChain(),0);assert.equal(g.score,5010);
 });

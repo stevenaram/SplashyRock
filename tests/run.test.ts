@@ -82,7 +82,7 @@ test('simultaneous stones stay at x1; placement points and previous score are no
  game.inventory[0]={tile:'water',shape:single};game.place(0,0);
  game.clearCells([27,11]);assert.equal(game.finishChain(),0);assert.equal(game.score,161);
  for(const depth of [1,2,3,4]){game.board[27]=null;game.formStone(27,depth);}
- game.clearCells([27]);assert.equal(game.combo,4);assert.equal(game.finishChain(),270);
+ game.clearCells([27]);assert.equal(game.combo,4);assert.equal(game.score,521);assert.equal(game.finishChain(),0);
  assert.equal(game.score,521);
  game.restart();assert.equal(game.combo,0);assert.equal(game.chainPoints,0);assert.ok(game.stoneDepth.every(d=>d===0));
 });

@@ -272,9 +272,9 @@ function place() {
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
-  const oldMultiplier=game.combo,oldPoints=game.chainPoints;
+  const oldMultiplier=game.combo;
   if (!game.place(selected, target)){sound.play('reject');return false;}
-  if(piece.tile!=='pet'){if(oldMultiplier>1)combo.finish(oldPoints*(oldMultiplier-1));else combo.reset();shownCombo=0;}
+  if(piece.tile!=='pet'){if(oldMultiplier>1)combo.finish(0);else combo.reset();shownCombo=0;}
   if(piece.tile!=='pet'&&!tutorial.guiding)playedBeyondIntro=true;
   tutorial.placed(piece,target);
   world.addPiece(target, piece);
