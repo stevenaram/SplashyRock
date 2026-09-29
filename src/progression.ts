@@ -31,13 +31,13 @@ export class Progression {
  get gems(){return this.state.gems;}
  get completedCount(){return this.state.completed.length;}
  private catalog():Achievement[]{
-  const row=(id:string,title:string,description:string,reward:number,progress:number,target:number,family:string)=>({id,title,description,reward,progress,target,family});
+  const row=(id:string,description:string,reward:number,progress:number,target:number,family:string)=>({id,title:description,description,reward,progress,target,family});
   return [
-   ...PET_GOALS.map(n=>row(`pet-${n}`,'Island companions',n===1?'Hatch your first pet.':`Hatch ${n} pets in a single run.`,5,this.state.petBest,n,'pets')),
-   ...COMBO_GOALS.map(n=>row(`combo-${n}`,'Chain reaction',`Reach a ×${n} stone combo.`,3,this.state.comboBest,n,'combo')),
-   ...Array.from({length:16},(_,i)=>{const element=i%2===0?this.state.first:this.state.first==='water'?'lava':'water',n=(Math.floor(i/2)+1)*8;return row(`network-${i}`,element==='water'?'Ocean maker':'Lava flow',`Connect ${n} ${element} tiles in one group.`,3+Math.floor(n/16),i===this.state.networkStep?this.state.networkBest:0,n,'network');}),
-   ...CLEAR_GOALS.map(n=>row(`clear-${n}`,'Room to grow',`Clear ${n} tiles in a single run.`,5,this.state.clearBest,n,'clearing')),
-   row('clean-slate','A fresh shore','Clear every tile from the board after the tutorial.',10,0,1,'clean'),
+   ...PET_GOALS.map(n=>row(`pet-${n}`,n===1?'Hatch your first pet.':`Hatch ${n} pets in a single run.`,5,this.state.petBest,n,'pets')),
+   ...COMBO_GOALS.map(n=>row(`combo-${n}`,`Reach a ×${n} stone combo.`,3,this.state.comboBest,n,'combo')),
+   ...Array.from({length:16},(_,i)=>{const element=i%2===0?this.state.first:this.state.first==='water'?'lava':'water',n=(Math.floor(i/2)+1)*8;return row(`network-${i}`,`Connect ${n} ${element} tiles in one group.`,3+Math.floor(n/16),i===this.state.networkStep?this.state.networkBest:0,n,'network');}),
+   ...CLEAR_GOALS.map(n=>row(`clear-${n}`,`Clear ${n} tiles in a single run.`,5,this.state.clearBest,n,'clearing')),
+   row('clean-slate','Clear every tile from the board after the tutorial.',10,0,1,'clean'),
   ];
  }
  private validIds(){return new Set(this.catalog().map(a=>a.id));}

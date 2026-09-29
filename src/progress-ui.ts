@@ -11,7 +11,7 @@ export class ProgressUI {
  private focusBefore:HTMLElement|null=null;
  private events=new AbortController();
  constructor(private readonly progress:Progression,private readonly onOpen:()=>void){
-  this.wallet.id='gem-wallet';this.wallet.type='button';this.wallet.innerHTML=`${gemIcon}<span><small>GEMS</small><strong>0</strong></span>`;
+  this.wallet.id='gem-wallet';this.wallet.type='button';this.wallet.innerHTML=`${gemIcon}<strong>0</strong>`;
   this.menu.id='progress-menu';this.menu.type='button';this.menu.setAttribute('aria-label','Open achievements');this.menu.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
   const hud=document.querySelector('#run-hud')!;hud.prepend(this.wallet);hud.append(this.menu);
   this.dialog.id='achievements';this.dialog.setAttribute('aria-labelledby','achievements-title');
@@ -34,11 +34,11 @@ export class ProgressUI {
   const rows=this.history?this.progress.completed().reverse():this.progress.active();
   this.dialog.querySelector('.achievement-list')!.innerHTML=rows.length?rows.map(a=>this.row(a)).join(''):`<p class="achievement-empty">${this.history?'Your first achievement is waiting. Play a run to begin.':'Every achievement earned. What an island!'}</p>`;
  }
- private row(a:Achievement){const value=Math.min(a.target,a.progress);return `<article class="achievement-card ${this.history?'complete':''}" data-family="${a.family}"><div class="achievement-heading"><h3>${a.title}</h3><span class="gem-prize">${this.history?'✓':'+'}${a.reward}${gemIcon}</span></div><p>${a.description}</p><div class="achievement-meter" role="progressbar" aria-label="${a.description}" aria-valuemin="0" aria-valuemax="${a.target}" aria-valuenow="${value}"><i style="width:${100*value/a.target}%"></i></div><small>${this.history?'Completed':`${value.toLocaleString()} / ${a.target.toLocaleString()}`}</small></article>`;}
+ private row(a:Achievement){const value=Math.min(a.target,a.progress);return `<article class="achievement-card ${this.history?'complete':''}" data-family="${a.family}"><div class="achievement-heading"><h3>${a.title}</h3><span class="gem-prize">${this.history?'✓':'+'}${a.reward}${gemIcon}</span></div><div class="achievement-meter" role="progressbar" aria-label="${a.description}" aria-valuemin="0" aria-valuemax="${a.target}" aria-valuenow="${value}"><i style="width:${100*value/a.target}%"></i></div><small>${this.history?'Completed':`${value.toLocaleString()} / ${a.target.toLocaleString()}`}</small></article>`;}
  earned(awards:Achievement[]){
   this.render();if(!awards.length)return;
   const gems=awards.reduce((sum,a)=>sum+a.reward,0);
-  this.toast.innerHTML=`${gemIcon}<span><small>${awards.length===1?awards[0].title:`${awards.length} achievements unlocked`}</small><strong>+${gems} Gems</strong></span><span class="reward-check">✓</span>`;
+  this.toast.innerHTML=`${gemIcon}<span><small>${awards[awards.length-1].title+(awards.length>1?` (+${awards.length-1} more)`:'')}</small><strong>+${gems} Gems</strong></span><span class="reward-check">✓</span>`;
   this.toast.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>{this.toast.hidden=true;},4000);
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches){this.toast.animate([{opacity:0,translate:'0 -8px',scale:.94},{opacity:1,translate:'0 0',scale:1}],{duration:320,easing:'cubic-bezier(.2,.8,.3,1)'});this.wallet.animate([{filter:'brightness(1.7)'},{filter:'brightness(1)'}],{duration:600});}
  }

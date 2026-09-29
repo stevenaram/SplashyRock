@@ -45,10 +45,10 @@ test('clean-board achievement excludes tutorial, idle empty boards, and revive e
  assert.deepEqual(p.observe(g,{calm:true,allowCleanBoard:true}).map(a=>a.id),['clean-slate']);
  assert.equal(p.gems,10);assert.equal(p.observe(g,{calm:true,allowCleanBoard:true}).length,0);
 });
-test('wallet spends exactly ten gems once and cannot overspend or accept invalid amounts',()=>{
- const storage=memory(),p=new Progression(storage),g=new Game();g.maxCombo=5;p.observe(g,normal);
- assert.equal(p.spend(REVIVE_COST),true);assert.equal(p.gems,2);assert.equal(p.spend(REVIVE_COST),false);assert.equal(p.spend(-10),false);assert.equal(p.spend(.5),false);
- assert.equal(new Progression(storage).gems,2);
+test('wallet spends exactly twenty gems once and cannot overspend or accept invalid amounts',()=>{
+ const storage=memory(),p=new Progression(storage),g=new Game();g.maxCombo=8;p.observe(g,normal);
+ assert.equal(p.spend(REVIVE_COST),true);assert.equal(p.gems,1);assert.equal(p.spend(REVIVE_COST),false);assert.equal(p.spend(-10),false);assert.equal(p.spend(.5),false);
+ assert.equal(new Progression(storage).gems,1);
 });
 test('corrupt or blocked storage does not break progression',()=>{
  const storage=memory();storage.setItem(PROGRESS_KEY,'not json');const p=new Progression(storage);assert.equal(p.gems,0);

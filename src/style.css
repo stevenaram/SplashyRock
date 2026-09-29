@@ -280,10 +280,10 @@ html,body {overscroll-behavior:none}
 /* Elemental gems and the compact progression HUD. */
 #game {--hud-space:76px;--tray-space:clamp(100px,20dvh,190px);grid-template-rows:var(--hud-space) minmax(0,1fr) var(--tray-space)}
 .gem-icon {display:block;width:28px;height:34px;flex:none;filter:drop-shadow(0 2px 1px #102c4280)}
-#gem-wallet {display:flex;align-items:center;gap:5px;flex:none;width:88px;padding:5px 2px;border:0;background:transparent;color:#f5f2d6;cursor:pointer;text-align:left}
-#gem-wallet span {display:flex;flex-direction:column;gap:3px;min-width:0}
-#gem-wallet small {font:700 8px/1 ui-monospace,monospace;letter-spacing:1.2px;color:#c0e3de}
-#gem-wallet strong {font:800 19px/1.2 ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.5px;overflow-wrap:anywhere;text-shadow:0 2px #103447}
+#gem-wallet {display:flex;align-items:center;justify-content:center;gap:8px;flex:none;width:100px;height:44px;padding:4px 12px;border:1px solid #b6e5df75;border-radius:24px;background:linear-gradient(160deg,#356d7fd9,#173e55eb);color:#fff3d5;cursor:pointer;box-shadow:inset 0 1px #e2fff340,inset 0 -2px #082c4540,0 3px 8px #052b4033;transition:background .16s,translate .16s}
+#gem-wallet:hover {background:linear-gradient(160deg,#448296ed,#204b63ed)}
+#gem-wallet:active {translate:0 1px}
+#gem-wallet strong {font:800 19px/1.2 ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.5px;text-shadow:0 2px #103447}
 #progress-menu {display:grid;place-items:center;flex:none;width:40px;height:40px;border:1px solid #c0e3de40;border-radius:12px;background:#10344750;color:#e8efdf;cursor:pointer}
 #progress-menu svg {width:24px;height:24px;fill:currentColor}
 #gem-wallet:focus-visible,#progress-menu:focus-visible {outline:2px solid #fff0ce;outline-offset:2px;border-radius:9px}
@@ -291,8 +291,8 @@ html,body {overscroll-behavior:none}
 @media(max-height:500px){#game{--hud-space:62px;--tray-space:clamp(88px,24dvh,110px)}}
 @media(max-width:600px){
  #game{--hud-space:108px}
- #run-hud{display:grid;grid-template-columns:78px minmax(0,1fr) 38px;grid-template-rows:38px 44px;column-gap:12px;row-gap:6px;padding:7px 14px 10px}
- #gem-wallet{grid-column:1;grid-row:1;width:78px}
+ #run-hud{display:grid;grid-template-columns:90px minmax(0,1fr) 38px;grid-template-rows:38px 44px;column-gap:12px;row-gap:6px;padding:7px 14px 10px}
+ #gem-wallet{grid-column:1;grid-row:1;width:90px;height:38px;padding:3px 9px;gap:6px}
  #gem-wallet .gem-icon{width:25px;height:31px}
  #gem-wallet strong{font-size:17px}
  #hud{grid-column:2;grid-row:1;justify-self:start;width:112px}
@@ -327,7 +327,7 @@ html,body {overscroll-behavior:none}
 .gem-prize {display:flex;align-items:center;gap:3px;color:#b9e2d7;font:800 13px ui-monospace,monospace}
 .gem-prize .gem-icon {width:16px;height:20px}
 .achievement-card p {margin:5px 0 11px;font:500 12px/1.45 system-ui;color:#c4d8cd}
-.achievement-meter {height:5px;background:#0c303f;border-radius:3px;overflow:hidden}
+.achievement-meter {margin-top:10px;height:5px;background:#0c303f;border-radius:3px;overflow:hidden}
 .achievement-meter i {display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#58afb8,#c1e6cd);transition:width .35s ease}
 .achievement-card small {display:block;margin-top:6px;text-align:right;color:#a6c7bd;font:600 10px ui-monospace,monospace}
 .achievement-card.complete {background:#214e55}

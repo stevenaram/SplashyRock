@@ -81,9 +81,7 @@ export class Game {
     this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   reviveTargets():number[]{
-    const cells=new Set<number>();
-    this.board.forEach((tile,cell)=>{if(tile==='water'||tile==='lava')for(const n of this.neighbors(cell))cells.add(n);});
-    return [...cells];
+    return [27,28,35,36];
   }
   beginRevive():number[]{
     if(!this.over||this.won||this.reviving)return [];
