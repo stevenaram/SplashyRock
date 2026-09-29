@@ -171,7 +171,7 @@ export class Game {
         const pool=hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
         return pool[Math.floor(this.random()*pool.length)];
       })(),
-      tile: slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority,
+      tile: this.boss ? (this.boss.element==='water'?'lava':'water') : slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority,
     }));
   }
   claimEggRewards(): number {

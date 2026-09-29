@@ -50,3 +50,14 @@ test('queued growth resolves once per shape and is discarded if that boss is def
  assert.equal(g.resolveBossGrowth(false),true);assert.equal(g.hasPendingBossGrowth,true);assert.equal(g.resolveBossGrowth(false),true);assert.equal(g.resolveBossGrowth(false),false);
  g.inventory[0]={tile:'lava',shape:{id:'one',name:'one',width:1,height:1,cells:[[0,0]]}};g.place(0,62);g.clearCells([...g.boss!.remaining]);assert.equal(g.resolveBossGrowth(false),false);
 });
+
+test('boss refills are entirely opposite-element and normal mixed hands return after defeat',()=>{
+ for(const element of ['water','lava'] as Element[]){
+  const g=fixture();g.trySpawnBoss();g.boss!.element=element;
+  g.inventory=[{tile:'pet',shape:{id:'egg',name:'egg',width:1,height:1,cells:[[0,0]]}},null,null];
+  assert.equal(g.place(0,60),true);
+  assert.equal(g.inventory.length,3);assert.ok(g.inventory.every(p=>p?.tile===(element==='water'?'lava':'water')));
+  g.clearCells([...g.boss!.remaining]);assert.equal(g.boss,null);g.dealInventory();
+  assert.equal(new Set(g.inventory.map(p=>p?.tile)).size,2);
+ }
+});

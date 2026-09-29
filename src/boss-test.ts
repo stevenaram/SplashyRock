@@ -9,7 +9,7 @@ export function seedBossTest(game:Game,world:World,element:Element){
  }
  game.moves=0;game.score=18200;game.rewardsDealt=3;
  for(const cell of [18,19,20,21,26,27,28,29,34,35,36,37])game.board[cell]=element;
- game.dealInventory();game.boardChange++;world.syncBoard(game.board,false);game.trySpawnBoss();
+ game.boardChange++;world.syncBoard(game.board,false);game.trySpawnBoss();game.dealInventory();
 }
 export function bossTestControls(reset:(element:Element)=>void,attack:()=>void){
  const panel=document.createElement('details');panel.id='boss-test';panel.open=true;
