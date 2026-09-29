@@ -1,7 +1,7 @@
 import {BossSurgeView} from './boss-surge-view';
 import * as T from 'three';
 import type {Game} from './game';
-import {bossHealth,BOSS_ENTRANCE_SECONDS,BOSS_DEATH_SECONDS,type Boss} from './boss';
+import {bossHealth,BOSS_SLAM_DELAY,BOSS_ENTRANCE_SECONDS,BOSS_DEATH_SECONDS,type Boss} from './boss';
 import type {SoundCue} from './sound';
 import {gridWorld} from './map';
 
@@ -32,22 +32,27 @@ export class BossView {
   this.clear();this.arms=[];this.health=1;this.trail=1;this.lastHealth=1;this.trailDelay=0;this.id=b.id;this.age=0;this.exiting=0;this.hits=b.hits;this.hitAge=10;this.hitSoundDelay=-1;this.deathSound=false;this.burstSound=false;
   this.sound('bossSpawn',b.cell,b.element==='water'?1:2);
   const water=b.element==='water',base=new T.MeshBasicMaterial({color:water?'#248ab2':'#d9522b'}),shade=new T.MeshBasicMaterial({color:water?'#17465a':'#6c343b'}),light=new T.MeshBasicMaterial({color:water?'#72c9cf':'#ffb957'}),cream=new T.MeshBasicMaterial({color:'#fff0c5'});this.body.rotation.y=Math.PI;
-  const mesh=(geo:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);this.body.add(m);return m;};
+  const silhouettes:T.Mesh[]=[];
+  const outline=new T.MeshBasicMaterial({color:'#a6e9f4',side:T.BackSide,depthWrite:false});
+  const mesh=(geo:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,sx=1,sy=1,sz=1,silhouette=true)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);this.body.add(m);if(silhouette)silhouettes.push(m);return m;};
   mesh(new T.SphereGeometry(1,10,7),shade,0,.55,0,1.05,.6,.82);
   mesh(new T.SphereGeometry(1,10,7),base,0,.88,-.12,.95,.83,.73);
-  mesh(new T.SphereGeometry(1,8,5),light,-.24,1.33,-.35,.42,.24,.19);
+  mesh(new T.SphereGeometry(1,8,5),light,-.24,1.33,-.35,.42,.24,.19,false);
   for(const side of [-1,1]){
    const horn=mesh(new T.ConeGeometry(.24,.85,5),shade,side*.65,1.75,0);horn.rotation.z=-side*.35;
    mesh(new T.ConeGeometry(.14,.46,5),light,side*.76,2,-.02);
    const arm=new T.Group();arm.position.set(side*.84,.88,-.06);this.body.add(arm);this.arms.push(arm);
-   const forearm=new T.Mesh(new T.BoxGeometry(.38,.53,.4),base);forearm.position.set(side*.14,-.23,0);arm.add(forearm);
-   const fist=new T.Mesh(new T.SphereGeometry(1,7,5),base);fist.position.set(side*.22,-.48,-.08);fist.scale.set(.36,.3,.38);arm.add(fist);
-   mesh(new T.BoxGeometry(.35,.22,.1),cream,side*.35,1.02,-.79);
-   mesh(new T.BoxGeometry(.10,.20,.12),shade,side*.34,1.02,-.86);
-   const brow=mesh(new T.BoxGeometry(.46,.13,.15),shade,side*.35,1.2,-.8);brow.rotation.z=side*.22;
+   const forearm=new T.Mesh(new T.BoxGeometry(.38,.53,.4),base);forearm.position.set(side*.14,-.23,0);arm.add(forearm);silhouettes.push(forearm);
+   const fist=new T.Mesh(new T.SphereGeometry(1,7,5),base);fist.position.set(side*.22,-.48,-.08);fist.scale.set(.36,.3,.38);arm.add(fist);silhouettes.push(fist);
+   mesh(new T.BoxGeometry(.35,.22,.1),cream,side*.35,1.02,-.79,1,1,1,false);
+   mesh(new T.BoxGeometry(.10,.20,.12),shade,side*.34,1.02,-.86,1,1,1,false);
+   const brow=mesh(new T.BoxGeometry(.46,.13,.15),shade,side*.35,1.2,-.8,1,1,1,false);brow.rotation.z=side*.22;
   }
-  mesh(new T.BoxGeometry(.48,.16,.12),shade,0,.63,-.81);
-  for(const x of [-.15,.15])mesh(new T.ConeGeometry(.065,.15,3),cream,x,.62,-.9);
+  mesh(new T.BoxGeometry(.48,.16,.12),shade,0,.63,-.81,1,1,1,false);
+  for(const x of [-.15,.15])mesh(new T.ConeGeometry(.065,.15,3),cream,x,.62,-.9,1,1,1,false);
+  // Back faces of slightly enlarged copies create a clean silhouette, following
+  // each articulated limb without outlining painted facial details.
+  for(const part of silhouettes){const hull=new T.Mesh(part.geometry,outline);hull.scale.setScalar(1.075);hull.userData.outline=true;part.add(hull);}
   this.body.traverse(o=>{if(o instanceof T.Mesh)o.userData.baseColor=(o.material as T.MeshBasicMaterial).color.clone();});
   const debrisGeometry=new T.BoxGeometry(1,1,1),debrisMaterial=new T.MeshBasicMaterial({color:water?'#a3ded7':'#ffcf75',transparent:true,opacity:0,depthWrite:false});
   for(let i=0;i<18;i++){const piece=new T.Mesh(debrisGeometry,debrisMaterial);piece.userData.index=i;this.death.add(piece);}
@@ -67,7 +72,7 @@ export class BossView {
   if(b.id!==this.id){this.build(b);this.body.position.set(gridWorld(b.x),0,gridWorld(b.y));}
   this.surge.update(b,reduced,this.sound);
   if(b.deathRemaining>0){
-    this.arms.forEach(a=>a.rotation.set(0,0,0));
+    this.arms.forEach(a=>{a.rotation.set(0,0,0);a.scale.y=1;});
     this.body.position.x=gridWorld(b.x);this.body.position.z=gridWorld(b.y);
     this.halo.visible=false;
     this.hitSoundDelay=-1;
@@ -95,10 +100,22 @@ export class BossView {
   this.body.rotation.x=reduced?0:-Math.sin(intro*Math.PI)*.18;
   this.body.rotation.z=reduced?0:Math.sin(this.hitAge*30)*hit*.22;
   this.body.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshBasicMaterial).color.copy(o.userData.baseColor).lerp(this.hitColor,hit*.65);});
-  const winding=b.surges.filter(w=>w.age<.72).at(-1);
-  const lift=winding?(winding.age<.38?Math.sin(winding.age/.38*Math.PI/2):winding.age<.55?1-Math.pow((winding.age-.38)/.17,2):-.15*Math.sin((winding.age-.55)/.17*Math.PI)):0;
-  this.arms.forEach((arm,i)=>{arm.rotation.z=(i===0?-1:1)*lift*(reduced?.3:2.15);arm.rotation.x=-Math.max(0,lift)*.25;});
-  if(winding&&!reduced){this.body.position.y+=Math.max(0,lift)*.18;this.body.scale.y*=1+Math.max(0,lift)*.08-Math.max(0,-lift)*.65;}
+  // Give an imminent impact priority over newer wind-ups during rapid play.
+  const active=b.surges.filter(w=>w.age<.96);
+  const winding=active.find(w=>w.age>=BOSS_SLAM_DELAY-.13&&w.age<BOSS_SLAM_DELAY+.17)??active.at(-1);
+  const t=winding?.age??.96;
+  // Anticipation, overhead hold, accelerating strike, then a weighted recovery.
+  const frames=[
+   [0,0,0,0,0,0],[.12,-.16,-.12,-.06,-.06,.04],
+   [.36,2.3,-.3,.16,.10,.12],[.42,2.36,-.32,.17,.11,.13],
+   [.55,-.12,.55,-.18,-.23,-.18],[.61,-.18,.62,-.20,-.25,-.22],
+   [.74,.16,.10,.025,.04,.025],[.96,0,0,0,0,0]
+  ];
+  let k=0;while(k<frames.length-2&&t>frames[k+1][0])k++;
+  const a=frames[k],z=frames[k+1],u=Math.max(0,Math.min(1,(t-a[0])/(z[0]-a[0])));
+  const ease=k===3?u*u:u*u*(3-2*u),pose=a.map((v,i)=>v+(z[i]-v)*ease),amount=reduced?.18:1;
+  this.arms.forEach((arm,i)=>{arm.rotation.set(pose[2]*amount,0,(i===0?-1:1)*pose[1]*amount);arm.scale.y=1+Math.max(0,-pose[4])*.35*amount;});
+  if(winding){this.body.position.y+=pose[3]*amount;this.body.scale.y*=1+pose[4]*amount;this.body.scale.x*=1-pose[4]*.32*amount;this.body.scale.z*=1-pose[4]*.24*amount;this.body.rotation.x+=pose[5]*amount;}
   this.burst(Math.min(1,this.age/BOSS_ENTRANCE_SECONDS),!reduced&&this.age<BOSS_ENTRANCE_SECONDS,2.7);
   this.updateHealth(b,dt,reduced);
   this.halo.visible=true;for(const m of this.halo.children)m.visible=b.remaining.has(m.userData.cell);
