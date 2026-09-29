@@ -1,6 +1,7 @@
 import {BossSpawnQueue} from './boss-spawns';
 import {BossRewardCallout} from './boss-reward';
-import {bossTestMode} from './test-mode';
+import {bossTestMode,scoreTestMode,sandboxMode} from './test-mode';
+import {scoreTestControls} from './score-test';
 import {seedBossTest,bossTestControls} from './boss-test';
 import {gemIcon,REVIVE_COST} from './gems';
 import {Progression} from './progression';
@@ -57,12 +58,12 @@ let shownCombo=0;
 const again=document.querySelector<HTMLButtonElement>('#play-again')!;
 const reviveButton=document.querySelector<HTMLButtonElement>('#revive')!;
 let progressStorage:Storage|undefined;try{progressStorage=localStorage;}catch{}
-const progression=new Progression(bossTestMode?undefined:progressStorage);
+const progression=new Progression(sandboxMode?undefined:progressStorage);
 let playedBeyondIntro=false;
 let reviveInFlight=false;
 let shownScore=0;
 let best=0;
-try { if(!bossTestMode)best=Math.max(0,Number(localStorage.getItem('splashy-rock-best'))||0); } catch {}
+try { if(!sandboxMode)best=Math.max(0,Number(localStorage.getItem('splashy-rock-best'))||0); } catch {}
 let endTimer:ReturnType<typeof setTimeout>|undefined;
 function updateScore(){
   const gain=game.score-shownScore;scoreLabel.textContent=game.score.toLocaleString();
@@ -85,7 +86,7 @@ function refreshRevive(){
   document.querySelector('#revive-detail')!.textContent=!eligible?'Revive unavailable.':progression.gems<REVIVE_COST?'Earn gems through achievements to revive.':'Turn the four center tiles into clearing stones.';
 }
 function checkAchievements(){
-  if(bossTestMode)return;
+  if(sandboxMode)return;
   const awards=progression.observe(game,{calm:!reactions.busy&&!sweeps.busy&&!game.petsBusy&&aftermaths.size===0,allowCleanBoard:playedBeyondIntro&&!tutorial.guiding,suppressed:game.reviving});
   if(awards.length){progressUI.earned(awards);sound.play('reward');refreshRevive();}
 }
@@ -93,7 +94,7 @@ function showEnd(won=false){
   refreshRevive();
   sound.play(won?'win':'over');
   tutorial.dismiss();tutorial.dismissGoal();
-  best=Math.max(best,game.score);try{if(!bossTestMode)localStorage.setItem('splashy-rock-best',String(best));}catch{}
+  best=Math.max(best,game.score);try{if(!sandboxMode)localStorage.setItem('splashy-rock-best',String(best));}catch{}
   document.querySelector('#end-title')!.textContent=won?'The game is beat!':'Game Over';
   endDialog.style.setProperty('--end-digits',String(Math.max(game.score.toLocaleString().length,best.toLocaleString().length)));
   document.querySelector('#final-score')!.textContent=game.score.toLocaleString();document.querySelector('#best-score')!.textContent=best.toLocaleString();
@@ -340,5 +341,9 @@ tray.addEventListener('click', event => {
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
 const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility();});}):()=>{};
+const disposeScoreTest=scoreTestMode?scoreTestControls(amount=>{
+  if(game.over)return false;
+  game.score+=amount;game.claimEggRewards();settled();renderTray();return true;
+},()=>game.score,()=>EGG_GOALS[game.earnedEggs],restartRun):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer); combo.dispose();bossReward.reset(); world.dispose(); });
