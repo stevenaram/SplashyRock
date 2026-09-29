@@ -62,7 +62,7 @@ export class Game {
       if(!this.pets.some(p=>p.element!==element&&p.hatchRemaining===0))continue;
       const remaining=new Set(pool),blocks=poolBlocks(remaining);if(!blocks.length)continue;
       const anchor=blocks[Math.floor(this.random()*blocks.length)],cell=anchor+9;
-      this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange,expansionParity:0,damageTaken:0});spawned=true;
+      this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange,damageTaken:0});spawned=true;
     }return spawned;
   }
   private reconcileBossRegion(b:Boss){
@@ -91,14 +91,14 @@ export class Game {
   dealInventory(){this.inventory=this.deal();}
   private growBosses(){
     for(const b of this.bosses)if(b.regionRevision!==this.boardChange)this.reconcileBossRegion(b);
-    // Alternate checkerboard colors each shape placement, including blocked turns.
     // Snapshot every frontier first so a surge never grows more than one layer.
     const proposals=this.bosses.filter(b=>!b.deathRemaining).map(b=>{
-      const cells=new Set<number>();for(const c of b.remaining)for(const n of this.neighbors(c)){
-        if(this.board[n]===null&&(n%8+Math.floor(n/8))%2===b.expansionParity)cells.add(n);
+      const cells=new Set<number>();for(const c of b.remaining)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+        const x=c%8+dx,y=Math.floor(c/8)+dy;
+        if(x>=0&&x<8&&y>=0&&y<8&&this.board[y*8+x]===null)cells.add(y*8+x);
       }return {b,cells};
     });
-    for(const {b,cells} of proposals){b.expansionParity=1-b.expansionParity;for(const c of cells)if(this.board[c]===null){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});}
+    for(const {b,cells} of proposals){for(const c of cells)if(this.board[c]===null){this.write(c,b.element);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});}
       this.reconcileBossRegion(b);
     }
   }

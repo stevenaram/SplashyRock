@@ -1,5 +1,5 @@
 import type {Element,Tile} from './game';
-export interface Boss {id:number;element:Element;cell:number;pool:number[];remaining:Set<number>;hits:number;x:number;y:number;moveAge:number;deathRemaining:number;maxTiles:number;regionRevision:number;expansionParity:number;damageTaken:number}
+export interface Boss {id:number;element:Element;cell:number;pool:number[];remaining:Set<number>;hits:number;x:number;y:number;moveAge:number;deathRemaining:number;maxTiles:number;regionRevision:number;damageTaken:number}
 export function largestPool(board:readonly(Tile|null)[],random:()=>number):number[]{
  const seen=new Set<number>();let choices:number[][]=[],size=0;
  for(let cell=0;cell<64;cell++){
