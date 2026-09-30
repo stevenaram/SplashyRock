@@ -23,8 +23,8 @@ test('committed destinations override nearest wandering targets and consume once
  p.update(1.5);assert.equal(g.board[28],'water');assert.equal(p.abilitiesUsed,1);assert.equal(p.plannedLanding,undefined);
  p.queueAbility(5,29);p.cancelAbilities();assert.equal(p.plannedLanding,undefined);
 });
-test('blocked planned destinations fall back without losing the queued action',()=>{
- const g=new Game(),p=add(g,0,'water');p.queueAbility(4,28);g.board[28]='lava';p.update(.01);assert.notEqual(p.next,28);assert.equal(p.queued,1);
+test('blocked planned destinations are cancelled without selecting another tile',()=>{
+ const g=new Game(),p=add(g,0,'water');p.queueAbility(4,28);g.board[28]='lava';p.update(.01);assert.notEqual(p.next,28);assert.equal(p.queued,0);assert.equal(p.leaping,false);assert.equal(p.abilitiesUsed,0);
 });
 
 test('busy pets retain a second planned destination until their earlier jump completes',()=>{
@@ -49,4 +49,9 @@ test('pet previews can claim boss edges and queued claims block expansion until 
  g.inventory=[lavaPiece];g.place(0,2);const pet=g.pets[0];pet.queueAbility(1,9);pet.queueAbility(2,10);
  g.updateBoss(1.5);assert.equal(g.board[10],null);assert.ok(pet.claimsLanding(10));
  pet.cancelAbilities();assert.equal(pet.claimsLanding(10),false);
+});
+
+test('a target filled during flight cancels that placement without a retry',()=>{
+ const g=new Game(),p=add(g,0,'water');p.queueAbility(1,63);p.update(.25);g.board[63]='lava';p.update(2);
+ assert.equal(p.queued,0);assert.equal(p.abilitiesUsed,0);assert.equal(g.board.filter(t=>t==='water').length,0);assert.equal(p.claimsLanding(63),false);
 });

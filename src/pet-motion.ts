@@ -1,8 +1,8 @@
 import type {Element, Tile} from './game';
 
 export const PET_LEAP_MIN=.5;
-export const PET_LEAP_MAX=1.28;
-export const PET_LEAP_SPEED=15; // World units per second, bounded by the stone reaction beats.
+export const PET_LEAP_MAX=PET_LEAP_MIN;
+// Every ability arrives on the same beat regardless of travel distance.
 
 export class PetMotion {
   visualOffsetX=0;visualOffsetY=0;
@@ -39,6 +39,7 @@ export class PetMotion {
     let distance=Infinity;const choices:number[]=[];
     const planned=this.abilityTargets[0];
     if(planned!==undefined&&this.board[planned]===null&&!this.peers?.().some(p=>p!==this&&p.leaping&&p.next===planned))return planned;
+    if(planned!==undefined)return null;
     const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c))??[];
     for(let c=0;c<64;c++){
       if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||(preferred.length&&!preferred.includes(c)))continue;
@@ -51,11 +52,10 @@ export class PetMotion {
   private startLeap(){
     const attack=this.attack?.();
     const targets=attack?.cells.filter(c=>this.available(c))??[];
-    const target=attack?(targets[0]??null):this.leapTarget();if(target===null)return false;
+    const target=attack?(targets[0]??null):this.leapTarget();if(target===null){if(this.abilityTargets[0]!==undefined){this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();this.revision++;}return false;}
     if(this.abilityTargets[0]!==undefined)this.abilityTargets[0]=target;
     this.attacking=!!attack;
-    const distance=Math.hypot(target%8-this.x,Math.floor(target/8)-this.y)*2;
-    const duration=Math.max(PET_LEAP_MIN,Math.min(PET_LEAP_MAX,distance/PET_LEAP_SPEED))*(attack?2:1);
+    const duration=PET_LEAP_MIN;
     this.flight={x:this.x,y:this.y,target,age:0,duration,hit:attack?.hit};this.next=target;this.progress=0;this.leaping=true;this.leapProgress=0;this.retreating=false;
     const dx=target%8-this.x,dy=Math.floor(target/8)-this.y;if(dx||dy)this.heading=Math.atan2(-dx,-dy);
     this.revision++;return true;
@@ -67,7 +67,8 @@ export class PetMotion {
     if(flight.cancelled)return;
     if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();this.attacking=false;}
     else if((this.abilityTargets[0]===this.cell||this.allowed(this.cell))&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();this.abilitiesUsed++;}
-    // A changed landing tile never consumes the action: retry after recovery.
+    else if(this.abilityTargets[0]!==undefined){this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();}
+    // Explicit preview targets are consumed even when the board invalidates them.
   }
   // Ability landings keep exclusive destinations; wandering uses soft occupancy.
   private available(cell:number){return !this.peers?.().some(p=>p!==this&&((p.next??p.cell)===cell||p.plannedLanding===cell));}
