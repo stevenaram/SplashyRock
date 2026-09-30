@@ -21,3 +21,14 @@ test('unavailable storage keeps once-only behavior in the current session',()=>{
   tips.mark('egg-goal');
   assert.equal(tips.has('egg-goal'),true);
 });
+
+test('obsidian is shared across sandbox and normal sessions without saving other sandbox tips',()=>{
+ const data=new Map<string,string>();
+ const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>{data.set(key,value);}};
+ const sandbox=()=>new SeenTips(storage,id=>id==='obsidian');
+ const first=sandbox();assert.equal(first.has('obsidian'),false);
+ first.mark('obsidian');first.mark('intro');
+ assert.equal(first.has('obsidian'),true);
+ assert.equal(sandbox().has('obsidian'),true);
+ const normal=new SeenTips(storage);assert.equal(normal.has('obsidian'),true);assert.equal(normal.has('intro'),false);
+});
