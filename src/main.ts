@@ -1,4 +1,3 @@
-import {planPetLandings} from './pet-placement-plan';
 import {NoSpaceSequence} from './no-space';
 import {noticeRail} from './notice-rail';
 import {HighScore} from './high-score';
@@ -197,7 +196,7 @@ let trayMarkup="";
 let trayPieces:(Piece|null)[]=[];
 const refreshPreview = () => {
   const piece = selected === null ? null : game.inventory[selected];
-  if (piece && target !== null) world.showPreview(target,piece,game.canPlace(piece,target)&&tutorial.permits(piece,target),planPetLandings(game,piece,target));
+  if (piece && target !== null) world.showPreview(target, piece, (game.canPlace(piece, target)&&tutorial.permits(piece,target)));
 };
 const sweeps = new SandSweeps(game, (cells, origin, phase, depth, owner) => {
   world.sandSweep(game.board,cells,origin,phase);
@@ -288,8 +287,7 @@ function updateTarget(x: number, y: number) {
   const previousTarget=target;
   target = world.cellAt(x, y);
   if(target!==null&&target!==previousTarget&&game.canPlace(piece,target))sound.play('snap');
-  const valid=target!==null&&game.canPlace(piece,target)&&tutorial.permits(piece,target);
-  world.showPreview(target,piece,valid,valid?planPetLandings(game,piece,target!):[]);
+  world.showPreview(target, piece, target !== null && (game.canPlace(piece, target)&&tutorial.permits(piece,target)));
   ghost.className = piece.tile;
   if (ghost.dataset.shape !== piece.shape.id) {
     ghost.innerHTML = pieceIcon(piece);
@@ -299,10 +297,9 @@ function updateTarget(x: number, y: number) {
   ghost.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
 }
 function place() {
-  if (selected === null || target === null) return false;
+  if (game.over || selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
-  if(!piece||(game.over&&(game.won||piece.tile!=='pet')))return false;
-  const petPlan=planPetLandings(game,piece,target);
+  const pets=[...game.pets];
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
   if (!game.place(selected, target)){sound.play('reject');return false;}
@@ -310,9 +307,8 @@ function place() {
   if(piece.tile!=='pet'&&!tutorial.guiding)playedBeyondIntro=true;
   tutorial.placed(piece,target);
   world.addPiece(target, piece);
-  if(game.over){selected=null;clearPreview();renderTray();return true;}
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
-  if(piece.tile!=='pet')for(const landing of petPlan)landing.pet.queueAbility(game.comboRun,landing.cell);
+  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility(game.comboRun);
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
@@ -346,7 +342,7 @@ window.addEventListener('pointerup', event => {
   if (!drag || event.pointerId !== drag.pointer) return;
   if (drag.moved) {
     updateTarget(event.clientX, event.clientY - drag.offset);
-    if(target===null||(game.over&&(game.won||selected===null||game.inventory[selected]?.tile!=='pet')))sound.play('reject');
+    if(target===null||game.over)sound.play('reject');
     place();
     selected = null;
   }

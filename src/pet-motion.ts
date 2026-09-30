@@ -1,4 +1,3 @@
-import {isPureSand} from './pet-sand';
 import type {Element, Tile} from './game';
 
 export const PET_LEAP_MIN=.5;
@@ -15,9 +14,6 @@ export class PetMotion {
   startHatch(){this.hatchRemaining=1.8;this.revision++;}
   abilitiesUsed=0;
   private abilityRuns:number[]=[];
-  private abilityTargets:(number|undefined)[]=[];
-  get plannedLandings(){return this.abilityTargets.filter((c):c is number=>c!==undefined);}
-  get plannedLanding(){return this.abilityTargets[0];}
   hasAbilityFor(run:number){return this.abilityRuns.includes(run);}
   queued=0; // Ready abilities, not walking steps.
   completed=0;
@@ -34,14 +30,11 @@ export class PetMotion {
   private recent:number[]=[];
   constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number,comboRun?:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[],private readonly reserved?:()=>ReadonlySet<number>){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
-  queueAbility(comboRun=0,target?:number){this.abilityRuns.push(comboRun);this.abilityTargets.push(target);this.queued++;this.revision++;}
-  cancelAbilities(){this.abilityRuns.length=0;this.abilityTargets.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
+  queueAbility(comboRun=0){this.abilityRuns.push(comboRun);this.queued++;this.revision++;}
+  cancelAbilities(){this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
   private leapTarget(){
     let distance=Infinity;const choices:number[]=[];
     const reserved=this.reserved?.();
-    const planned=this.abilityTargets[0];
-    if(planned!==undefined&&isPureSand(this.board,planned)&&!this.peers?.().some(p=>p!==this&&p.leaping&&p.next===planned)&&!reserved?.has(planned))return planned;
-    if(planned!==undefined)return null;
     const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c))??[];
     for(let c=0;c<64;c++){
       if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||reserved?.has(c)||(preferred.length&&!preferred.includes(c)))continue;
@@ -67,12 +60,12 @@ export class PetMotion {
     this.cell=flight.target;this.x=this.cell%8;this.y=Math.floor(this.cell/8);this.next=null;this.progress=0;
     this.flight=null;this.leaping=false;this.leapProgress=0;this.planting=.000001;this.revision++;
     if(flight.cancelled)return;
-    if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();this.attacking=false;}
-    else if((this.abilityTargets[0]!==undefined?isPureSand(this.board,this.cell):this.allowed(this.cell))&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();this.abilitiesUsed++;}
+    if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.attacking=false;}
+    else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
   }
   // Ability landings keep exclusive destinations; wandering uses soft occupancy.
-  private available(cell:number){return !this.peers?.().some(p=>p!==this&&((p.next??p.cell)===cell||p.plannedLanding===cell));}
+  private available(cell:number){return !this.peers?.().some(p=>p!==this&&((p.next??p.cell)===cell));}
   private routingKey(){
     return this.boardVersion?`${this.cell}:${this.boardVersion()}:${this.peers?.().filter(p=>p!==this).map(p=>p.next??p.cell).join(',')??''}`:null;
   }
