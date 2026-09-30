@@ -3,7 +3,7 @@ import {bushTurn,watered,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
-import { BUSH_SIZE_TIERS, SHAPES, type Shape, type Offset } from './shapes';
+import { SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
 export type Tile = Element | 'stone' | 'bush' | 'obsidian';
 export interface Piece { tile: Element | 'bush' | 'pet'; shape: Shape; petElement?: Element; eggCount?: number }
@@ -18,7 +18,7 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
 }
 export class Game {
   berriesGrown=0;
-  get bushShapeLimit(){return BUSH_SIZE_TIERS[Math.min(BUSH_SIZE_TIERS.length-1,Math.floor(this.berriesGrown/300))];}
+  get bushShapeLimit(){return 3;}
 
   featureAchievementEvents:Partial<Record<FeatureMetric,number>>={};
   private recordFeature(kind:FeatureMetric,count=1){if(!this.reviving&&count>0)this.featureAchievementEvents[kind]=(this.featureAchievementEvents[kind]??0)+count;}

@@ -191,9 +191,9 @@ test('berry consumption counts even when its blast fails, while only successful 
  assert.equal(g.featureAchievementEvents['berry-blast'],1);
 });
 
-test('bush size unlocks follow berries grown this run every 300 berries and cap at nine',()=>{
+test('bush shape limit stays at three regardless of berries grown',()=>{
  const g=new Game();
- for(const [berries,limit] of [[0,3],[299,3],[300,5],[599,5],[600,7],[899,7],[900,8],[1199,8],[1200,9],[1500,9],[100000,9]]){g.berriesGrown=berries;assert.equal(g.bushShapeLimit,limit);}
+ for(const berries of [0,299,300,1000,6000,100000]){g.berriesGrown=berries;assert.equal(g.bushShapeLimit,3);}
  g.restart();assert.equal(g.berriesGrown,0);assert.equal(g.bushShapeLimit,3);
 });
 test('run berry counter counts new fruit rather than full capacity or repeated reconciliation',()=>{
@@ -202,11 +202,12 @@ test('run berry counter counts new fruit rather than full capacity or repeated r
  put(g,'water',63);assert.equal(g.berriesGrown,5);put(g,'pet',48);assert.equal(g.berriesGrown,5);
  g.bushes.get(27)!.berries=0;g.plantPetTile(28,'water');assert.equal(g.berriesGrown,5);
 });
-test('bush hands draw every unlocked size and never exceed the current limit',()=>{
- for(const [tier,limit] of [3,5,7,8,9].entries()){
+test('bush hands remain limited to existing small shapes even at high berry totals',()=>{
+ for(const berries of [0,300,1000,100000]){
+  const limit=3;
   const sizes=new Set<number>();
   for(let sample=0;sample<100;sample++){
-   const g=new Game(()=>sample/100,()=>true);pets(g,4);g.berriesGrown=tier*300;g.dealInventory();
+   const g=new Game(()=>sample/100,()=>true);pets(g,4);g.berriesGrown=berries;g.dealInventory();
    const piece=g.inventory.find(p=>p?.tile==='bush')!;sizes.add(piece.shape.cells.length);assert.ok(piece.shape.cells.length<=limit);
   }
   assert.ok(sizes.has(limit),`missing bush size ${limit}`);
