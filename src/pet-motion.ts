@@ -74,7 +74,9 @@ export class PetMotion {
   private finishSnack(){const snack=this.snacks.shift();this.abilityRuns.shift();this.queued--;snack?.cancel();this.revision++;}
   private berryTarget(){
     const opposite=this.element==='lava'?'water':'lava';let distance=Infinity;const choices:number[]=[];
-    for(let c=0;c<64;c++){if(this.board[c]!==null||!this.cardinal(c).some(n=>this.board[n]===opposite))continue;
+    // A launched jump exposes its destination through next immediately, so
+    // subsequent pets in this frame must choose another available tile.
+    for(let c=0;c<64;c++){if(this.board[c]!==null||!this.available(c)||!this.cardinal(c).some(n=>this.board[n]===opposite))continue;
       const d=Math.hypot(c%8-this.x,Math.floor(c/8)-this.y);if(d<distance-1e-9){distance=d;choices.length=0;choices.push(c);}else if(Math.abs(d-distance)<1e-9)choices.push(c);}
     return choices.length?this.pick(choices):null;
   }

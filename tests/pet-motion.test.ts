@@ -210,3 +210,21 @@ test('ending a run during a jump lets it land once without planting or retrying'
  g.over=true;p.update(.41);assert.equal(p.leaping,false);assert.equal(p.queued,0);
  p.update(10);assert.ok(p.completed>0);assert.equal(p.abilitiesUsed,0);assert.ok(g.board.every(c=>c===null));
 });
+
+test('simultaneous berry blasts reserve distinct nearest destinations while sharing a feeding bush',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]='bush';b[25]='water';b[26]=b[24]=null;
+ const pets:PetMotion[]=[];let finished=0;
+ for(let i=0;i<2;i++){const p=new PetMotion(27,'lava',b,()=>{},()=>0,undefined,()=>pets);pets.push(p);p.queueSnack(1,27,()=>true,()=>finished++,()=>true);}
+ pets.forEach(p=>p.update(.5));assert.ok(pets.every(p=>p.feeding===1));
+ pets.forEach(p=>p.update(1));pets.forEach(p=>p.update(.01));
+ assert.deepEqual(pets.map(p=>p.next),[26,24]);assert.ok(pets.every(p=>p.leaping));
+ pets.forEach(p=>p.update(2));assert.equal(finished,2);assert.ok(pets.every(p=>p.queued===0));
+});
+test('when the only berry blast tile is reserved another pet finishes without a duplicate jump or hanging queue',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]='bush';b[25]='water';b[26]=null;
+ const pets:PetMotion[]=[];let finished=0;
+ for(let i=0;i<2;i++){const p=new PetMotion(27,'lava',b,()=>{},()=>0,undefined,()=>pets);pets.push(p);p.queueSnack(1,27,()=>true,()=>finished++,()=>true);}
+ pets.forEach(p=>p.update(.5));pets.forEach(p=>p.update(1));pets.forEach(p=>p.update(.01));
+ assert.equal(pets[0].next,26);assert.equal(pets[1].leaping,false);assert.equal(pets[1].queued,0);assert.equal(finished,1);
+ pets[0].update(2);assert.equal(finished,2);
+});
