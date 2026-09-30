@@ -2,7 +2,7 @@ import * as T from 'three';
 import { gridWorld } from './map';
 import type { Tile } from './game';
 
-type Particle={mesh:T.Mesh;vx:number;vy:number;vz:number;age:number;life:number;steam:boolean;size:number;leaf?:boolean};
+type Particle={mesh:T.Mesh;vx:number;vy:number;vz:number;age:number;life:number;steam:boolean;size:number;leaf?:boolean;spark?:boolean};
 export class Effects {
   readonly group=new T.Group();
   private particles:Particle[]=[];
@@ -41,6 +41,8 @@ export class Effects {
   private readonly geometry=new T.BoxGeometry(1,1,1);
   private readonly materials={
     obsidian:new T.MeshBasicMaterial({color:'#9c83bb'}),
+    ember:new T.MeshBasicMaterial({color:'#f78132'}),
+    spark:new T.MeshBasicMaterial({color:'#ffe9a4'}),
     ash:new T.MeshBasicMaterial({color:'#555c60'}),
     bush:new T.MeshBasicMaterial({color:'#8ac478'}),
     water:new T.MeshBasicMaterial({color:'#b1efed'}),
@@ -69,9 +71,17 @@ export class Effects {
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
     for(let i=0;i<16;i++){const a=i*2.399,m=new T.Mesh(this.geometry,this.materials.ash);m.position.set(x+Math.cos(a)*.35,.35+(i%3)*.1,z+Math.sin(a)*.35);this.group.add(m);this.particles.push({mesh:m,vx:Math.cos(a)*3,vy:.7+i%4*.2,vz:Math.sin(a)*3,age:0,life:.5+i%3*.06,steam:true,size:.16+i%3*.035});}
   }
-  fireCross(cell:number){
+  fireCross(cell:number,cross=true){
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
-    for(let i=0;i<20;i++){const a=(i%4)*Math.PI/2,m=new T.Mesh(this.geometry,this.materials.lava);m.position.set(x,.25,z);this.group.add(m);this.particles.push({mesh:m,vx:Math.cos(a)*(3+i%3*.4),vy:.6+i%3*.2,vz:Math.sin(a)*(3+i%3*.4),age:0,life:.45,steam:false,size:.12});}
+    // A bright, varied ember spray among the leaves; cap simultaneous sparks
+    // so a full-board chain stays bounded rather than multiplying draw calls.
+    const count=Math.min(cross?40:24,Math.max(0,192-this.particles.filter(p=>p.spark).length));
+    for(let i=0;i<count;i++){
+      const a=cross?(i%4)*Math.PI/2+Math.sin(i*2.399)*.13:i*2.399,speed=cross?2.9+(i%5)*.28:1.1+(i%5)*.22;
+      const m=new T.Mesh(this.geometry,i%4===0?this.materials.spark:i%3===0?this.materials.ember:this.materials.lava);
+      m.position.set(x,.38+(i%3)*.06,z);m.rotation.set(a,a*.7,a*.3);m.scale.setScalar(.1);this.group.add(m);
+      this.particles.push({mesh:m,vx:Math.cos(a)*speed,vy:1.5+(i%5)*.24,vz:Math.sin(a)*speed,age:0,life:.52+(i%4)*.09,steam:false,size:.09+(i%3)*.025,spark:true});
+    }
   }
   leaves(cell:number,cross=false){
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
@@ -124,6 +134,7 @@ export class Effects {
       if(!p.steam)p.vy-=5*dt;
       p.mesh.visible=p.mesh.position.y>.08;
       const t=p.age/p.life;p.mesh.scale.setScalar(p.size*(p.steam?1+t*.6:1)*Math.min(1,(1-t)*3));
+      if(p.spark){p.mesh.scale.y*=1.8;p.mesh.rotation.z+=dt*4;p.mesh.rotation.x+=dt*2;}
       if(p.leaf){p.mesh.scale.y*=.15;p.mesh.scale.z*=.55;p.mesh.rotation.x+=dt*5;p.mesh.rotation.z+=dt*3;p.vy+=dt*2;}
       return true;
     });

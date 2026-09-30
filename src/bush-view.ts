@@ -13,7 +13,7 @@ export class BushField {
  private foliageTexture:T.CanvasTexture;
  private states=new Map<number,{b:object;born:number;heat:number;phase:string;wet:number;berries:number;fruitBorn:number[]}>();
  private previous:number|null=null;
- private tint=new T.Color();private warm=new T.Color('#a17e43');private char=new T.Color('#17171b');
+ private tint=new T.Color();private warm=new T.Color('#a17e43');private scorched=new T.Color('#48503a');private char=new T.Color('#17171b');
  constructor(){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=32;const ctx=canvas.getContext('2d')!;
   ctx.fillStyle='#d5ddc9';ctx.fillRect(0,0,32,32);
@@ -39,8 +39,9 @@ export class BushField {
    const black=Math.min(1,fade/.72),puff=reduced?0:Math.max(0,(fade-.8)/.2);
    for(let i=0;i<5;i++){
     const a=i*2.399,r=i===0?0:.43,wave=reduced?0:Math.sin(time*2+c+i)*.018;
-    // Char the raised central cluster under the flames; preserve the green rim.
-    this.tint.set(['#387b48','#559e58','#75b565','#306d43','#8ac478'][i]).lerp(this.warm,state.heat*.12).lerp(this.char,i===0?state.heat*.94:0).lerp(this.char,black);
+    // Two levels of singed foliage: a dark olive center and muted green
+    // surrounding clusters. Near-black is reserved for the final burnout.
+    this.tint.set(['#387b48','#559e58','#75b565','#306d43','#8ac478'][i]).lerp(this.warm,state.heat*.08).lerp(this.scorched,state.heat*(i===0?.9:.24)).lerp(this.char,black);
     put(this.leaves,leaf++,x+Math.cos(a)*r*(1+puff*.1),.32+(i===0?.16:0)+wave+puff*.12,z+Math.sin(a)*r*(1+puff*.1),.53*(1+puff*.1),.35*(1+puff*.18),.52*(1+puff*.1),this.tint);
    }
    if(!burn)for(let i=0;i<b.berries;i++){
