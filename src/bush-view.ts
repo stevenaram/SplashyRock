@@ -39,7 +39,8 @@ export class BushField {
    const black=Math.min(1,fade/.72),puff=reduced?0:Math.max(0,(fade-.8)/.2);
    for(let i=0;i<5;i++){
     const a=i*2.399,r=i===0?0:.43,wave=reduced?0:Math.sin(time*2+c+i)*.018;
-    this.tint.set(['#387b48','#559e58','#75b565','#306d43','#8ac478'][i]).lerp(this.warm,state.heat*.22).lerp(this.char,black);
+    // Char the raised central cluster under the flames; preserve the green rim.
+    this.tint.set(['#387b48','#559e58','#75b565','#306d43','#8ac478'][i]).lerp(this.warm,state.heat*.12).lerp(this.char,i===0?state.heat*.94:0).lerp(this.char,black);
     put(this.leaves,leaf++,x+Math.cos(a)*r*(1+puff*.1),.32+(i===0?.16:0)+wave+puff*.12,z+Math.sin(a)*r*(1+puff*.1),.53*(1+puff*.1),.35*(1+puff*.18),.52*(1+puff*.1),this.tint);
    }
    if(!burn)for(let i=0;i<b.berries;i++){
