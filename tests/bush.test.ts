@@ -29,7 +29,7 @@ test('water refills to four only on normal placements; dry berries persist',()=>
  g.board[8]=null;put(g,'water',62);assert.equal(g.bushes.get(9)!.berries,1);
  g.board[8]='water';put(g,'water',61);assert.equal(g.bushes.get(9)!.berries,4);
  for(const c of [60,59,58])put(g,'water',c);assert.equal(g.bushes.get(9)!.berries,4);
- g.board[8]='lava';g.reconcileBushes();assert.equal(g.bushes.get(9)!.berries,0);
+ g.board[8]='lava';g.reconcileBushes();assert.equal(g.bushes.get(9)!.berries,4);put(g,'water',55);assert.equal(g.bushes.get(9)!.berries,0);
 });
 test('each berry reserves one pet; eating consumes it instead of planting; cancellation releases claims',()=>{
  const g=new Game(()=>.3);pets(g,6);bush(g,27,4);g.queuePetActions();assert.equal(g.bushes.get(27)!.reserved,4);assert.ok(g.pets.every(p=>p.queued===1));
@@ -115,9 +115,8 @@ test('rapid placements do not duplicate or restart an in-progress burnout',()=>{
  const g=new Game();bush(g,9);g.board[8]='lava';g.reconcileBushes();let held=0,blasts=0;g.onBushBurnout=()=>{held++;return()=>held--;};g.onLeafStone=()=>blasts++;
  put(g,'water',63);g.updateBushBurnouts(.4);put(g,'water',62);assert.equal(held,1);g.updateBushBurnouts(.33);assert.equal(blasts,1);assert.equal(held,0);
 });
-test('a fiery cross ignites even watered bushes until the next normal placement',()=>{
- const g=new Game();bush(g,27,4);g.board[26]='water';g.igniteBlastBushes([27]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');assert.equal(g.bushes.get(27)!.berries,0);
- put(g,'water',63);assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
+test('water protects bushes from a fiery cross',()=>{
+ const g=new Game();bush(g,27,4);g.board[26]='water';g.igniteBlastBushes([27]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,4);
 });
 for(const source of ['pet','shape'] as const)test(`${source} water cannot extinguish a burnout already committed by a shape placement`,()=>{
  const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();put(g,'water',63);
@@ -129,13 +128,13 @@ for(const source of ['pet','shape'] as const)test(`${source} water cannot exting
 for(const staggered of [false,true])test(`water-cooled bushes stay extinguished after both neighbors clear (${staggered?'staggered':'simultaneous'})`,()=>{
  const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();
  g.plantPetTile(28,'water');assert.equal(g.bushes.get(27)!.phase,'healthy');
- if(staggered){g.clearCells([28]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');g.clearCells([26]);}
+ if(staggered){g.clearCells([28]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'healthy');g.clearCells([26]);}
  else g.clearCells([26,28]);
  g.reconcileBushes();g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
  put(g,'water',63);assert.equal(g.bushesBusy,false);assert.equal(g.board[27],'bush');
 });
-test('blast fire remains valid without lava even on a previously watered bush',()=>{
- const g=new Game();bush(g,27);g.board[26]='water';g.reconcileBushes();g.clearCells([26]);
+test('a cooled bush can catch blast fire again on a later placement',()=>{
+ const g=new Game();bush(g,27);g.board[26]='water';g.reconcileBushes();g.clearCells([26]);put(g,'water',63);
  g.igniteBlastBushes([27]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');
 });
 
@@ -160,11 +159,11 @@ test('water discovered during general reconciliation hydrates without requiring 
  g.bushes.get(27)!.berries=0;g.reconcileBushes();assert.equal(g.bushes.get(27)!.berries,0);
 });
 
-test('fire loses its source only when aftermath settles, with no berry refill',()=>{
+test('dry fire stays lit after its lava source disappears and burns on the next placement',()=>{
  const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();
  g.clearCells([26]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');
- g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
- put(g,'water',63);assert.equal(g.bushesBusy,false);
+ g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'ablaze');assert.equal(g.bushes.get(27)!.berries,0);
+ put(g,'water',63);assert.equal(g.bushesBusy,true);
 });
 test('a new shape before fire settles commits burnout even after its lava source disappears',()=>{
  const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();g.clearCells([26]);
@@ -172,7 +171,22 @@ test('a new shape before fire settles commits burnout even after its lava source
  g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'ablaze');
  g.updateBushBurnouts(.73);assert.equal(g.board[27],'stone');assert.equal(g.fireStones.has(27),true);
 });
-test('settlement retains lava-supported fire but extinguishes unsupported blast fire',()=>{
+test('settlement retains both lava-supported fire and unsupported blast fire',()=>{
  const g=new Game();bush(g,27);bush(g,45);g.board[26]='lava';g.reconcileBushes();g.igniteBlastBushes([45]);
- g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'ablaze');assert.equal(g.bushes.get(45)!.phase,'healthy');
+ g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'ablaze');assert.equal(g.bushes.get(45)!.phase,'ablaze');
+});
+test('feature counters record actual bush placement, fruit growth, extinction, and burnout once',()=>{
+ const g=new Game();put(g,'bush',27);assert.equal(g.featureAchievementEvents['bush-planted'],1);
+ g.plantPetTile(26,'water');assert.equal(g.featureAchievementEvents['berries-grown'],4);
+ g.reconcileBushes();assert.equal(g.featureAchievementEvents['berries-grown'],4);
+ g.clearCells([26]);g.board[28]='lava';put(g,'water',60);g.reconcileBushes();g.plantPetTile(26,'water');
+ assert.equal(g.featureAchievementEvents['bush-extinguished'],1);g.reconcileBushes();assert.equal(g.featureAchievementEvents['bush-extinguished'],1);
+ g.clearCells([26]);g.reconcileBushes();put(g,'water',63);put(g,'water',62);g.updateBushBurnouts(.73);
+ assert.equal(g.featureAchievementEvents['bush-burned'],1);g.updateBushBurnouts(1);assert.equal(g.featureAchievementEvents['bush-burned'],1);
+});
+test('berry consumption counts even when its blast fails, while only successful blasts count',()=>{
+ const g=new Game(()=>0);pets(g,1);bush(g,27,1);g.queuePetActions();g.pet!.update(5);
+ assert.equal(g.featureAchievementEvents['berries-eaten'],1);assert.equal(g.featureAchievementEvents['berry-blast'],undefined);
+ g.board[0]='water';assert.equal(g.formLeafStone(1,'lava'),true);assert.equal(g.formLeafStone(1,'lava'),false);
+ assert.equal(g.featureAchievementEvents['berry-blast'],1);
 });

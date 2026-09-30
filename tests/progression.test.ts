@@ -99,3 +99,24 @@ test('legacy saves retain wallet and awards while new boss fields default safely
  assert.equal(p.observe(g,{...normal,suppressed:true}).length,0);
  assert.equal(p.observe(g,normal).length,0);
 });
+test('feature milestones persist across runs, pay once, and show only the next goal per track',()=>{
+ const storage=memory(),p=new Progression(storage),g=new Game();
+ g.featureAchievementEvents={'berries-grown':40,'obsidian-cleared':10};
+ const awards=p.observe(g,normal);assert.deepEqual(awards.map(a=>a.id),['berries-grown-4','berries-grown-40','obsidian-cleared-1','obsidian-cleared-10']);
+ assert.equal(p.gems,16);assert.deepEqual(g.featureAchievementEvents,{});assert.deepEqual(p.observe(g,normal),[]);
+ g.restart();const restored=new Progression(storage);
+ assert.equal(restored.gems,16);assert.equal(restored.active().filter(a=>a.family==='berries-grown').length,1);
+ assert.equal(restored.active().find(a=>a.family==='berries-grown')!.progress,40);
+ g.featureAchievementEvents={'berries-grown':160};assert.deepEqual(restored.observe(g,normal).map(a=>a.id),['berries-grown-200']);
+ assert.equal(restored.gems,26);
+});
+test('old saves retain gems and completions while initializing feature counters safely',()=>{
+ const storage=memory();storage.setItem(PROGRESS_KEY,JSON.stringify({gems:200,completed:['pet-1'],petBest:1,features:{'berries-grown':-99,'obsidian-cleared':'bad'}}));
+ const p=new Progression(storage);assert.equal(p.gems,200);assert.ok(p.completed().some(a=>a.id==='pet-1'));
+ assert.equal(p.active().find(a=>a.family==='berries-grown')!.progress,0);
+ assert.equal(p.active().find(a=>a.family==='obsidian-cleared')!.progress,0);
+});
+test('suppressed feature events are consumed without leaking into future rewards',()=>{
+ const p=new Progression(memory()),g=new Game();g.featureAchievementEvents={'obsidian-cleared':100};
+ assert.deepEqual(p.observe(g,{...normal,suppressed:true}),[]);assert.deepEqual(p.observe(g,normal),[]);assert.equal(p.gems,0);
+});

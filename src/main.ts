@@ -110,7 +110,7 @@ function refreshRevive(){
   document.querySelector('#revive-detail')!.textContent=!eligible?'Revive unavailable.':progression.gems<REVIVE_COST?'Earn gems through achievements to revive.':'Turn the four center tiles into clearing stones.';
 }
 function checkAchievements(){
-  if(sandboxMode)return;
+  if(sandboxMode){game.featureAchievementEvents={};return;}
   const awards=progression.observe(game,{calm:!reactions.busy&&!sweeps.busy&&!(game.petsBusy||game.bushesBusy)&&aftermaths.size===0,allowCleanBoard:playedBeyondIntro&&!tutorial.guiding,suppressed:game.reviving});
   if(awards.length){progressUI.earned(awards);sound.play('reward');refreshRevive();}
 }

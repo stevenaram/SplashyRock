@@ -19,3 +19,9 @@ test('obsidian joins shared borders and cooling settles to a stable solid surfac
  for(let t=0;t<1;t+=.025)s.update(t);assert.equal(s.texture.image.data[27*4+3],0);
  s.texture.dispose();s.material.dispose();s.mesh.geometry.dispose();
 });
+test('obsidian achievements count transformations and actual clears, excluding revive effects',()=>{
+ const g=new Game();g.board[0]='water';g.board[1]='lava';g.reconcileObsidian();g.reconcileObsidian();
+ assert.equal(g.featureAchievementEvents['obsidian-formed'],1);
+ g.clearCells([1,1]);g.clearCells([1]);assert.equal(g.featureAchievementEvents['obsidian-cleared'],1);
+ g.board[2]='obsidian';g.reviving=true;g.clearCells([2]);assert.equal(g.featureAchievementEvents['obsidian-cleared'],1);
+});

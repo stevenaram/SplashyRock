@@ -1,3 +1,4 @@
+import type {FeatureMetric} from './feature-achievements';
 import {bushTurn,watered,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
@@ -16,6 +17,9 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
   return piece.shape.cells.map(([dx, dy]) => [x + dx, y + dy]);
 }
 export class Game {
+  featureAchievementEvents:Partial<Record<FeatureMetric,number>>={};
+  private recordFeature(kind:FeatureMetric,count=1){if(!this.reviving&&count>0)this.featureAchievementEvents[kind]=(this.featureAchievementEvents[kind]??0)+count;}
+
   readonly bushes=new Map<number,BushState>();
   readonly bushBurnouts=new Map<number,{age:number;run:number;done:()=>void}>();
   readonly fireStones=new Set<number>();
@@ -27,11 +31,11 @@ export class Game {
       const b=this.bushes.get(c);
       if(!b||b.phase!=='ablaze'){this.bushBurnouts.delete(c);job.done();changed=true;continue;}
       job.age+=dt;if(job.age<.72)continue;
-      this.bushBurnouts.delete(c);this.createStone(c,1,job.run,performance.now());this.leafStones.add(c);this.fireStones.add(c);this.onLeafStone(c,job.run);job.done();changed=true;
+      this.bushBurnouts.delete(c);this.recordFeature('bush-burned');this.createStone(c,1,job.run,performance.now());this.leafStones.add(c);this.fireStones.add(c);this.onLeafStone(c,job.run);job.done();changed=true;
     }return changed;
   }
   igniteBlastBushes(cells:readonly number[]){
-    for(const c of cells){const b=this.bushes.get(c);if(b){b.phase='ablaze';b.berries=0;b.blastTurn=this.shapeMoves;}}
+    for(const c of cells){const b=this.bushes.get(c);if(b){if(watered(this.board,c)){b.waterTurn=this.shapeMoves;continue;}if(b.waterTurn===this.shapeMoves)continue;b.phase='ablaze';b.berries=0;b.blastTurn=this.shapeMoves;}}
   }
   readonly berryEaten:number[]=[];
   readonly leafStones=new Set<number>();
@@ -39,7 +43,7 @@ export class Game {
   readonly obsidianEvents:number[]=[];
   reconcileObsidian(){
     const cells=this.board.flatMap((tile,c)=>tile==='lava'&&this.neighbors(c).some(n=>this.board[n]==='water')?[c]:[]);
-    for(const c of cells){this.write(c,'obsidian');this.obsidianEvents.push(c);}
+    for(const c of cells){this.write(c,'obsidian');this.recordFeature('obsidian-formed');this.obsidianEvents.push(c);}
     return cells.length>0;
   }
   get bushesUnlocked(){return this.pets.filter(p=>p.hatchRemaining===0).length>=4;}
@@ -205,13 +209,14 @@ export class Game {
       this.board[cell] = tile; this.versions[cell]++;this.boardChange++; }
   }
   reconcileBushes(){
-    const extinguish=[...this.bushes].filter(([c,b])=>b.phase==='ablaze'&&!this.bushBurnouts.has(c)&&b.blastTurn!==this.shapeMoves&&watered(this.board,c)).map(([c])=>c);
-    for(const c of extinguish){const b=this.bushes.get(c)!;b.phase='healthy';b.berries=0;b.berryTurn=this.shapeMoves;}
+    const extinguish=[...this.bushes].filter(([c,b])=>b.phase==='ablaze'&&!this.bushBurnouts.has(c)&&watered(this.board,c)).map(([c])=>c);
+    for(const c of extinguish){this.recordFeature('bush-extinguished');const b=this.bushes.get(c)!;b.phase='healthy';b.berries=0;b.berryTurn=this.shapeMoves;}
     for(const [c,b] of this.bushes){
       if(this.board[c]!=='bush'){this.bushes.delete(c);continue;}
       const wet=watered(this.board,c),lava=this.neighbors(c).some(n=>this.board[n]==='lava');
-      // Only lava ignites between turns; bush-to-bush spread is turn based.
-      if(!wet&&lava)b.phase='ablaze';
+      if(wet)b.waterTurn=this.shapeMoves;
+      // Recently watered foliage cannot flash back into fire within this turn.
+      if(!wet&&lava&&b.waterTurn!==this.shapeMoves)b.phase='ablaze';
       if(b.phase==='ablaze')b.berries=0;
       // All water sources share the current shape's refill allowance. This
       // only grows fruit; feeding is assigned separately on shape placement.
@@ -219,23 +224,23 @@ export class Game {
     }
   }
   settleBushFires(){
-    // Only settle fire after all placement effects finish. A new shape before
-    // then can commit this burning bush to its irreversible burnout instead.
+    // Fire sustains itself without lava. Only water encountered in this
+    // placement window can quench it, never a committed burnout.
     for(const [c,b] of this.bushes){
-      if(b.phase!=='ablaze'||this.bushBurnouts.has(c)||this.neighbors(c).some(n=>this.board[n]==='lava'))continue;
+      if(b.phase!=='ablaze'||this.bushBurnouts.has(c)||b.waterTurn!==this.shapeMoves)continue;
       b.phase='healthy';b.berries=0;b.berryTurn=this.shapeMoves;b.blastTurn=undefined;
     }
   }
   private replenishBush(cell:number){
     const b=this.bushes.get(cell);
     if(!b||b.phase!=='healthy'||!watered(this.board,cell)||b.berryTurn===this.shapeMoves)return;
-    b.berries=4;b.berryTurn=this.shapeMoves;
+    this.recordFeature('berries-grown',4-b.berries);b.berries=4;b.berryTurn=this.shapeMoves;
   }
   private advanceBushes(){
     const wetBlocked=new Set([...this.bushes].filter(([c,b])=>watered(this.board,c)&&b.phase==='ablaze').map(([c])=>c));
     const turn=bushTurn(this.board,new Map([...this.bushes].filter(([c])=>!this.bushBurnouts.has(c))));
     for(const c of turn.burnout)this.bushBurnouts.set(c,{age:0,run:this.comboRun,done:this.onBushBurnout(this.comboRun)});
-    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;if(wetBlocked.has(c))b.berryTurn=this.shapeMoves;}}
+    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){if(wetBlocked.has(c)&&phase==='healthy')this.recordFeature('bush-extinguished');b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;if(wetBlocked.has(c))b.berryTurn=this.shapeMoves;}}
     this.reconcileBushes();
   }
   queuePetActions(pending?:()=>()=>void){
@@ -247,7 +252,7 @@ export class Game {
       const [cell,b]=choices[Math.min(choices.length-1,Math.floor(this.random()*choices.length))];b.reserved++;
       let released=false;const release=()=>{if(!released){b.reserved=Math.max(0,b.reserved-1);released=true;}};
       const run=this.comboRun,done=pending?.()??(()=>{});
-      pet.queueSnack(run,cell,()=>{release();if(this.bushes.get(cell)===b&&b.phase==='healthy'&&b.berries>0){b.berries--;this.berryEaten.push(cell);return true;}return false;},()=>{release();done();},c=>this.formLeafStone(c,pet.element,run));
+      pet.queueSnack(run,cell,()=>{release();if(this.bushes.get(cell)===b&&b.phase==='healthy'&&b.berries>0){b.berries--;this.recordFeature('berries-eaten');this.berryEaten.push(cell);return true;}return false;},()=>{release();done();},c=>this.formLeafStone(c,pet.element,run));
     }
   }
   neighbors(cell: number): number[] {
@@ -256,7 +261,7 @@ export class Game {
   }
   clearCells(cells: readonly number[],comboRun=this.comboRun,stoneSweep=false): number[] {
     const removed: number[]=[];
-    for(const cell of new Set(cells)){if(this.board[cell]!==null&&!this.heldByDyingBoss(cell)){this.write(cell,null);removed.push(cell);}}
+    for(const cell of new Set(cells)){if(this.board[cell]!==null&&!this.heldByDyingBoss(cell)){if(this.board[cell]==='obsidian')this.recordFeature('obsidian-cleared');this.write(cell,null);removed.push(cell);}}
     for(const boss of this.bosses)if(!boss.deathRemaining)this.reconcileBossRegion(boss);
     const cleared=removed.filter(c=>this.board[c]===null);
     // Protect actual stone-sweep clears for waves already pending. A later
@@ -293,6 +298,7 @@ export class Game {
     return this.over;
   }
   restart() {
+    this.featureAchievementEvents={};
     this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.leafStones.clear();this.bushBurnouts.forEach(job=>job.done());this.bushBurnouts.clear();this.fireStones.clear();this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
@@ -382,7 +388,7 @@ export class Game {
   formLeafStone(cell:number,element:Element,run=this.comboRun){
     const opposite=element==='lava'?'water':'lava';
     if(this.board[cell]!==null||!this.neighbors(cell).some(n=>this.board[n]===opposite))return false;
-    this.createStone(cell,1,run,performance.now());this.leafStones.add(cell);this.onLeafStone(cell,run);return true;
+    this.createStone(cell,1,run,performance.now());this.recordFeature('berry-blast');this.leafStones.add(cell);this.onLeafStone(cell,run);return true;
   }
   private createStone(cell:number,depth:number,comboRun:number,now:number){
     this.write(cell, 'stone');
@@ -411,6 +417,7 @@ export class Game {
       this.finishChain();this.comboRun++;this.lastComboWave=-Infinity;
       this.shapeMoves++;
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
+      if(piece.tile==='bush')this.recordFeature('bush-planted',piece.shape.cells.length);
       this.score += piece.shape.cells.length;
       this.reconcileObsidian();
       this.advanceBushes();

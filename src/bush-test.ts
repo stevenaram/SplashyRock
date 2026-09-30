@@ -1,3 +1,4 @@
+import {EGG_GOALS} from './egg-goals';
 import type {Game,Piece,Element} from './game';
 import type {World} from './world';
 export function seedBushTest(game:Game,world:World){
@@ -6,7 +7,7 @@ export function seedBushTest(game:Game,world:World){
   const egg:Piece={tile:'pet',petElement:(i%2?'water':'lava') as Element,shape};
   game.inventory[0]=egg;game.place(0,48+i*2);game.pet!.hatchRemaining=0;world.addPiece(48+i*2,egg);
  }
- game.moves=0;game.score=13923;game.rewardsDealt=4;
+ game.moves=0;game.score=EGG_GOALS[3];game.rewardsDealt=4;
  game.board[8]='lava';game.board[38]='water';
  for(const c of [9,10,11,12,37,46]){game.board[c]='bush';game.bushes.set(c,{phase:'healthy',berries:[37,46].includes(c)?4:0,reserved:0});}
  game.reconcileBushes();game.boardChange++;world.syncBoard(game.board,false);game.dealInventory();
