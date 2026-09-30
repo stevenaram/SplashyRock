@@ -87,7 +87,7 @@ export class World {
       for(const [id,view] of this.bossViews)if(!this.game.bosses.some(b=>b.id===id)){view.dispose();this.bossViews.delete(id);}
       for(const boss of this.game.bosses){let view=this.bossViews.get(boss.id);if(!view){view=new BossView(this.scene,this.host,(x,y,height)=>this.gridScreen(x,y,height),(cue,cell,level)=>this.onSound(cue,cell,level));this.bossViews.set(boss.id,view);}view.update(this.game,dt,this.reducedMotion.matches,boss);}
     }
-    if(this.game){if(!this.bushes.group.parent)this.scene.add(this.bushes.group);this.bushes.update(this.game,time,this.camera,this.reducedMotion.matches);for(const cell of this.game.berryEaten.splice(0)){this.onSound('berry',cell);if(!this.reducedMotion.matches)this.effects.burst(cell,'bush');}}
+    if(this.game){if(!this.bushes.group.parent)this.scene.add(this.bushes.group);this.bushes.update(this.game,time,this.reducedMotion.matches);for(const cell of this.game.berryEaten.splice(0)){this.onSound('berry',cell);if(!this.reducedMotion.matches)this.effects.burst(cell,'bush');}}
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {

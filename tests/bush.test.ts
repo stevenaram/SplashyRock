@@ -33,3 +33,16 @@ test('bush unlock requires four hatched pets; every new hand includes bush and b
  const g=new Game(()=>.3);pets(g,3);g.dealInventory();assert.ok(g.inventory.every(p=>p?.tile!=='bush'));pets(g,1);g.dealInventory();assert.deepEqual(new Set(g.inventory.map(p=>p?.tile)),new Set(['water','lava','bush']));
  for(const c of [0,1,2,8,9,10,16,17,18])g.board[c]='water';g.trySpawnBoss();assert.ok(g.bosses.length);g.dealInventory();assert.deepEqual(g.inventory.map(p=>p?.tile),['lava','lava','bush']);
 });
+test('game over treats every bush phase as occupied, including burning bushes awaiting another placement',()=>{
+ for(const phase of ['healthy','smoldering','ablaze'] as const){
+  const g=new Game();for(let c=0;c<64;c++){bush(g,c);g.bushes.get(c)!.phase=phase;}
+  g.inventory=[{tile:'water',shape:single},{tile:'lava',shape:single},{tile:'bush',shape:single}];
+  assert.equal(g.hasLegalMove(),false);assert.equal(g.finishIfBlocked(false),true);
+ }
+});
+test('a fitting bush shape keeps the run alive when neither liquid shape fits',()=>{
+ const g=new Game();g.board.fill('water');g.board[27]=null;
+ const large={id:'square',name:'Square',width:2,height:2,cells:[[0,0],[1,0],[0,1],[1,1]] as const};
+ g.inventory=[{tile:'water',shape:large},{tile:'lava',shape:large},{tile:'bush',shape:single}];
+ assert.equal(g.hasLegalMove(),true);assert.equal(g.finishIfBlocked(false),false);
+});
