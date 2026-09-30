@@ -80,9 +80,13 @@ export class PetMotion {
   }
   private berryTarget(){
     let distance=Infinity;const choices:number[]=[];
+    const candidates=this.board.flatMap((_,c)=>this.berryTargetAllowed(c)?[c]:[]);
+    // Lava berry blasts favor water sources that are not feeding a bush.
+    // Rank the water tile itself, not the sand tile where the pet lands.
+    const preferred=this.element==='lava'?candidates.filter(c=>this.cardinal(c).some(n=>this.board[n]==='water'&&!this.cardinal(n).some(b=>this.board[b]==='bush'))):[];
     // A launched jump exposes its destination through next immediately, so
     // subsequent pets in this frame must choose another available tile.
-    for(let c=0;c<64;c++){if(!this.berryTargetAllowed(c))continue;
+    for(const c of preferred.length?preferred:candidates){
       const d=Math.hypot(c%8-this.x,Math.floor(c/8)-this.y);if(d<distance-1e-9){distance=d;choices.length=0;choices.push(c);}else if(Math.abs(d-distance)<1e-9)choices.push(c);}
     return choices.length?this.pick(choices):null;
   }

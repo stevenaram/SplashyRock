@@ -248,3 +248,20 @@ for(const element of ['water','lava'] as const)test(`${element} pet consumes its
  b[0]=element==='lava'?'water':'lava';p.update(5);
  assert.ok(p.completed>0);assert.equal(p.leaping,false);assert.equal(blasts,0);assert.equal(planted,0);assert.equal(berries,0);assert.equal(released,1);
 });
+
+test('lava berry blasts prefer water away from bushes even over a closer landing clear of bushes',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]='bush';b[28]=b[0]='water';b[29]=b[1]=null;
+ const p=new PetMotion(27,'lava',b,()=>{},()=>0);p.queueSnack(1,27,()=>true,()=>{},()=>true);
+ p.update(1.51);assert.equal(p.next,1);assert.equal(p.leaping,true);
+});
+test('lava berry blasts fall back to bush-adjacent water when preferred landings are occupied',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]='bush';b[28]=b[0]='water';b[29]=b[1]=null;
+ const blocker=new PetMotion(1,'lava',b,()=>{}),peers=[blocker];
+ const p=new PetMotion(27,'lava',b,()=>{},()=>0,undefined,()=>peers);peers.push(p);
+ p.queueSnack(1,27,()=>true,()=>{},()=>true);p.update(1.51);assert.equal(p.next,29);
+});
+test('water berry blasts retain nearest-target behavior',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]='bush';b[28]=b[0]='lava';b[29]=b[1]=null;
+ const p=new PetMotion(27,'water',b,()=>{},()=>0);p.queueSnack(1,27,()=>true,()=>{},()=>true);
+ p.update(1.51);assert.equal(p.next,29);
+});
