@@ -17,7 +17,22 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
 }
 export class Game {
   readonly bushes=new Map<number,BushState>();
-  readonly bushBurnouts:number[]=[];
+  readonly bushBurnouts=new Map<number,{age:number;run:number;done:()=>void}>();
+  readonly fireStones=new Set<number>();
+  onBushBurnout:(run:number)=>()=>void=()=>()=>{};
+  get bushesBusy(){return this.bushBurnouts.size>0;}
+  updateBushBurnouts(dt:number){
+    let changed=false;
+    for(const [c,job] of [...this.bushBurnouts]){
+      const b=this.bushes.get(c);
+      if(!b||b.phase!=='ablaze'){this.bushBurnouts.delete(c);job.done();changed=true;continue;}
+      job.age+=dt;if(job.age<.72)continue;
+      this.bushBurnouts.delete(c);this.createStone(c,1,job.run,performance.now());this.leafStones.add(c);this.fireStones.add(c);this.onLeafStone(c,job.run);job.done();changed=true;
+    }return changed;
+  }
+  igniteBlastBushes(cells:readonly number[]){
+    for(const c of cells){const b=this.bushes.get(c);if(b){b.phase='ablaze';b.berries=0;b.blastTurn=this.shapeMoves;}}
+  }
   readonly berryEaten:number[]=[];
   readonly leafStones=new Set<number>();
   onLeafStone:(cell:number,run:number)=>void=()=>{};
@@ -185,12 +200,12 @@ export class Game {
     if (this.board[cell] !== tile) {
       // Credit actual damage, not detached territory or the scripted death cleanup.
       if(!this.reviving)for(const b of this.bosses)if(!b.deathRemaining&&b.remaining.has(cell)&&this.board[cell]===b.element)b.damageTaken++;
-      this.leafStones.delete(cell);
+      this.leafStones.delete(cell);this.fireStones.delete(cell);
       if(tile==='bush')this.bushes.set(cell,{phase:'healthy',berries:0,reserved:0});else this.bushes.delete(cell);
       this.board[cell] = tile; this.versions[cell]++;this.boardChange++; }
   }
   reconcileBushes(){
-    const extinguish=[...this.bushes].filter(([c,b])=>b.phase==='ablaze'&&watered(this.board,c)).map(([c])=>c);
+    const extinguish=[...this.bushes].filter(([c,b])=>b.phase==='ablaze'&&b.blastTurn!==this.shapeMoves&&watered(this.board,c)).map(([c])=>c);
     for(const c of extinguish){const b=this.bushes.get(c)!;b.phase='healthy';b.berries=0;b.berryTurn=this.shapeMoves;}
     for(const [c,b] of this.bushes){
       if(this.board[c]!=='bush'){this.bushes.delete(c);continue;}
@@ -206,8 +221,8 @@ export class Game {
   }
   private advanceBushes(){
     const wetBlocked=new Set([...this.bushes].filter(([c,b])=>watered(this.board,c)&&b.phase==='ablaze').map(([c])=>c));
-    const turn=bushTurn(this.board,this.bushes);
-    for(const c of turn.burnout){this.write(c,null);this.bushBurnouts.push(c);}
+    const turn=bushTurn(this.board,new Map([...this.bushes].filter(([c])=>!this.bushBurnouts.has(c))));
+    for(const c of turn.burnout)this.bushBurnouts.set(c,{age:0,run:this.comboRun,done:this.onBushBurnout(this.comboRun)});
     for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;if(wetBlocked.has(c))b.berryTurn=this.shapeMoves;}}
     this.reconcileBushes();
     for(const c of this.bushes.keys())this.replenishBush(c);
@@ -263,11 +278,11 @@ export class Game {
     return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
   }
   finishIfBlocked(pending: boolean): boolean {
-    if(!pending&&!this.bossesDying&&!this.bossesExpanding&&!this.petsBusy&&!this.hasLegalMove()){this.finishChain();if(!this.hasLegalMove())this.over=true;}
+    if(!pending&&!this.bossesDying&&!this.bossesExpanding&&!this.petsBusy&&!this.bushesBusy&&!this.hasLegalMove()){this.finishChain();if(!this.hasLegalMove())this.over=true;}
     return this.over;
   }
   restart() {
-    this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.leafStones.clear();this.bushBurnouts.length=0;this.berryEaten.length=0;this.obsidianEvents.length=0;
+    this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.leafStones.clear();this.bushBurnouts.forEach(job=>job.done());this.bushBurnouts.clear();this.fireStones.clear();this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;

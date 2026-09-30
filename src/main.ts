@@ -111,7 +111,7 @@ function refreshRevive(){
 }
 function checkAchievements(){
   if(sandboxMode)return;
-  const awards=progression.observe(game,{calm:!reactions.busy&&!sweeps.busy&&!game.petsBusy&&aftermaths.size===0,allowCleanBoard:playedBeyondIntro&&!tutorial.guiding,suppressed:game.reviving});
+  const awards=progression.observe(game,{calm:!reactions.busy&&!sweeps.busy&&!(game.petsBusy||game.bushesBusy)&&aftermaths.size===0,allowCleanBoard:playedBeyondIntro&&!tutorial.guiding,suppressed:game.reviving});
   if(awards.length){progressUI.earned(awards);sound.play('reward');refreshRevive();}
 }
 function showEnd(won=false){
@@ -129,7 +129,6 @@ function showEnd(won=false){
 function settled(){
   game.reconcileObsidian();
   game.reconcileBushes();
-  for(const c of game.bushBurnouts.splice(0))world.sandSweep(game.board,[c],c,'neighbors');
   for(const events of [game.bossGrowthEvents,game.bossLiquidEvents]){
     const pending=events.splice(0);
     for(const element of ['water','lava'] as const){const cells=pending.filter(e=>e.element===element&&game.board[e.cell]===element).map(e=>e.cell);if(cells.length)world.addPiece(0,{tile:element,shape:{id:'boss-growth',name:'Pool surge',width:1,height:1,cells:cells.map(c=>[c%8,Math.floor(c/8)])}});}
@@ -149,7 +148,7 @@ function settled(){
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
   if (!game.over) reactions.schedule();
-  if(!reactions.busy&&!sweeps.busy&&!game.bossesExpanding&&!game.pets.some(p=>p.hasAbilityFor(game.comboRun))&&game.combo>0){
+  if(!reactions.busy&&!sweeps.busy&&!game.bushesBusy&&!game.bossesExpanding&&!game.pets.some(p=>p.hasAbilityFor(game.comboRun))&&game.combo>0){
     const multiplier=game.combo;const bonus=game.finishChain();
     if(multiplier>1)combo.finish(bonus);
     shownCombo=0;
@@ -160,14 +159,14 @@ function settled(){
   game.claimEggRewards();announceEggs();
   updateScore();
   updateTrayWarnings();
-  if(game.over||game.bossesDying||game.bossesExpanding||reactions.busy||sweeps.busy||aftermaths.size>0||game.petsBusy||game.hasLegalMove()){
+  if(game.over||game.bossesDying||game.bossesExpanding||reactions.busy||sweeps.busy||aftermaths.size>0||(game.petsBusy||game.bushesBusy)||game.hasLegalMove()){
     clearTimeout(endTimer);endTimer=undefined;return;
   }
   // Walking animation updates must not continually postpone this final check.
   if(endTimer!==undefined)return;
   endTimer=setTimeout(()=>{
     endTimer=undefined;
-    if(!game.finishIfBlocked(game.bossesDying||game.bossesExpanding||reactions.busy||sweeps.busy||aftermaths.size>0||!!game.petsBusy))return;
+    if(!game.finishIfBlocked(game.bossesDying||game.bossesExpanding||reactions.busy||sweeps.busy||aftermaths.size>0||!!(game.petsBusy||game.bushesBusy)))return;
     tutorial.dismiss();tutorial.dismissGoal();combo.reset();
     noSpace.start(()=>showEnd());
     status.textContent=`Game Over. Final score ${game.score}. You can still try the remaining pieces, or play again.`;
@@ -215,6 +214,7 @@ const reactions = new StoneReactions(game, (cell,owner) => {
   refreshPreview();
 },settled);
 
+game.onBushBurnout=run=>{const owner=new Aftermath(()=>{aftermaths.delete(owner);settled();},run);aftermaths.add(owner);return()=>owner.release();};
 game.onLeafStone=(cell,run)=>{
   const owner=new Aftermath(settled,run);world.addStone(cell);
   if(game.combo>=2&&game.combo>shownCombo){shownCombo=game.combo;combo.show(game.combo,cell);sound.play('combo',game.combo);}

@@ -39,9 +39,11 @@ export class PetMotion {
   private leapTarget(){
     let distance=Infinity;const choices:number[]=[];
     const reserved=this.reserved?.();
-    const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c))??[];
+    const awayFromBush=(c:number)=>!this.cardinal(c).some(n=>this.board[n]==='bush');
+    const avoidBush=this.element==='lava'&&this.board.some((tile,c)=>tile===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c)&&awayFromBush(c));
+    const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c)&&(!avoidBush||awayFromBush(c)))??[];
     for(let c=0;c<64;c++){
-      if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||reserved?.has(c)||(preferred.length&&!preferred.includes(c)))continue;
+      if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||reserved?.has(c)||(avoidBush&&!awayFromBush(c))||(preferred.length&&!preferred.includes(c)))continue;
       const d=Math.hypot(c%8-this.x,Math.floor(c/8)-this.y);
       if(d<distance-1e-9){distance=d;choices.length=0;choices.push(c);}
       else if(Math.abs(d-distance)<1e-9)choices.push(c);

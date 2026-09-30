@@ -1,15 +1,20 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Game,type Piece} from '../src/game';
+import {SandSweeps} from '../src/reactions';
 const single={id:'single',name:'Single',width:1,height:1,cells:[[0,0] as const]};
 const put=(g:Game,tile:Piece['tile'],cell:number)=>{g.inventory=[{tile,shape:single},null,null];assert.ok(g.place(0,cell));};
 const bush=(g:Game,c:number,berries=0)=>{g.board[c]='bush';g.bushes.set(c,{phase:'healthy',berries,reserved:0});};
 const pets=(g:Game,n:number)=>{for(let i=0;i<n;i++){put(g,'pet',48+i);g.pet!.hatchRemaining=0;}};
-test('fire propagates one edge per placement and burning bushes clear themselves next turn',()=>{
+test('burnout waits for collapse, then its fiery cross ignites adjacent bushes at impact',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
  const g=new Game(()=>.2);g.board[8]='lava';[9,10,11,18].forEach(c=>bush(g,c));g.reconcileBushes();
- assert.equal(g.bushes.get(9)!.phase,'ablaze');
- put(g,'water',63);assert.equal(g.board[9],null);assert.equal(g.bushes.get(10)!.phase,'ablaze');assert.equal(g.bushes.get(11)!.phase,'healthy');assert.equal(g.bushes.get(18)!.phase,'healthy');
- put(g,'water',62);assert.equal(g.board[10],null);assert.equal(g.board[8],'lava');assert.equal(g.bushes.get(11)!.phase,'ablaze');
+ const sweeps=new SandSweeps(g,()=>{},()=>{});g.onLeafStone=()=>sweeps.schedule();
+ put(g,'water',63);assert.equal(g.board[9],'bush');assert.equal(g.bushes.get(10)!.phase,'healthy');assert.equal(g.bushesBusy,true);
+ g.updateBushBurnouts(.71);assert.equal(g.board[9],'bush');g.updateBushBurnouts(.02);assert.equal(g.board[9],'stone');assert.equal(g.fireStones.has(9),true);
+ t.mock.timers.tick(500);assert.equal(g.board[9],null);assert.equal(g.bushes.get(10)!.phase,'healthy');
+ t.mock.timers.tick(280);assert.equal(g.board[8],null);assert.equal(g.bushes.get(10)!.phase,'ablaze');assert.equal(g.bushes.get(11)!.phase,'healthy');assert.equal(g.bushes.get(18)!.phase,'healthy');
+ sweeps.dispose();
 });
 test('water extinguishes fire, then replenishes berries despite adjacent lava',()=>{
  const g=new Game();[9,10].forEach(c=>bush(g,c));g.board[8]='lava';g.reconcileBushes();put(g,'water',1);
@@ -104,4 +109,13 @@ test('pet-water replenishment never assigns extra snacks or pet abilities',()=>{
  assert.equal(g.bushes.get(27)!.berries,4);assert.equal(g.bushes.get(27)!.reserved,0);
  assert.deepEqual(g.pets.map(p=>p.queued),queued);assert.deepEqual(g.pets.map(p=>p.snacksEaten),eaten);
  assert.deepEqual(g.berryEaten,[]);
+});
+
+test('rapid placements do not duplicate or restart an in-progress burnout',()=>{
+ const g=new Game();bush(g,9);g.board[8]='lava';g.reconcileBushes();let held=0,blasts=0;g.onBushBurnout=()=>{held++;return()=>held--;};g.onLeafStone=()=>blasts++;
+ put(g,'water',63);g.updateBushBurnouts(.4);put(g,'water',62);assert.equal(held,1);g.updateBushBurnouts(.33);assert.equal(blasts,1);assert.equal(held,0);
+});
+test('a fiery cross ignites even watered bushes until the next normal placement',()=>{
+ const g=new Game();bush(g,27,4);g.board[26]='water';g.igniteBlastBushes([27]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');assert.equal(g.bushes.get(27)!.berries,0);
+ put(g,'water',63);assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
 });

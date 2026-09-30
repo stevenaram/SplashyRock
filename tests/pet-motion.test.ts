@@ -228,3 +228,12 @@ test('when the only berry blast tile is reserved another pet finishes without a 
  assert.equal(pets[0].next,26);assert.equal(pets[1].leaping,false);assert.equal(pets[1].queued,0);assert.equal(finished,1);
  pets[0].update(2);assert.equal(finished,2);
 });
+for(const element of ['lava','water'] as const)test(`${element} ability applies the correct bush-adjacency preference`,()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]=b[0]=null;b[28]='bush';
+ const p=new PetMotion(27,element,b,()=>true,()=>0);p.queueAbility();p.update(.01);
+ assert.equal(p.next,element==='lava'?0:27);
+});
+test('lava ability falls back to bush-neighbor sand when no other legal destination exists',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]=null;b[28]='bush';
+ const p=new PetMotion(27,'lava',b,()=>true,()=>0);p.queueAbility();p.update(.01);assert.equal(p.next,27);
+});
