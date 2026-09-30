@@ -30,7 +30,7 @@ host.innerHTML = `<header id="run-hud"><div id="hud-wallets"><div id="hud-best" 
   <nav id="tray" aria-label="Available tiles"></nav><p id="inventory-end-note">No space left.</p>
   <div id="ghost" aria-hidden="true" hidden></div>
   <p id="status" role="status" class="sr-only"></p>
-  <aside id="game-over" hidden aria-labelledby="end-title"><button id="close-game-over" type="button" aria-label="Close Game Over and review board"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button><h1 id="end-title">Game Over</h1><div class="end-scores"><p><span>Score</span><strong id="final-score">0</strong></p><i aria-hidden="true"></i><p><span>Best</span><strong id="best-score">0</strong></p></div><div id="revive-offer"><button id="revive" type="button"><span>Revive</span><strong>${gemIcon} ${REVIVE_COST}</strong></button><p id="revive-detail">Turn the four center tiles into clearing stones.</p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↻</span></button></aside>`;
+  <aside id="game-over" hidden aria-labelledby="end-title"><button id="close-game-over" type="button" aria-label="Close Game Over and review board"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button><h1 id="end-title">Game Over</h1><div class="end-scores"><p><span>Score</span><strong id="final-score">0</strong></p><i aria-hidden="true"></i><p><span>Best</span><strong id="best-score">0</strong></p></div><div id="revive-offer"><button id="revive" type="button"><span>Revive</span><strong>${gemIcon} ${REVIVE_COST}</strong></button><p id="revive-detail">Turn the center 4×4 area into clearing stones.</p></div><button id="play-again" type="button">Play again <span aria-hidden="true">↻</span></button></aside>`;
 const sound=new SoundEngine();
 const soundButton=document.createElement('button');soundButton.id='sound-toggle';soundButton.type='button';
 soundButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9h5l5-4v14l-5-4H2z"/><path class="sound-waves" d="M15 8q4 4 0 8m3-11q6 7 0 14"/><path class="sound-off" d="m15 9 6 6m0-6-6 6"/></svg>';
@@ -107,7 +107,7 @@ function refreshRevive(){
   const eligible=!game.won&&game.reviveTargets().length>0;
   document.querySelector<HTMLElement>('#revive-offer')!.hidden=game.won;
   reviveButton.disabled=reviveInFlight||!eligible||progression.gems<REVIVE_COST;
-  document.querySelector('#revive-detail')!.textContent=!eligible?'Revive unavailable.':progression.gems<REVIVE_COST?'Earn gems through achievements to revive.':'Turn the four center tiles into clearing stones.';
+  document.querySelector('#revive-detail')!.textContent=!eligible?'Revive unavailable.':progression.gems<REVIVE_COST?'Earn gems through achievements to revive.':'Turn the center 4×4 area into clearing stones.';
 }
 function checkAchievements(){
   if(sandboxMode){game.featureAchievementEvents={};return;}
