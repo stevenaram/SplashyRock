@@ -148,7 +148,7 @@ export class World {
 
   addStone(cell: number, animate = true) {
     const leafy=this.game?.leafStones.has(cell)??false;
-    if(this.game?.fireStones.has(cell))this.fireSweeps.add(cell);
+    if(this.game?.fireStones.has(cell)){this.fireSweeps.add(cell);if(animate&&!this.reducedMotion.matches)this.effects.ashPuff(cell);}
     if(animate)this.onSound(leafy?'leafStone':'stone',cell);
     this.surface.set(cell,'stone');
     const group=stoneCluster(cell);

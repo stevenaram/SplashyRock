@@ -205,7 +205,7 @@ export class Game {
       this.board[cell] = tile; this.versions[cell]++;this.boardChange++; }
   }
   reconcileBushes(){
-    const extinguish=[...this.bushes].filter(([c,b])=>b.phase==='ablaze'&&b.blastTurn!==this.shapeMoves&&watered(this.board,c)).map(([c])=>c);
+    const extinguish=[...this.bushes].filter(([c,b])=>b.phase==='ablaze'&&!this.bushBurnouts.has(c)&&b.blastTurn!==this.shapeMoves&&watered(this.board,c)).map(([c])=>c);
     for(const c of extinguish){const b=this.bushes.get(c)!;b.phase='healthy';b.berries=0;b.berryTurn=this.shapeMoves;}
     for(const [c,b] of this.bushes){
       if(this.board[c]!=='bush'){this.bushes.delete(c);continue;}

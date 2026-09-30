@@ -41,6 +41,7 @@ export class Effects {
   private readonly geometry=new T.BoxGeometry(1,1,1);
   private readonly materials={
     obsidian:new T.MeshBasicMaterial({color:'#9c83bb'}),
+    ash:new T.MeshBasicMaterial({color:'#555c60'}),
     bush:new T.MeshBasicMaterial({color:'#8ac478'}),
     water:new T.MeshBasicMaterial({color:'#b1efed'}),
     lava:new T.MeshBasicMaterial({color:'#ffbd5b'}),
@@ -63,6 +64,10 @@ export class Effects {
       const m=new T.Mesh(this.tileGeometry,this.sandMaterial.clone());m.rotation.x=-Math.PI/2;m.userData={dx,dz,x:gridWorld(cell%8),z:gridWorld(Math.floor(cell/8))};m.scale.set(dx===0?.85:.06,dx===0?.06:.85,1);this.group.add(m);meshes.push(m);
     }
     this.waves.push({meshes,age:0});
+  }
+  ashPuff(cell:number){
+    const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
+    for(let i=0;i<16;i++){const a=i*2.399,m=new T.Mesh(this.geometry,this.materials.ash);m.position.set(x+Math.cos(a)*.35,.35+(i%3)*.1,z+Math.sin(a)*.35);this.group.add(m);this.particles.push({mesh:m,vx:Math.cos(a)*3,vy:.7+i%4*.2,vz:Math.sin(a)*3,age:0,life:.5+i%3*.06,steam:true,size:.16+i%3*.035});}
   }
   fireCross(cell:number){
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));

@@ -119,3 +119,9 @@ test('a fiery cross ignites even watered bushes until the next normal placement'
  const g=new Game();bush(g,27,4);g.board[26]='water';g.igniteBlastBushes([27]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');assert.equal(g.bushes.get(27)!.berries,0);
  put(g,'water',63);assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
 });
+for(const source of ['pet','shape'] as const)test(`${source} water cannot extinguish a burnout already committed by a shape placement`,()=>{
+ const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();put(g,'water',63);
+ assert.equal(g.bushesBusy,true);g.updateBushBurnouts(.3);if(source==='pet')g.plantPetTile(28,'water');else put(g,'water',28);
+ assert.equal(g.bushes.get(27)!.phase,'ablaze');g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');
+ g.updateBushBurnouts(.43);assert.equal(g.board[27],'stone');assert.equal(g.fireStones.has(27),true);
+});
