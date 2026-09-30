@@ -1,10 +1,11 @@
+import {bushTurn,watered,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
 import { SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
-export type Tile = Element | 'stone';
-export interface Piece { tile: Element | 'pet'; shape: Shape; petElement?: Element; eggCount?: number }
+export type Tile = Element | 'stone' | 'bush';
+export interface Piece { tile: Element | 'bush' | 'pet'; shape: Shape; petElement?: Element; eggCount?: number }
 export const SIZE = 8;
 
 // The pointer anchors the center cell of a shape's bounding box. Holes remain
@@ -15,6 +16,10 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
   return piece.shape.cells.map(([dx, dy]) => [x + dx, y + dy]);
 }
 export class Game {
+  readonly bushes=new Map<number,BushState>();
+  readonly bushBurnouts:number[]=[];
+  readonly berryEaten:number[]=[];
+  get bushesUnlocked(){return this.pets.filter(p=>p.hatchRemaining===0).length>=4;}
   readonly board: (Tile | null)[] = Array(SIZE * SIZE).fill(null);
   inventory: (Piece | null)[];
   private handsDealt=0;
@@ -143,7 +148,7 @@ export class Game {
       if(d>.001){const step=Math.min(d,dt*.8);b.x+=(tx-b.x)/d*step;b.y+=(ty-b.y)/d*step;continue;}
       b.moveAge+=dt;if(b.moveAge<1.6)continue;b.moveAge=0;
       const choices=squares.filter(c=>this.neighbors(b.cell).includes(c));if(choices.length)b.cell=choices[Math.floor(this.random()*choices.length)];
-    }return finished;
+    }this.reconcileBushes();return finished;
   }
   private helpfulPetTargets(element:Element):number[]{
     const pools=this.bosses.filter(b=>!b.deathRemaining&&b.element!==element);if(!pools.length)return [];
@@ -171,7 +176,35 @@ export class Game {
     if (this.board[cell] !== tile) {
       // Credit actual damage, not detached territory or the scripted death cleanup.
       if(!this.reviving)for(const b of this.bosses)if(!b.deathRemaining&&b.remaining.has(cell)&&this.board[cell]===b.element)b.damageTaken++;
+      if(tile==='bush')this.bushes.set(cell,{phase:'healthy',berries:0,reserved:0});else this.bushes.delete(cell);
       this.board[cell] = tile; this.versions[cell]++;this.boardChange++; }
+  }
+  reconcileBushes(){
+    for(const [c,b] of this.bushes){
+      if(this.board[c]!=='bush'){this.bushes.delete(c);continue;}
+      if(b.phase==='ablaze')continue;
+      if(watered(this.board,c)){if(b.phase==='smoldering')b.phase='healthy';}
+      else if(b.phase==='healthy'&&this.neighbors(c).some(n=>this.board[n]==='lava')){b.phase='smoldering';b.berries=0;}
+      if(b.phase!=='healthy')b.berries=0;
+    }
+  }
+  private advanceBushes(){
+    const turn=bushTurn(this.board,this.bushes);
+    for(const c of turn.burnout){this.write(c,null);this.bushBurnouts.push(c);}
+    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase!=='healthy')b.berries=0;}}
+    this.reconcileBushes();
+    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&watered(this.board,c))b.berries=4;
+  }
+  queuePetActions(){
+    const pets=[...this.pets];
+    for(let i=pets.length-1;i>0;i--){const j=Math.min(i,Math.floor(this.random()*(i+1)));[pets[i],pets[j]]=[pets[j],pets[i]];}
+    for(const pet of pets){
+      const choices=[...this.bushes].filter(([,b])=>b.phase==='healthy'&&b.berries>b.reserved);
+      if(!choices.length){pet.queueAbility(this.comboRun);continue;}
+      const [cell,b]=choices[Math.min(choices.length-1,Math.floor(this.random()*choices.length))];b.reserved++;
+      let released=false;const release=()=>{if(!released){b.reserved=Math.max(0,b.reserved-1);released=true;}};
+      pet.queueSnack(this.comboRun,cell,()=>{release();if(this.bushes.get(cell)===b&&b.phase==='healthy'&&b.berries>0){b.berries--;this.berryEaten.push(cell);}},release);
+    }
   }
   neighbors(cell: number): number[] {
     const x=cell%SIZE,y=Math.floor(cell/SIZE);
@@ -216,6 +249,7 @@ export class Game {
     return this.over;
   }
   restart() {
+    this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.bushBurnouts.length=0;this.berryEaten.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;
@@ -251,7 +285,7 @@ export class Game {
         const pool=hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
         return pool[Math.floor(this.random()*pool.length)];
       })(),
-      tile: bossCounter ?? (slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority),
+      tile: this.bushesUnlocked&&slot===2?'bush':this.bushesUnlocked?(bossCounter??(slot===0?majority:(majority==='water'?'lava':'water'))):bossCounter ?? (slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority),
     }));
   }
   claimEggRewards(): number {
@@ -290,7 +324,7 @@ export class Game {
   }
   plantPetTile(cell:number,element:Element,comboRun=this.comboRun):boolean {
     if(this.over||this.board[cell]!==null)return false;
-    this.write(cell,element);this.petTileEvents.push(cell);this.onPetPlacement(comboRun);return true;
+    this.write(cell,element);this.petTileEvents.push(cell);this.reconcileBushes();this.onPetPlacement(comboRun);return true;
   }
   stoneCandidates(): number[] {
     return this.board.flatMap((_, cell) => this.canFormStone(cell) ? [cell] : []);
@@ -324,6 +358,7 @@ export class Game {
       this.shapeMoves++;
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;
+      this.advanceBushes();
       this.growBosses();
     }
     if(piece.tile==='pet'&&(piece.eggCount??1)>1)this.inventory[slot]={...piece,eggCount:piece.eggCount!-1};

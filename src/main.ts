@@ -1,9 +1,10 @@
+import {seedBushTest,bushTestControls} from './bush-test';
 import {NoSpaceSequence} from './no-space';
 import {noticeRail} from './notice-rail';
 import {HighScore} from './high-score';
 import {BossSpawnQueue} from './boss-spawns';
 import {BossRewardCallout} from './boss-reward';
-import {bossTestMode,scoreTestMode,sandboxMode} from './test-mode';
+import {bossTestMode,scoreTestMode,sandboxMode,bushTestMode} from './test-mode';
 import {scoreTestControls} from './score-test';
 import {seedBossTest,bossTestControls} from './boss-test';
 import {gemIcon,REVIVE_COST} from './gems';
@@ -126,6 +127,8 @@ function showEnd(won=false){
   endDialog.hidden=false;host!.classList.add('ended');host!.classList.toggle('won',won);
 }
 function settled(){
+  game.reconcileBushes();
+  for(const c of game.bushBurnouts.splice(0))world.sandSweep(game.board,[c],c,'neighbors');
   for(const events of [game.bossGrowthEvents,game.bossLiquidEvents]){
     const pending=events.splice(0);
     for(const element of ['water','lava'] as const){const cells=pending.filter(e=>e.element===element&&game.board[e.cell]===element).map(e=>e.cell);if(cells.length)world.addPiece(0,{tile:element,shape:{id:'boss-growth',name:'Pool surge',width:1,height:1,cells:cells.map(c=>[c%8,Math.floor(c/8)])}});}
@@ -240,6 +243,7 @@ function restartRun(){
   bossSpawns.reset();world.removePet();game.restart();world.syncBoard(game.board,false);endDialog.hidden=true;host!.classList.remove('ended','won','reviewing');document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);
   shownCombo=0;combo.reset();bossReward.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
   if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
+  if(bushTestMode){seedBushTest(game,world);announcedEggs=game.rewardsDealt;}
   shownScore=game.score;resetGain();tutorial.start();updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
 }
@@ -300,7 +304,6 @@ function place() {
   if (selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
   if(!piece||(game.over&&(game.won||piece.tile!=='pet')))return false;
-  const pets=[...game.pets];
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
   if (!game.place(selected, target)){sound.play('reject');return false;}
@@ -310,7 +313,7 @@ function place() {
   world.addPiece(target, piece);
   if(game.over){selected=null;clearPreview();renderTray();return true;}
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
-  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility(game.comboRun);
+  if(piece.tile!=='pet')game.queuePetActions();
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
@@ -378,7 +381,9 @@ tray.addEventListener('click', event => {
 }, { signal: events.signal });
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
+  if(bushTestMode){seedBushTest(game,world);announcedEggs=game.rewardsDealt;}
 const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility(game.comboRun);});}):()=>{};
+const disposeBushTest=bushTestMode?bushTestControls(restartRun,()=>{game.inventory=['water','lava','bush'].map(tile=>({tile,shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0]]}})) as import('./game').Piece[];renderTray();}):()=>{};
 const disposeScoreTest=sandboxMode?scoreTestControls(amount=>{
   if(game.over)return false;
   game.score+=amount;game.claimEggRewards();settled();renderTray();return true;
@@ -387,4 +392,4 @@ const disposeScoreTest=sandboxMode?scoreTestControls(amount=>{
   progressUI.render();refreshRevive();return true;
 },()=>progression.gems):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices();noSpace.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer);clearTimeout(gainTimer); combo.dispose();bossReward.reset(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeBushTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices();noSpace.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer);clearTimeout(gainTimer); combo.dispose();bossReward.reset(); world.dispose(); });

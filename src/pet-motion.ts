@@ -13,6 +13,9 @@ export class PetMotion {
   hatchRemaining=0;
   startHatch(){this.hatchRemaining=1.8;this.revision++;}
   abilitiesUsed=0;
+  private snacks:({cell:number;eat:()=>void;cancel:()=>void}|undefined)[]=[];
+  snacksEaten=0;
+  feeding=0;
   private abilityRuns:number[]=[];
   hasAbilityFor(run:number){return this.abilityRuns.includes(run);}
   queued=0; // Ready abilities, not walking steps.
@@ -30,8 +33,9 @@ export class PetMotion {
   private recent:number[]=[];
   constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number,comboRun?:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[],private readonly reserved?:()=>ReadonlySet<number>){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
-  queueAbility(comboRun=0){this.abilityRuns.push(comboRun);this.queued++;this.revision++;}
-  cancelAbilities(){this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
+  queueAbility(comboRun=0){this.snacks.push(undefined);this.abilityRuns.push(comboRun);this.queued++;this.revision++;}
+  queueSnack(run:number,cell:number,eat:()=>void,cancel:()=>void){this.queueAbility(run);this.snacks[this.snacks.length-1]={cell,eat,cancel};}
+  cancelAbilities(){this.snacks.forEach(s=>s?.cancel());this.snacks.length=0;this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
   private leapTarget(){
     let distance=Infinity;const choices:number[]=[];
     const reserved=this.reserved?.();
@@ -45,9 +49,10 @@ export class PetMotion {
     return choices.length===1?choices[0]:choices.length?this.pick(choices):null;
   }
   private startLeap(){
-    const attack=this.attack?.();
+    const snack=this.snacks[0];
+    const attack=snack?null:this.attack?.();
     const targets=attack?.cells.filter(c=>this.available(c))??[];
-    const target=attack?(targets[0]??null):this.leapTarget();if(target===null)return false;
+    const target=snack?snack.cell:attack?(targets[0]??null):this.leapTarget();if(target===null)return false;
     this.attacking=!!attack;
     const distance=Math.hypot(target%8-this.x,Math.floor(target/8)-this.y)*2;
     const duration=Math.max(PET_LEAP_MIN,Math.min(PET_LEAP_MAX,distance/PET_LEAP_SPEED))*(attack?2:1);
@@ -60,8 +65,9 @@ export class PetMotion {
     this.cell=flight.target;this.x=this.cell%8;this.y=Math.floor(this.cell/8);this.next=null;this.progress=0;
     this.flight=null;this.leaping=false;this.leapProgress=0;this.planting=.000001;this.revision++;
     if(flight.cancelled)return;
-    if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.attacking=false;}
-    else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.abilitiesUsed++;}
+    if(this.snacks[0]){this.snacks[0]!.eat();this.feeding=.48;this.snacksEaten++;this.queued--;this.abilityRuns.shift();this.snacks.shift();return;}
+    if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.snacks.shift();this.attacking=false;}
+    else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.snacks.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
   }
   // Ability landings keep exclusive destinations; wandering uses soft occupancy.
@@ -145,7 +151,7 @@ export class PetMotion {
     return result;
   }
   // Cosmetic wandering must never keep a lost run alive indefinitely.
-  get busy(){return this.hatchRemaining>0||this.leaping||this.planting>0||(this.queued>0&&(this.attack?.()?.cells.some(c=>this.available(c))||this.leapTarget()!==null));}
+  get busy(){return this.feeding>0||this.hatchRemaining>0||this.leaping||this.planting>0||(this.queued>0&&(!!this.snacks[0]||this.attack?.()?.cells.some(c=>this.available(c))||this.leapTarget()!==null));}
   update(dt:number){
     this.updateSpacing(dt);
     if(this.hatchRemaining>0){const used=Math.min(dt,this.hatchRemaining);this.hatchRemaining-=used;dt-=used;if(this.hatchRemaining===0)this.revision++;}
@@ -157,6 +163,7 @@ export class PetMotion {
         if(t===1)this.land();
         continue;
       }
+      if(this.feeding>0){const used=Math.min(dt,this.feeding);this.feeding-=used;dt-=used;if(this.feeding===0)this.revision++;continue;}
       if(this.planting>0){const used=Math.min(dt,.18-this.planting);this.planting+=used;dt-=used;if(this.planting>=.18){this.planting=0;this.revision++;}continue;}
       if(this.queued>0&&this.startLeap())continue;
       if(this.next===null){

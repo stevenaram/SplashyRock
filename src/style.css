@@ -485,3 +485,5 @@ body:has(#game.ending) #notice-rail{visibility:hidden}
 #boss-test{max-height:calc(100dvh - 130px);overflow-y:auto;overscroll-behavior:contain}
 #score-test-controls{margin-top:10px;padding-top:10px;border-top:1px solid #a3ded740}
 #score-test-controls>div{display:flex;gap:6px}
+
+.bush{--fill:#387b48;--edge:#c0dd95}.space-attempt.bush{fill:#a3d580}

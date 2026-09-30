@@ -1,4 +1,4 @@
-export type SoundCue='pick'|'snap'|'reject'|'water'|'lava'|'stone'|'sand'|'steam'|'combo'|'reward'|'egg'|'hatch'|'charge'|'deal'|'over'|'win'|'restart'|'ui'|'warning'|'bossSpawn'|'bossHit'|'bossDeath'|'bossBurst'|'noSpace'|'bossSlam';
+export type SoundCue='pick'|'snap'|'reject'|'water'|'lava'|'stone'|'sand'|'steam'|'combo'|'reward'|'egg'|'hatch'|'charge'|'deal'|'over'|'win'|'restart'|'ui'|'warning'|'bossSpawn'|'bossHit'|'bossDeath'|'bossBurst'|'noSpace'|'bossSlam'|'bush'|'berry';
 
 // Small procedural instruments: immediate playback, no downloads, shared noise
 // and one restrained echo bus. Caps keep large pet/reaction chains comfortable.
@@ -95,6 +95,8 @@ export class SoundEngine {
       case 'water':this.tone(590,175,.18,.17);this.air(2500,.24,.07);this.tone(870,430,.1,.075,.045);this.tone(1100,680,.09,.04,.10);break;
       case 'lava':this.tone(135,62,.22,.18,0,'triangle');this.air(1100,.22,.10);this.air(2900,.06,.065,.02);this.tone(440,180,.10,.055,.06);break;
       case 'stone':this.tone(270,125,.16,.16,0,'triangle');this.air(1500,.13,.14);note(660,.18,.05,.025);break;
+      case 'bush':this.air(1900,.14,.07);this.tone(340,200,.09,.045);break;
+      case 'berry':this.tone(760,1120,.09,.06);this.air(2800,.065,.025);break;
       case 'sand':this.air(950,.23,.10);this.tone(120,60,.17,.065);break;
       case 'steam':this.air(2900,.38,.13);this.air(950,.25,.045,.025);note(880,.23,.028,.05);break;
       case 'combo':{const base=[523.25,659.25,783.99,1046.5][Math.min(3,Math.max(0,level-2))];[1,1.25,1.5].forEach((r,i)=>note(base*r,.32,.07,i*.065));break;}

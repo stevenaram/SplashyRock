@@ -2,4 +2,5 @@
 export const bossTestMode=new URLSearchParams(globalThis.location?.search??'').get('test')==='boss';
 
 export const scoreTestMode=new URLSearchParams(globalThis.location?.search??'').get('test')==='score';
-export const sandboxMode=bossTestMode||scoreTestMode;
+export const bushTestMode=new URLSearchParams(globalThis.location?.search??'').get('test')==='bush';
+export const sandboxMode=bossTestMode||scoreTestMode||bushTestMode;

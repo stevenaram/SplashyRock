@@ -40,6 +40,7 @@ export class Effects {
   private readonly ring=new T.RingGeometry(.36,.39,24);
   private readonly geometry=new T.BoxGeometry(1,1,1);
   private readonly materials={
+    bush:new T.MeshBasicMaterial({color:'#8ac478'}),
     water:new T.MeshBasicMaterial({color:'#b1efed'}),
     lava:new T.MeshBasicMaterial({color:'#ffbd5b'}),
     stone:new T.MeshBasicMaterial({color:'#e3e4c9'}),
@@ -74,7 +75,7 @@ export class Effects {
     }
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
     if(tile!=='stone'){
-      const ring=new T.Mesh(this.ring,new T.MeshBasicMaterial({color:tile==='water'?'#a3ded7':'#ffb957',transparent:true,opacity:.65,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(x,.09,z);this.group.add(ring);this.ripples.push({mesh:ring,age:0});
+      const ring=new T.Mesh(this.ring,new T.MeshBasicMaterial({color:tile==='water'?'#a3ded7':tile==='bush'?'#b8d998':'#ffb957',transparent:true,opacity:.65,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(x,.09,z);this.group.add(ring);this.ripples.push({mesh:ring,age:0});
     }
     for(let i=0;i<(tile==='stone'?6:petImpact?9:5);i++){
       const angle=i*2.399+cell, speed=(.7+(i%3)*.35)*(petImpact?1.3:1);
