@@ -18,6 +18,6 @@ test('revive clears only its central blast area with existing animation timing a
  const cleared=[19,20,26,27,28,29,34,35,36,37,43,44];assert.deepEqual(g.board.flatMap((v,i)=>v===null?[i]:[]),cleared);assert.equal(g.score,500);assert.equal(g.tilesCleared,12);assert.equal(g.maxCombo,0);
  g.finishRevive();assert.equal(g.over,false);
 });
-test('revive is unavailable in a live run, or a won run, but can overwrite empty sand',()=>{
- const g=new Game();g.board[27]='water';assert.deepEqual(g.beginRevive(),[]);g.over=true;g.won=true;assert.deepEqual(g.beginRevive(),[]);g.won=false;g.board.fill(null);assert.deepEqual(g.beginRevive(),[27,28,35,36]);
+test('revive remains available after losing while sailing, and can overwrite empty sand',()=>{
+ const g=new Game();g.board[27]='water';assert.deepEqual(g.beginRevive(),[]);g.won=true;assert.deepEqual(g.beginRevive(),[]);g.over=true;g.board.fill(null);assert.deepEqual(g.beginRevive(),[27,28,35,36]);g.finishRevive();assert.equal(g.over,false);assert.equal(g.won,true);
 });

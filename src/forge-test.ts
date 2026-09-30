@@ -1,4 +1,4 @@
-import {BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS} from './boat';
+import {BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS,BOAT_HULL_BRICKS} from './boat';
 import {REWARD_GOALS} from './egg-goals';
 import type {Game,Piece} from './game';
 import type {World} from './world';
@@ -20,7 +20,7 @@ export function forgeTestControls(game:Game,world:World,reset:()=>void,render:()
  panel.querySelector('[data-action="singles"]')!.addEventListener('click',()=>{const rewards=game.inventory.filter(p=>p?.tile==='forge'||p?.tile==='pet');game.inventory=[...(['lava','water','bush'] as const).map(tile=>({tile,shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0] as const]}})),...rewards];render();});
  panel.querySelector('[data-action="fuel"]')!.addEventListener('click',()=>{for(const c of game.forges.keys()){game.board[c-1]='lava';game.board[c+1]='water';game.versions[c-1]++;game.versions[c+1]++;}game.boardChange++;world.syncBoard(game.board,false);render();});
  const controls=document.createElement('div');controls.className='boat-test-controls';
- controls.innerHTML=`<label>Boat bricks <input aria-label="Boat bricks" type="number" min="0" max="${BOAT_TOTAL_BRICKS}" value="0"></label><button data-boat="apply">Set progress</button><div><button data-boat="0">Empty</button><button data-boat="${Math.floor(BOAT_WALL_BRICKS/2)}">Half hull</button><button data-boat="${BOAT_WALL_BRICKS}">Hull finished</button><button data-boat="${BOAT_TOTAL_BRICKS-1}">Last brick</button><button data-boat="${BOAT_TOTAL_BRICKS}">Complete boat</button></div>`;
+ controls.innerHTML=`<label>Boat bricks <input aria-label="Boat bricks" type="number" min="0" max="${BOAT_TOTAL_BRICKS}" value="0"></label><button data-boat="apply">Set progress</button><div><button data-boat="0">Empty</button><button data-boat="${BOAT_HULL_BRICKS}">Hull shell</button><button data-boat="${BOAT_WALL_BRICKS}">Ship fittings</button><button data-boat="${BOAT_TOTAL_BRICKS-1}">Last brick</button><button data-boat="${BOAT_TOTAL_BRICKS}">Launch & play</button></div>`;
  panel.append(controls);
  controls.addEventListener('click',event=>{const button=(event.target as HTMLElement).closest<HTMLButtonElement>('button[data-boat]');if(!button)return;const input=controls.querySelector('input')!;const count=button.dataset.boat==='apply'?Number(input.value):Number(button.dataset.boat);if(!Number.isFinite(count))return;game.setBoatProgress(count);input.value=String(game.boat.count);world.syncBoard(game.board,false);progressChanged();world.onPetChange();render();});
  panel.querySelector('[data-action="stock"]')!.addEventListener('click',()=>{for(const f of game.forges.values())f.bricks=10;render();});

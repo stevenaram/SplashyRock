@@ -9,8 +9,8 @@ function fixture(pets=1,bricks=2){const g=new Game(()=>.3,()=>true);g.board[27]=
 test('1,985 deliveries build a single-thickness hull, every fitting, and a flush full deck',()=>{
  assert.equal(BOAT_TOTAL_BRICKS,1985);assert.equal(new Set(BOAT_BLUEPRINT.flatMap(b=>b.detail===undefined?[]:[b.detail])).size,SHIP_PARTS.length);assert.ok(BOAT_BLUEPRINT.slice(0,BOAT_WALL_BRICKS).every(b=>!b.deck));assert.ok(BOAT_BLUEPRINT.slice(BOAT_WALL_BRICKS).every(b=>b.deck));
  assert.ok(BOAT_BLUEPRINT.filter(b=>b.detail===undefined&&!b.deck).every(b=>b.depth===.64));
- assert.ok(BOAT_BLUEPRINT.filter(b=>b.deck).every(b=>b.y+b.height/2<0&&b.width===2&&b.depth===2/3));
- for(let c=0;c<64;c++)assert.equal(BOAT_BLUEPRINT.filter(b=>b.cell===c).length,3);
+ assert.ok(BOAT_BLUEPRINT.filter(b=>b.deck).every(b=>b.y+b.height/2<0&&b.width===2&&b.depth===2));
+ for(let c=0;c<64;c++)assert.equal(BOAT_BLUEPRINT.filter(b=>b.cell===c).length,1);
  for(const b of BOAT_BLUEPRINT.filter(b=>!b.deck))assert.ok(Math.abs(b.x)>8||Math.abs(b.z)>8);
 });
 test('construction reservations cannot duplicate work, release holes, and only count delivered bricks',()=>{
@@ -40,8 +40,8 @@ test('revive-style cancellation after delivery keeps built work and does not ref
  const g=fixture(1,1);g.queuePetActions();for(let i=0;i<200&&!g.boat.count;i++)g.pets[0].update(.05);
  assert.equal(g.boat.count,1);g.pets[0].cancelAbilities();advance(g);assert.equal(g.forges.get(27)!.bricks,0);assert.equal(g.boat.count,1);assert.equal(g.pets[0].altitude,0);
 });
-test('winning prevents all further shape placements and progress controls can resume a won sandbox',()=>{
+test('launch is one-shot and gameplay continues on the sailing ship',()=>{
  const g=fixture();g.setBoatProgress(BOAT_TOTAL_BRICKS);assert.ok(g.finishIfWon());
- g.inventory=[{tile:'water',shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0]]}}];assert.equal(g.place(0,0),false);
- g.setBoatProgress(1);assert.equal(g.over,false);assert.equal(g.won,false);assert.ok(g.place(0,0));
+ g.inventory=[{tile:'water',shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0]]}}];assert.equal(g.over,false);assert.equal(g.finishIfWon(),false);assert.equal(g.place(0,0),true);
+ g.setBoatProgress(1);assert.equal(g.over,false);assert.equal(g.won,false);
 });

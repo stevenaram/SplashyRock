@@ -1,4 +1,4 @@
-import {BOAT_HULL_BRICKS,BOAT_WALL_BRICKS} from './boat';
+import {BOAT_HULL_BRICKS} from './boat';
 import {BoatView} from './boat-view';
 import {ForgeField} from './forge';
 import {BushField} from './bush-view';
@@ -19,7 +19,7 @@ export class World {
   private readonly boat:BoatView;
   private boatFrame={x:8,minZ:-8,maxZ:8,height:0};
   private launchAge=0;
-  private launchObjects:{object:THREE.Object3D;position:THREE.Vector3}[]=[];
+
   private readonly map=createMap();
   private shardSweeps=new Set<number>();
   private bushes=new BushField();
@@ -84,11 +84,11 @@ export class World {
     if (document.hidden || ms-this.previousTime < 1000/30) return;
     const dt=Math.min((ms-this.previousTime)/1000,.05);this.previousTime=ms;
     const time=this.reducedMotion.matches?0:ms/1000;
-    if(!this.game?.won&&this.launchObjects.length){for(const {object,position} of this.launchObjects)object.position.copy(position);this.launchObjects=[];this.launchAge=0;}
+
     this.surface.update(ms/1000,this.reducedMotion.matches);
     this.petBatch.prepare();
     let petsChanged=false;
-    if(!this.game?.won)for(const pet of this.pets){
+    for(const pet of this.pets){
       const revision=pet.motion.revision,busy=pet.motion.busy,hatch=pet.motion.hatchRemaining,charge=pet.motion.leaping,used=pet.motion.abilitiesUsed;pet.update(dt,this.reducedMotion.matches);
       if(used===0&&pet.motion.abilitiesUsed>0&&pet.motion===this.game?.pets[0])this.onFirstPetAbility(pet.motion.element);
       if(hatch>.65&&pet.motion.hatchRemaining<=.65)this.onSound('hatch',pet.motion.cell);
@@ -100,21 +100,21 @@ export class World {
     if(this.game){
       if(this.game.boatDeliveries.length)this.onSound('forge');this.boat.update(this.game,dt,this.reducedMotion.matches);
       for(const object of (this.island.userData.shipScenery??[]) as THREE.Object3D[])object.visible=this.game.boat.count<BOAT_HULL_BRICKS;
-      for(const object of (this.island.userData.shipShore??[]) as THREE.Object3D[])object.visible=this.game.boat.count<BOAT_WALL_BRICKS;
+      for(const object of (this.island.userData.shipShore??[]) as THREE.Object3D[])object.visible=this.launchAge<32;
       let reframed=false;for(const key of ['x','minZ','maxZ','height'] as const){const delta=this.boat.bounds[key]-this.boatFrame[key];if(Math.abs(delta)>.001){this.boatFrame[key]=this.reducedMotion.matches||Math.abs(delta)<.005?this.boat.bounds[key]:this.boatFrame[key]+delta*(1-Math.exp(-dt*6));reframed=true;}}if(reframed)this.resize();
       if(!this.forges.group.parent)this.scene.add(this.forges.group);this.forges.update(this.game,dt,this.reducedMotion.matches);
-      if(!this.game.won&&this.game.updateBushBurnouts(dt))petsChanged=true;
-      if(!this.game.won&&this.game.updateBoss(dt))petsChanged=true;
+      if(this.game.updateBushBurnouts(dt))petsChanged=true;
+      if(this.game.updateBoss(dt))petsChanged=true;
       for(const [id,view] of this.bossViews)if(!this.game.bosses.some(b=>b.id===id)){view.dispose();this.bossViews.delete(id);}
       for(const boss of this.game.bosses){let view=this.bossViews.get(boss.id);if(!view){view=new BossView(this.scene,this.host,(x,y,height)=>this.gridScreen(x,y,height),(cue,cell,level)=>this.onSound(cue,cell,level));this.bossViews.set(boss.id,view);}view.update(this.game,dt,this.reducedMotion.matches,boss);}
     }
     if(this.game){if(!this.bushes.group.parent)this.scene.add(this.bushes.group);this.bushes.update(this.game,time,this.reducedMotion.matches);for(const cell of this.game.berryEaten.splice(0)){this.onSound('berry',cell);if(!this.reducedMotion.matches)this.effects.burst(cell,'bush');}}
     if(this.game)for(const cell of this.game.obsidianEvents.splice(0)){if(this.game.board[cell]!=='obsidian')continue;this.surface.set(cell,'obsidian');this.onObsidian();this.onSound('steam',cell);if(!this.reducedMotion.matches)this.effects.evaporate(cell,'lava');}
-    if(this.game?.won){
-      if(!this.launchObjects.length){this.launchObjects=[this.boat.group,this.forges.group,this.bushes.group,this.surface.mesh,this.stones,this.map,...this.pets.map(p=>p.group)].map(object=>({object,position:object.position.clone()}));this.onSound('win');}
-      this.launchAge+=dt;const t=Math.min(1,this.launchAge/2.4),ease=t*t*(3-2*t);
-      for(const {object,position} of this.launchObjects)object.position.copy(position).add(new THREE.Vector3(0,this.reducedMotion.matches?0:Math.sin(t*Math.PI)*.12+ease*.12,this.reducedMotion.matches?0:-ease*1.5));
-    }
+    // Camera follows the ship: keep the complete gameplay coordinate frame
+    // fixed and move the island/ocean past it. New tiles, bosses, effects and
+    // pointer hit tests consequently share the exact same travelling deck.
+    if(this.game?.won){if(this.launchAge===0)this.onSound('win');this.launchAge+=dt;}else this.launchAge=0;
+    this.island.userData.sail?.(this.reducedMotion.matches?0:this.launchAge);
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {

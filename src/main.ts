@@ -110,8 +110,8 @@ function updateScore(){
   goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===REWARD_GOALS.length?'All egg and forge rewards earned':`Next ${REWARD_TYPES[index]==='forge'?'forge':'egg'} at ${target.toLocaleString()} score`);
 }
 function refreshRevive(){
-  const eligible=!game.won&&game.reviveTargets().length>0;
-  document.querySelector<HTMLElement>('#revive-offer')!.hidden=game.won;
+  const eligible=game.reviveTargets().length>0;
+  document.querySelector<HTMLElement>('#revive-offer')!.hidden=false;
   reviveButton.disabled=reviveInFlight||!eligible||progression.gems<REVIVE_COST;
   document.querySelector('#revive-detail')!.textContent=!eligible?'Revive unavailable.':progression.gems<REVIVE_COST?'Earn gems through achievements to revive.':'Turn the center 2×2 area into clearing stones.';
 }
@@ -134,7 +134,6 @@ function showEnd(won=false){
   endDialog.hidden=false;host!.classList.add('ended');host!.classList.toggle('won',won);
 }
 function settled(){
-  if(game.won)return;
   game.reconcileObsidian();
   game.reconcileBushes();
   for(const events of [game.bossGrowthEvents,game.bossLiquidEvents]){
@@ -152,7 +151,8 @@ function settled(){
     game.finishRevive();reviveInFlight=false;renderTray();updateScore();
   }
   checkAchievements();
-  if(!reactions.busy&&!sweeps.busy&&aftermaths.size===0&&game.finishIfWon()){clearTimeout(endTimer);aftermaths.forEach(a=>a.cancel());aftermaths.clear();reactions.dispose();sweeps.dispose();updateScore();host!.classList.add('won');endTimer=setTimeout(()=>{endTimer=undefined;showEnd(true);},2800);return;}
+  // Completing the ship unlocks an ongoing voyage, not a terminal game-over.
+  if(!reactions.busy&&!sweeps.busy&&aftermaths.size===0&&game.finishIfWon())updateScore();
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
   if (!game.over) reactions.schedule();
@@ -236,12 +236,12 @@ game.onPetPlacement=run=>{
 };
 
 document.querySelector('#close-game-over')!.addEventListener('click',()=>{
-  sound.play('ui');cancel();endDialog.hidden=true;host!.classList.add('reviewing');board.append(again);if(!game.won)board.append(reviveButton);
+  sound.play('ui');cancel();endDialog.hidden=true;host!.classList.add('reviewing');board.append(again);board.append(reviveButton);
   again.focus({preventScroll:true});
 }, {signal:events.signal});
 
 reviveButton.addEventListener('click',()=>{
-  if(reviveInFlight||!game.over||game.won||!game.reviveTargets().length)return;
+  if(reviveInFlight||!game.over||!game.reviveTargets().length)return;
   if(!progression.spend(REVIVE_COST)){refreshRevive();progressUI.render();return;}
   reviveInFlight=true;reviveButton.disabled=true;cancel();clearTimeout(endTimer);endTimer=undefined;
   playedBeyondIntro=false;const stones=game.beginRevive();
@@ -321,7 +321,7 @@ function updateTarget(x: number, y: number) {
 function place() {
   if (selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
-  if(!piece||(game.over&&(game.won||piece.tile!=='pet')))return false;
+  if(!piece||(game.over&&(piece.tile!=='pet')))return false;
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
   if (!game.place(selected, target)){sound.play('reject');return false;}
@@ -365,7 +365,7 @@ window.addEventListener('pointerup', event => {
   if (!drag || event.pointerId !== drag.pointer) return;
   if (drag.moved) {
     updateTarget(event.clientX, event.clientY - drag.offset);
-    if(target===null||(game.over&&(game.won||selected===null||game.inventory[selected]?.tile!=='pet')))sound.play('reject');
+    if(target===null||(game.over&&(selected===null||game.inventory[selected]?.tile!=='pet')))sound.play('reject');
     place();
     selected = null;
   }

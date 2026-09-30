@@ -72,6 +72,7 @@ export class Game {
     if(value&&!this.runOver)for(const pet of this.pets)pet.cancelAbilities();
     this.runOver=value;
   }
+  // Ship milestone: gameplay continues at sea; only `over` ends a run.
   won=false;
   rewardsDealt=0;
   boardChange=0;
@@ -81,7 +82,7 @@ export class Game {
   get petRewardDealt(){return this.rewardsDealt>0;}
   get earnedEggs(){return earnedEggs(this.score);}
   get petsBusy(){return this.pets.some(p=>p.busy);}
-  finishIfWon(){if(this.boat.complete&&!this.petsBusy){this.won=true;this.over=true;}return this.won;}
+  finishIfWon(){if(!this.won&&this.boat.complete&&!this.petsBusy){this.won=true;return true;}return false;}
   readonly bosses:Boss[]=[];
   get boss(){return this.bosses.find(b=>!b.deathRemaining)??null;}
   get bossesDying(){return this.bosses.some(b=>b.deathRemaining>0);}
@@ -343,7 +344,7 @@ export class Game {
     return [27,28,35,36];
   }
   beginRevive():number[]{
-    if(!this.over||this.won||this.reviving)return [];
+    if(!this.over||this.reviving)return [];
     const cells=this.reviveTargets().filter(c=>this.board[c]!=='forge'&&!this.heldByDyingBoss(c));if(!cells.length)return [];
     for(const pet of this.pets)pet.cancelAbilities();
     for(const b of this.bosses)b.surges.length=0;
@@ -450,7 +451,7 @@ export class Game {
   }
   place(slot: number, anchor: number): boolean {
     const piece = this.inventory[slot];
-    if (!piece || this.won || (this.over&&piece.tile!=='pet') || !this.canPlace(piece, anchor)) return false;
+    if (!piece || (this.over&&piece.tile!=='pet') || !this.canPlace(piece, anchor)) return false;
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');

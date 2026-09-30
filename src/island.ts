@@ -95,11 +95,11 @@ function palm(x:number,z:number,scale:number,rotation:number) {
 export function createIsland() {
   const group=new T.Group();group.name='island-scenery';
   const oceanMaterial=new T.ShaderMaterial({
-    uniforms:{time:{value:0}},
+    uniforms:{time:{value:0},voyage:{value:0}},
     vertexShader:'varying vec2 world;void main(){vec4 p=modelMatrix*vec4(position,1.);world=p.xz;gl_Position=projectionMatrix*viewMatrix*p;}',
-    fragmentShader:`precision highp float;varying vec2 world;uniform float time;
+    fragmentShader:`precision highp float;varying vec2 world;uniform float time;uniform float voyage;
     float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-    void main(){vec2 p=floor(world*32.)/32.;
+    void main(){vec2 p=floor((world-vec2(0.,voyage))*32.)/32.;
       float wave=sin(p.x*.9+p.y*1.4+time*.3)+sin(p.y*2.2-p.x*.4-time*.25);
       vec3 c=wave>1.25?vec3(.18,.60,.75):vec3(.14,.54,.70);
       float ripple=sin(p.y*10.+sin(p.x*2.+time*.3)*1.4-time*.65);
@@ -145,5 +145,7 @@ export function createIsland() {
     const shell=new T.Mesh(new T.BoxGeometry(.07+rng()*.12,.035,.06+rng()*.12),new T.MeshStandardMaterial({color:i%3?'#fff0c6':'#c4a774'}));shell.position.set(edge.x,-.045,edge.y);shell.rotation.y=rng()*6;group.add(shell);
   }
   group.userData.shipScenery=group.children.slice(sceneryStart);
+  const land=group.children.filter(o=>o!==ocean).map(object=>({object,z:object.position.z}));
+  group.userData.sail=(age:number)=>{const distance=age===0?0:1.5*(age-2*(1-Math.exp(-age/2)));oceanMaterial.uniforms.voyage.value=distance;for(const {object,z} of land)object.position.z=z+distance;};
   return group;
 }
