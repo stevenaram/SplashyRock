@@ -138,11 +138,30 @@ test('each boss needs a hatched opposite-element pet and rechecks existing pools
  }
 });
 
-test('waves retarget cleared source edges and do not grow into disconnected territory',()=>{
+test('waves preserve cleared source edges and do not grow into disconnected territory',()=>{
  const g=fixture();g.trySpawnBoss();g.inventory=[single];g.place(0,63);
  assert.ok(g.bossReservedCells.has(10));g.clearCells([18,19,20,21]);
- assert.equal(g.bossReservedCells.has(10),false);assert.ok(g.bossReservedCells.has(18));
- g.updateBoss(1.5);assert.equal(g.board[10],null);assert.equal(g.board[18],'water');
+ assert.equal(g.bossReservedCells.has(10),false);assert.equal(g.bossReservedCells.has(18),false);
+ g.updateBoss(1.5);assert.equal(g.board[10],null);for(const c of [18,19,20,21])assert.equal(g.board[c],null);
+});
+test('both boss elements exclude newly cleared liquid and stone targets from their waves',()=>{
+ for(const element of ['water','lava'] as Element[]){
+  const g=fixture();for(const c of block(18))g.board[c]=element;g.board[10]='stone';g.board[11]=element==='water'?'lava':'water';
+  g.trySpawnBoss();g.inventory=[single];g.place(0,63);g.updateBoss(.4);
+  g.clearCells([10,11,18,19]);
+  for(const c of [10,11,18,19])assert.equal(g.bossReservedCells.has(c),false);
+  g.updateBoss(1.1);
+  for(const c of [10,11,18,19]){assert.equal(g.board[c],null);assert.ok(g.bossGrowthEvents.every(e=>e.cell!==c));}
+  assert.equal(g.board[13],element);
+ }
+});
+test('queued waves track clears from their own placement without resetting older protection',()=>{
+ const g=fixture();g.trySpawnBoss();g.inventory=[single,single];g.place(0,63);
+ g.clearCells([18]);g.updateBoss(.2);g.place(1,62);g.clearCells([19]);
+ // Only the first wave reaches the board; the second still awaits its slam.
+ g.updateBoss(.5);assert.equal(g.board[18],null);assert.equal(g.board[19],null);
+ assert.ok(g.bossReservedCells.has(18));assert.equal(g.bossReservedCells.has(19),false);
+ g.updateBoss(1);assert.equal(g.board[18],'water');assert.equal(g.board[19],null);
 });
 test('pet leaps avoid pending expansion cells, and a dying boss releases reservations',()=>{
  const g=fixture();g.trySpawnBoss();g.inventory=[single];g.place(0,63);
