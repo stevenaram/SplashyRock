@@ -379,7 +379,7 @@ tray.addEventListener('click', event => {
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
 const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility(game.comboRun);});}):()=>{};
-const disposeScoreTest=scoreTestMode?scoreTestControls(amount=>{
+const disposeScoreTest=sandboxMode?scoreTestControls(amount=>{
   if(game.over)return false;
   game.score+=amount;game.claimEggRewards();settled();renderTray();return true;
 },()=>game.score,()=>EGG_GOALS[game.earnedEggs],restartRun,amount=>{

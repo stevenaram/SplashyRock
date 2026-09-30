@@ -99,7 +99,7 @@ export class Game {
     // Only surviving, connected source cells feed this wave: its own growth
     // cannot grow another layer. Recompute after clears so erased edges retarget.
     for(const c of wave.source)if(b.remaining.has(c)&&this.board[c]===b.element)for(const n of this.neighbors(c)){
-      if(this.board[n]===null&&!wave.grown.has(n)&&!this.pets.some(p=>p.leaping&&p.next===n))cells.add(n);
+      if(this.board[n]===null&&!wave.grown.has(n)&&!wave.stoneCleared.has(n)&&!this.pets.some(p=>p.leaping&&p.next===n))cells.add(n);
     }
     return cells;
   }
@@ -110,7 +110,7 @@ export class Game {
   private growBosses(){
     for(const b of this.bosses){
       if(b.regionRevision!==this.boardChange)this.reconcileBossRegion(b);
-      if(!b.deathRemaining)b.surges.push({age:0,x:b.x,y:b.y,source:new Set(b.remaining),grown:new Set()});
+      if(!b.deathRemaining)b.surges.push({age:0,x:b.x,y:b.y,source:new Set(b.remaining),grown:new Set(),stoneCleared:new Set()});
     }
   }
   private advanceSurges(b:Boss,dt:number){
@@ -177,11 +177,14 @@ export class Game {
     const x=cell%SIZE,y=Math.floor(cell/SIZE);
     return [[x-1,y],[x+1,y],[x,y-1],[x,y+1]].filter(([x,y])=>x>=0&&x<SIZE&&y>=0&&y<SIZE).map(([x,y])=>y*SIZE+x);
   }
-  clearCells(cells: readonly number[],comboRun=this.comboRun): number[] {
+  clearCells(cells: readonly number[],comboRun=this.comboRun,stoneSweep=false): number[] {
     const removed: number[]=[];
     for(const cell of new Set(cells)){if(this.board[cell]!==null&&!this.heldByDyingBoss(cell)){this.write(cell,null);removed.push(cell);}}
     for(const boss of this.bosses)if(!boss.deathRemaining)this.reconcileBossRegion(boss);
     const cleared=removed.filter(c=>this.board[c]===null);
+    // Protect actual stone-sweep clears for waves already pending. A later
+    // placement starts a fresh wave and may contest this space again.
+    if(stoneSweep)for(const boss of this.bosses)for(const wave of boss.surges)for(const cell of cleared)wave.stoneCleared.add(cell);
     if(!this.reviving){this.tilesCleared+=cleared.length;this.score+=cleared.length*10;if(this.combo>0&&comboRun===this.comboRun)this.chainPoints+=cleared.length*10;}
     this.payChainBonus();
     this.claimEggRewards();

@@ -157,3 +157,18 @@ test('growth respects a pet already in flight, newly occupied targets, and reviv
  g.board[11]='stone';g.updateBoss(1.5);assert.equal(g.board[10],null);assert.equal(g.board[11],'stone');
  g.inventory=[single];g.place(0,62);g.over=true;g.beginRevive();assert.equal(g.bossReservedCells.size,0);assert.equal(g.bossesExpanding,false);
 });
+
+test('stone sweeps protect cleared cells from pending waves, but later placements can expand there',()=>{
+ for(const element of ['water','lava'] as Element[]){
+  const g=fixture();for(const c of block(18))g.board[c]=element;g.trySpawnBoss();g.inventory=[single,single];g.place(0,63);
+  g.board[10]='stone';g.clearCells([10],g.comboRun,true);g.clearCells([18,19],g.comboRun,true);
+  assert.ok(!g.bossReservedCells.has(18));g.updateBoss(1.5);
+  for(const c of [10,18,19])assert.equal(g.board[c],null);
+  g.place(1,62);g.updateBoss(1.5);assert.equal(g.board[18],element);
+ }
+});
+test('stone clears protect every already queued wave and restart discards protection',()=>{
+ const g=fixture();g.trySpawnBoss();g.inventory=[single,single];g.place(0,63);g.place(1,62);
+ g.clearCells([18],g.comboRun-1,true);g.updateBoss(1.5);assert.equal(g.board[18],null);
+ g.restart();assert.equal(g.bossesExpanding,false);
+});

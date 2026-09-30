@@ -61,12 +61,12 @@ export class SandSweeps {
       if(this.scheduled.has(key))return;
       this.scheduled.add(key);this.owners.set(key,owner!);owner?.retain();added=true;
       this.later(STONE_BURY_MS,()=>{
-        const removed=this.game.board[cell]==='stone'&&this.game.versions[cell]===version?this.game.clearCells([cell],comboRun):[];
+        const removed=this.game.board[cell]==='stone'&&this.game.versions[cell]===version?this.game.clearCells([cell],comboRun,true):[];
         this.onSweep(removed,cell,'stone',depth,owner);
         // Reserve phase two before reporting completion: game-over must not
         // fire in the short visual pause between the two stages.
         this.later(NEIGHBOR_SWEEP_MS,()=>{
-          const cleared=this.game.clearCells(this.game.neighbors(cell),comboRun);
+          const cleared=this.game.clearCells(this.game.neighbors(cell),comboRun,true);
           this.scheduled.delete(key);this.owners.delete(key);this.onSweep(cleared,cell,'neighbors',depth,owner);this.onSettled();owner?.release();
         });
         this.onSettled();

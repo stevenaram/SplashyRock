@@ -481,3 +481,7 @@ body:has(#game.ended) #gem-reward {top:auto;bottom:12px;left:14px;transform:none
 .space-cross{fill:#fff1dc;stroke:#743c40;stroke-width:2px;paint-order:stroke;dominant-baseline:central;text-anchor:middle;font:800 24px system-ui}
 .space-word{fill:#fff9e8;stroke:#194b5e;stroke-width:6px;paint-order:stroke;stroke-linejoin:round;font:900 36px system-ui;text-anchor:middle;dominant-baseline:central;filter:drop-shadow(0 4px 0 #12354255)}
 body:has(#game.ending) #notice-rail{visibility:hidden}
+
+#boss-test{max-height:calc(100dvh - 130px);overflow-y:auto;overscroll-behavior:contain}
+#score-test-controls{margin-top:10px;padding-top:10px;border-top:1px solid #a3ded740}
+#score-test-controls>div{display:flex;gap:6px}
