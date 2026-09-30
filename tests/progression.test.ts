@@ -59,3 +59,43 @@ test('test gems fund revives without modifying persistent wallets',()=>{
  for(const amount of [0,-1,1.5,NaN,Infinity,1000001])assert.equal(p.addTestGems(amount),false);
  const saved=new Progression(memory());assert.equal(saved.addTestGems(100),false);assert.equal(saved.gems,0);
 });
+
+test('boss summons and simultaneous fights pay once; deaths count after animation across runs',()=>{
+ const storage=memory(),p=new Progression(storage),g=new Game();
+ const spawn=()=>{
+  g.pets.push(new PetMotion(56,'water',g.board,()=>{}),new PetMotion(57,'lava',g.board,()=>{}));
+  for(let i=0;i<9;i++){g.board[i%3+Math.floor(i/3)*8]='water';g.board[36+i%3+Math.floor(i/3)*8]='lava';}
+  g.boardChange++;g.trySpawnBoss();
+ };
+ spawn();let awards=p.observe(g,normal);
+ for(const id of ['boss-summon-water','boss-summon-lava','boss-dual'])assert.ok(awards.some(a=>a.id===id));
+ assert.equal(p.observe(g,normal).length,0);
+ g.clearCells([...g.bosses.find(b=>b.element==='water')!.remaining]);
+ assert.ok(!p.observe(g,normal).some(a=>a.id==='boss-defeat-water-1'));
+ g.updateBoss(3.1);assert.ok(p.observe(g,normal).some(a=>a.id==='boss-defeat-water-1'));
+ for(let run=0;run<4;run++){
+  g.restart();spawn();p.observe(g,normal);
+  g.clearCells([...g.bosses.find(b=>b.element==='water')!.remaining]);g.updateBoss(3.1);awards=p.observe(g,normal);
+ }
+ assert.ok(awards.some(a=>a.id==='boss-defeat-water-5'));
+ const reload=new Progression(storage);assert.equal(reload.gems,p.gems);
+ const next=reload.active().find(a=>a.family==='boss-water')!;assert.equal(next.target,10);assert.equal(next.progress,5);
+ assert.equal(reload.observe(g,normal).filter(a=>a.id.startsWith('boss-')).length,0);
+});
+test('score achievements catch up on score-only updates and never combine separate runs',()=>{
+ const storage=memory(),p=new Progression(storage),g=new Game();p.observe(g,normal);
+ g.score=50000;assert.deepEqual(p.observe(g,normal).map(a=>a.id),['score-50000']);
+ g.restart();g.score=60000;assert.equal(p.observe(g,normal).length,0);
+ g.score=2000000;const awards=p.observe(g,normal).filter(a=>a.family==='score');
+ assert.deepEqual(awards.map(a=>a.target),[100000,250000,500000,1000000,2000000]);
+ const reload=new Progression(storage);assert.equal(reload.observe(g,normal).length,0);
+ assert.equal(reload.active().find(a=>a.family==='score')!.target,5000000);
+});
+test('legacy saves retain wallet and awards while new boss fields default safely',()=>{
+ const storage=memory();storage.setItem(PROGRESS_KEY,JSON.stringify({gems:42,completed:['pet-1'],petBest:1,first:'lava'}));
+ const p=new Progression(storage);assert.equal(p.gems,42);assert.ok(p.completed().some(a=>a.id==='pet-1'));
+ assert.equal(p.active().find(a=>a.family==='boss-water')!.progress,0);
+ const g=new Game();g.bossAchievementEvents.push({kind:'defeat',element:'water'});
+ assert.equal(p.observe(g,{...normal,suppressed:true}).length,0);
+ assert.equal(p.observe(g,normal).length,0);
+});

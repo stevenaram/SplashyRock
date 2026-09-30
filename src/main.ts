@@ -151,6 +151,7 @@ function settled(){
     shownCombo=0;
   }
   bossSpawns.update([...aftermaths,...reactions.activeAftermaths,...sweeps.activeAftermaths]);
+  if(game.bossAchievementEvents.length)checkAchievements();
   tutorial.settled(!reactions.busy&&!sweeps.busy);
   game.claimEggRewards();announceEggs();
   updateScore();

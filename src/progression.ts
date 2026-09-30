@@ -4,8 +4,10 @@ export const PROGRESS_KEY='splashy-rock-progress-v1';
 export const PET_GOALS=Array.from({length:64},(_,i)=>i+1);
 export const COMBO_GOALS=Array.from({length:15},(_,i)=>i+2);
 export const CLEAR_GOALS=[16,32,64,128,256,512];
+export const BOSS_GOALS=[1,5,10,20,30,50,100];
+export const SCORE_GOALS=[50000,100000,250000,500000,1000000,2000000,5000000,10000000];
 export interface Achievement {id:string;title:string;description:string;reward:number;progress:number;target:number;family:string}
-interface State {gems:number;completed:string[];first:Element;networkStep:number;petBest:number;comboBest:number;clearBest:number;networkBest:number}
+interface State {waterDefeats:number;lavaDefeats:number;waterSummoned:boolean;lavaSummoned:boolean;dualBosses:boolean;scoreBest:number;gems:number;completed:string[];first:Element;networkStep:number;petBest:number;comboBest:number;clearBest:number;networkBest:number}
 const integer=(n:unknown,max=Number.MAX_SAFE_INTEGER)=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0?Math.min(n,max):0;
 export function largestConnection(board:readonly(Tile|null)[],element:Element,required?:ReadonlySet<number>){
  const seen=new Set<number>();let largest=0;
@@ -25,7 +27,7 @@ export class Progression {
  private lastChange=-1;
  private lastTiles:readonly(Tile|null)[]=Array(64).fill(null);
  constructor(private readonly storage?:Pick<Storage,'getItem'|'setItem'>,random:()=>number=Math.random){
-  this.state={gems:0,completed:[],first:random()<.5?'water':'lava',networkStep:0,petBest:0,comboBest:0,clearBest:0,networkBest:0};
+  this.state={waterDefeats:0,lavaDefeats:0,waterSummoned:false,lavaSummoned:false,dualBosses:false,scoreBest:0,gems:0,completed:[],first:random()<.5?'water':'lava',networkStep:0,petBest:0,comboBest:0,clearBest:0,networkBest:0};
   this.reload();this.save();
  }
  addTestGems(amount:number){
@@ -41,6 +43,12 @@ export class Progression {
    ...COMBO_GOALS.map(n=>row(`combo-${n}`,`Reach a ×${n} stone combo.`,3,this.state.comboBest,n,'combo')),
    ...Array.from({length:16},(_,i)=>{const element=i%2===0?this.state.first:this.state.first==='water'?'lava':'water',n=(Math.floor(i/2)+1)*8;return row(`network-${i}`,`Connect ${n} ${element} tiles in one group.`,3+Math.floor(n/16),i===this.state.networkStep?this.state.networkBest:0,n,'network');}),
    ...CLEAR_GOALS.map(n=>row(`clear-${n}`,`Clear ${n} tiles in a single run.`,5,this.state.clearBest,n,'clearing')),
+   ...(['water','lava'] as const).flatMap(element=>[
+    row(`boss-summon-${element}`,`Summon a ${element} boss.`,5,Number(this.state[element==='water'?'waterSummoned':'lavaSummoned']),1,`summon-${element}`),
+    ...BOSS_GOALS.map((n,i)=>row(`boss-defeat-${element}-${n}`,`Defeat ${n} ${element} ${n===1?'boss':'bosses'}.`,[10,15,20,30,40,60,100][i],this.state[element==='water'?'waterDefeats':'lavaDefeats'],n,`boss-${element}`))
+   ]),
+   row('boss-dual','Fight a water boss and a lava boss at the same time.',20,Number(this.state.dualBosses),1,'boss-dual'),
+   ...SCORE_GOALS.map((n,i)=>row(`score-${n}`,`Reach ${n.toLocaleString('en-US')} score in a single run.`,[10,15,20,25,40,60,100,150][i],this.state.scoreBest,n,'score')),
    row('clean-slate','Clear every tile from the board after the tutorial.',10,0,1,'clean'),
   ];
  }
@@ -50,7 +58,7 @@ export class Progression {
    const raw=this.storage?.getItem(PROGRESS_KEY);if(!raw)return;const data=JSON.parse(raw);
    if(!data||typeof data!=='object')return;
    const valid=this.validIds();
-   this.state={gems:integer(data.gems),completed:Array.isArray(data.completed)?[...new Set<string>(data.completed.filter((id:unknown)=>typeof id==='string'&&valid.has(id)))]:[],first:data.first==='lava'?'lava':'water',networkStep:integer(data.networkStep,16),petBest:integer(data.petBest,64),comboBest:integer(data.comboBest,64),clearBest:integer(data.clearBest),networkBest:integer(data.networkBest,64)};
+   this.state={waterDefeats:integer(data.waterDefeats),lavaDefeats:integer(data.lavaDefeats),waterSummoned:data.waterSummoned===true,lavaSummoned:data.lavaSummoned===true,dualBosses:data.dualBosses===true,scoreBest:integer(data.scoreBest),gems:integer(data.gems),completed:Array.isArray(data.completed)?[...new Set<string>(data.completed.filter((id:unknown)=>typeof id==='string'&&valid.has(id)))]:[],first:data.first==='lava'?'lava':'water',networkStep:integer(data.networkStep,16),petBest:integer(data.petBest,64),comboBest:integer(data.comboBest,64),clearBest:integer(data.clearBest),networkBest:integer(data.networkBest,64)};
   }catch{}
  }
  private save(){try{this.storage?.setItem(PROGRESS_KEY,JSON.stringify(this.state));}catch{}}
@@ -60,16 +68,23 @@ export class Progression {
   const changed=this.lastBoard!==game.board||this.lastChange!==game.boardChange;
   const previous=this.lastBoard===game.board?this.lastTiles:Array(64).fill(null);
   this.lastBoard=game.board;this.lastChange=game.boardChange;this.lastTiles=[...game.board];
+  const bossEvents=game.bossAchievementEvents.splice(0);
   if(options.suppressed)return [];
   const hatched=game.pets.filter(p=>p.hatchRemaining===0).length;
-  if(!changed&&hatched<=this.state.petBest&&game.maxCombo<=this.state.comboBest&&game.tilesCleared<=this.state.clearBest&&!(options.calm&&options.allowCleanBoard&&!this.state.completed.includes('clean-slate')&&game.tilesCleared>0&&game.board.every(t=>t===null)))return [];
+  if(!changed&&!bossEvents.length&&game.score<=this.state.scoreBest&&hatched<=this.state.petBest&&game.maxCombo<=this.state.comboBest&&game.tilesCleared<=this.state.clearBest&&!(options.calm&&options.allowCleanBoard&&!this.state.completed.includes('clean-slate')&&game.tilesCleared>0&&game.board.every(t=>t===null)))return [];
   const before=JSON.stringify(this.state),awards:Achievement[]=[];
+  this.state.scoreBest=Math.max(this.state.scoreBest,integer(game.score));
+  for(const event of bossEvents){
+   if(event.kind==='summon')this.state[event.element==='water'?'waterSummoned':'lavaSummoned']=true;
+   else if(event.kind==='defeat')this.state[event.element==='water'?'waterDefeats':'lavaDefeats']++;
+   else this.state.dualBosses=true;
+  }
   this.state.petBest=Math.max(this.state.petBest,hatched);
   this.state.comboBest=Math.max(this.state.comboBest,game.maxCombo);
   this.state.clearBest=Math.max(this.state.clearBest,game.tilesCleared);
   const award=(a:Achievement)=>{if(this.state.completed.includes(a.id))return;this.state.completed.push(a.id);this.state.gems+=a.reward;awards.push(a);};
   const catalog=this.catalog();
-  for(const a of catalog)if(['pets','combo','clearing'].includes(a.family)&&a.progress>=a.target)award(a);
+  for(const a of catalog)if(['pets','combo','clearing','summon-water','summon-lava','boss-water','boss-lava','boss-dual','score'].includes(a.family)&&a.progress>=a.target)award(a);
   // Only the currently active connection target can count on this board event.
   // A newly unlocked opposite-element target needs a later board change.
   if(changed&&this.state.networkStep<16){

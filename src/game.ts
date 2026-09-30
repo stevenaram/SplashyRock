@@ -39,6 +39,7 @@ export class Game {
   readonly bosses:Boss[]=[];
   get boss(){return this.bosses.find(b=>!b.deathRemaining)??null;}
   get bossesDying(){return this.bosses.some(b=>b.deathRemaining>0);}
+  readonly bossAchievementEvents:{kind:'summon'|'defeat'|'dual';element:Element}[]=[];
   bossesDefeated=0;
   shapeMoves=0;
   private bossId=0;
@@ -63,6 +64,8 @@ export class Game {
       const remaining=new Set(pool),blocks=poolBlocks(remaining);if(!blocks.length)continue;
       const anchor=blocks[Math.floor(this.random()*blocks.length)],cell=anchor+9;
       this.bosses.push({id:++this.bossId,element,cell,pool,remaining,hits:0,x:cell%8+.5,y:Math.floor(cell/8)+.5,moveAge:0,deathRemaining:0,maxTiles:pool.length,regionRevision:this.boardChange,damageTaken:0,surges:[]});spawned=true;
+      this.bossAchievementEvents.push({kind:'summon',element});
+      if(this.bosses.some(b=>b.element!==element&&!b.deathRemaining))this.bossAchievementEvents.push({kind:'dual',element});
     }return spawned;
   }
   private reconcileBossRegion(b:Boss){
@@ -129,7 +132,7 @@ export class Game {
       if(!b.deathRemaining&&b.regionRevision!==this.boardChange){this.reconcileBossRegion(b);if(b.deathRemaining)finished=true;}
 
       if(b.deathRemaining){b.deathRemaining=Math.max(0,b.deathRemaining-dt);if(b.deathRemaining===0){
-        this.bosses.splice(this.bosses.indexOf(b),1);this.bossesDefeated++;if(!this.reviving){const score=bossRewardScore(b.damageTaken);this.score+=score;this.bossRewards.push({element:b.element,x:b.x,y:b.y,damage:b.damageTaken,score});this.claimEggRewards();}
+        this.bosses.splice(this.bosses.indexOf(b),1);this.bossesDefeated++;if(!this.reviving){this.bossAchievementEvents.push({kind:'defeat',element:b.element});const score=bossRewardScore(b.damageTaken);this.score+=score;this.bossRewards.push({element:b.element,x:b.x,y:b.y,damage:b.damageTaken,score});this.claimEggRewards();}
         for(const c of b.remaining){this.write(c,'stone');this.stoneDepth[c]=1;this.bossStoneEvents.push(c);}finished=true;
       }continue;}
       if(this.advanceSurges(b,dt))finished=true;
