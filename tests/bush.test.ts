@@ -138,3 +138,24 @@ test('blast fire remains valid without lava even on a previously watered bush',(
  const g=new Game();bush(g,27);g.board[26]='water';g.reconcileBushes();g.clearCells([26]);
  g.igniteBlastBushes([27]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');
 });
+
+test('boss water expansion refills bushes once without assigning feeding or advancing fire',()=>{
+ const g=new Game(()=>.2);pets(g,2);
+ for(const c of [0,1,2,8,9,10,16,17,18])g.board[c]='water';
+ assert.equal(g.trySpawnBoss(),true);bush(g,4);
+ bush(g,55);g.board[54]='lava';
+ put(g,'water',60);g.queuePetActions();
+ const queued=g.pets.map(p=>p.queued),turn=g.shapeMoves;
+ assert.equal(g.bushes.get(4)!.berries,0);assert.equal(g.bushes.get(55)!.phase,'ablaze');
+ g.updateBoss(1.5);
+ assert.equal(g.board[3],'water');assert.equal(g.bushes.get(4)!.berries,4);assert.equal(g.bushes.get(4)!.reserved,0);
+ assert.deepEqual(g.pets.map(p=>p.queued),queued);assert.deepEqual(g.berryEaten,[]);
+ assert.equal(g.shapeMoves,turn);assert.equal(g.bushesBusy,false);
+ g.bushes.get(4)!.berries=1;g.updateBoss(.1);g.plantPetTile(5,'water');
+ assert.equal(g.bushes.get(4)!.berries,1);
+});
+test('water discovered during general reconciliation hydrates without requiring a pet placement',()=>{
+ const g=new Game();bush(g,27);put(g,'water',63);
+ g.board[26]='water';g.reconcileBushes();assert.equal(g.bushes.get(27)!.berries,4);
+ g.bushes.get(27)!.berries=0;g.reconcileBushes();assert.equal(g.bushes.get(27)!.berries,0);
+});
