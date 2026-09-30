@@ -31,14 +31,14 @@ export class PetMotion {
   private escapingStep=false;
   private escapeCache:{key:string;value:number|null}|null=null;
   private recent:number[]=[];
-  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number,comboRun?:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[],private readonly reserved?:()=>ReadonlySet<number>){this.x=cell%8;this.y=Math.floor(cell/8);}
+  constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number,comboRun?:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[],private readonly reserved?:()=>ReadonlySet<number>,private readonly placementAllowed?:(cell:number)=>boolean){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
   queueAbility(comboRun=0){this.snacks.push(undefined);this.abilityRuns.push(comboRun);this.queued++;this.revision++;}
   queueSnack(run:number,cell:number,eat:()=>boolean,cancel:()=>void,blast?:(cell:number)=>boolean){this.queueAbility(run);this.snacks[this.snacks.length-1]={cell,eat,cancel,blast};}
   cancelAbilities(){this.snacks.forEach(s=>s?.cancel());this.snacks.length=0;this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.feeding=0;this.attacking=false;this.revision++;}
   private leapTarget(){
     let distance=Infinity;const choices:number[]=[];
-    const reserved=this.reserved?.();
+    const reserved=new Set(this.reserved?.());for(let c=0;c<64;c++)if(this.placementAllowed&&!this.placementAllowed(c))reserved.add(c);
     const awayFromBush=(c:number)=>!this.cardinal(c).some(n=>this.board[n]==='bush');
     const avoidBush=this.element==='lava'&&this.board.some((tile,c)=>tile===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c)&&awayFromBush(c));
     const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c)&&(!avoidBush||awayFromBush(c)))??[];
@@ -164,7 +164,7 @@ export class PetMotion {
       if(c!==this.cell&&this.allowed(c)){result=first[c];break;}
       const x=c%8,y=Math.floor(c/8);
       for(const n of [x>0?c-1:-1,x<7?c+1:-1,y>0?c-8:-1,y<7?c+8:-1]){
-        if(n<0||seen.has(n)||this.board[n]==='stone'||(this.peers?.().filter(p=>p!==this&&(p.next??p.cell)===n).length??0)>=2)continue;
+        if(n<0||seen.has(n)||(this.board[n]==='stone'||this.board[n]==='forge')||(this.peers?.().filter(p=>p!==this&&(p.next??p.cell)===n).length??0)>=2)continue;
         seen.add(n);first[n]=c===this.cell?n:first[c];queue.push(n);
       }
     }
@@ -203,7 +203,7 @@ export class PetMotion {
         this.next=this.chooseWander(choices);this.progress=0;this.retreating=false;
       }
       const sx=this.cell%8,sy=Math.floor(this.cell/8),dx=this.next%8-sx,dy=Math.floor(this.next/8)-sy;
-      const blocked=this.escapingStep?this.board[this.next]==='stone':!this.allowed(this.next)||(dx&&dy&&(!this.allowed(sy*8+sx+dx)||!this.allowed((sy+dy)*8+sx)));
+      const blocked=this.escapingStep?(this.board[this.next]==='stone'||this.board[this.next]==='forge'):!this.allowed(this.next)||(dx&&dy&&(!this.allowed(sy*8+sx+dx)||!this.allowed((sy+dy)*8+sx)));
       if(blocked)this.retreating=true;
       const duration=Math.hypot(dx,dy)*2/1.7,remaining=(this.retreating?this.progress:1-this.progress)*duration;
       const used=Math.min(dt,remaining);dt-=used;this.progress+=used/duration*(this.retreating?-1:1);

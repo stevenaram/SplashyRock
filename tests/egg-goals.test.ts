@@ -7,10 +7,10 @@ const shape={id:'single',name:'Single',width:1,height:1,cells:[[0,0] as const]};
 const egg:Piece={tile:'pet',petElement:'water',shape};
 function deal(g:Game){g.inventory=[{tile:'water',shape},null,null];g.board[0]=null;g.place(0,0);g.board[0]=null;}
 test('egg milestones grow the incremental requirement by 1.2 from a 3000-score first egg',()=>{
- assert.deepEqual(EGG_GOALS.slice(0,5),[3000, 6600, 10920, 16104, 22325]);assert.equal(EGG_GOALS.length,64);assert.equal(EGG_GOALS[63],1752618086);
- assert.equal(earnedEggs(1752618085),63);assert.equal(earnedEggs(1752618086),64);
+ assert.deepEqual(EGG_GOALS.slice(0,5),[3000, 6600, 10920, 16104, 22325]);assert.equal(EGG_GOALS.length,16);assert.equal(EGG_GOALS[15],262326);
+ assert.equal(earnedEggs(262325),15);assert.equal(earnedEggs(262326),16);
  EGG_GOALS.forEach((goal,i)=>{assert.ok(Number.isSafeInteger(goal));if(i)assert.ok(goal>EGG_GOALS[i-1]);});
- assert.equal(earnedEggs(2999),0);assert.equal(earnedEggs(3000),1);assert.equal(earnedEggs(EGG_GOALS[3]),4);assert.equal(earnedEggs(Number.MAX_SAFE_INTEGER),64);
+ assert.equal(earnedEggs(2999),0);assert.equal(earnedEggs(3000),1);assert.equal(earnedEggs(EGG_GOALS[3]),4);assert.equal(earnedEggs(Number.MAX_SAFE_INTEGER),16);
 });
 test('large score jumps immediately preserve every egg without replacing shapes',()=>{
  const g=new Game(()=>.2),original=[...g.inventory];g.score=EGG_GOALS[3];
@@ -28,9 +28,9 @@ test('competing pets never overwrite each other and retain an ability until they
  g.pets.forEach(p=>{p.update(1.8);p.queueAbility();});g.pets.forEach(p=>p.update(.1));g.pets.forEach(p=>p.update(.401));assert.equal(g.board.filter(Boolean).length,1);assert.equal(g.pets[1].queued,1);
  for(let i=0;i<200;i++)g.pets.forEach(p=>p.update(.05));assert.equal(g.board.filter(Boolean).length,2);assert.ok(g.pets.every(p=>p.queued===0));
 });
-test('victory requires all 64 eggs to hatch, caps further eggs, and restart resets the entire collection',()=>{
+test('16 pets caps eggs without ending the run; restart resets the collection',()=>{
  const g=new Game();for(let i=0;i<MAX_PETS;i++){g.inventory=[egg,null,null];assert.ok(g.place(0,i));}
- assert.equal(g.finishIfWon(),false);assert.equal(g.canPlace(egg,0),false);g.pets.forEach(p=>p.update(1.8));assert.equal(g.finishIfWon(),true);assert.equal(g.over,true);
+ assert.equal(g.finishIfWon(),false);assert.equal(g.canPlace(egg,0),false);g.pets.forEach(p=>p.update(1.8));assert.equal(g.finishIfWon(),false);assert.equal(g.over,false);
  g.restart();assert.equal(g.won,false);assert.equal(g.pets.length,0);assert.equal(g.rewardsDealt,0);assert.equal(g.earnedEggs,0);
 });
 

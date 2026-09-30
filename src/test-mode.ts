@@ -3,4 +3,5 @@ export const bossTestMode=new URLSearchParams(globalThis.location?.search??'').g
 
 export const scoreTestMode=new URLSearchParams(globalThis.location?.search??'').get('test')==='score';
 export const bushTestMode=new URLSearchParams(globalThis.location?.search??'').get('test')==='bush';
-export const sandboxMode=bossTestMode||scoreTestMode||bushTestMode;
+export const forgeTestMode=new URLSearchParams(globalThis.location?.search??'').get('test')==='forge';
+export const sandboxMode=forgeTestMode||bossTestMode||scoreTestMode||bushTestMode;

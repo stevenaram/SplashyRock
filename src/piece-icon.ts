@@ -1,9 +1,11 @@
+import {forgeIcon} from './forge';
 import type { Piece } from './game';
 import {eggIcon} from './egg';
 
 // Each grid edge is emitted once, including shared interior dividers.
 export function pieceIcon(piece: Piece) {
   if(piece.tile==='pet')return `<img class="shape-icon pet-icon" src="${eggIcon()}" alt="" draggable="false"/>`;
+  if(piece.tile==='forge')return `<img class="shape-icon forge-icon" src="${forgeIcon()}" alt="" draggable="false"/>`;
   const {width,height,cells}=piece.shape;
   const edges=new Set<string>();
   const foliage=piece.tile==='bush'?cells.map(([x,y])=>`<path d="M${x*24+4},${y*24+15}v-7h5v-4h7v4h4v9h-5v3H8v-5z" fill="#80b866"/>`).join(''):'';

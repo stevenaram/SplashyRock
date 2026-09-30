@@ -1,12 +1,12 @@
 import type {FeatureMetric} from './feature-achievements';
 import {bushTurn,watered,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
-import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
+import {REWARD_GOALS,MAX_PETS,MAX_FORGES,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
 import { BUSH_SIZE_TIERS, SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
-export type Tile = Element | 'stone' | 'bush' | 'obsidian';
-export interface Piece { tile: Element | 'bush' | 'pet'; shape: Shape; petElement?: Element; eggCount?: number }
+export type Tile = Element | 'stone' | 'bush' | 'obsidian' | 'forge';
+export interface Piece { tile: Element | 'bush' | 'pet' | 'forge'; shape: Shape; petElement?: Element; eggCount?: number }
 export const SIZE = 8;
 
 // The pointer anchors the center cell of a shape's bounding box. Holes remain
@@ -17,6 +17,10 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
   return piece.shape.cells.map(([dx, dy]) => [x + dx, y + dy]);
 }
 export class Game {
+  readonly forges=new Map<number,{bricks:number;cycles:number}>();
+  basinElement(cell:number):Element|null {for(const c of this.forges.keys()){if(cell===c-1)return 'lava';if(cell===c+1)return 'water';}return null;}
+  canPlantElementAt(cell:number,element:Element){return this.board[cell]===null&&(!this.basinElement(cell)||this.basinElement(cell)===element);}
+  private produceBricks(){for(const [c,f] of this.forges)if(this.board[c-1]==='lava'&&this.board[c+1]==='water'&&f.bricks<10){f.bricks=Math.min(10,f.bricks+2);f.cycles++;}}
   berriesGrown=0;
   get bushShapeLimit(){return BUSH_SIZE_TIERS[Math.min(BUSH_SIZE_TIERS.length-1,Math.floor(this.berriesGrown/300))];}
 
@@ -71,7 +75,7 @@ export class Game {
   get petRewardDealt(){return this.rewardsDealt>0;}
   get earnedEggs(){return earnedEggs(this.score);}
   get petsBusy(){return this.pets.some(p=>p.busy);}
-  finishIfWon(){if(this.over)return this.won;if(this.pets.length===MAX_PETS&&this.pets.every(p=>p.hatchRemaining===0)){this.won=true;this.over=true;}return this.won;}
+  finishIfWon(){return this.won;}
   readonly bosses:Boss[]=[];
   get boss(){return this.bosses.find(b=>!b.deathRemaining)??null;}
   get bossesDying(){return this.bosses.some(b=>b.deathRemaining>0);}
@@ -121,7 +125,7 @@ export class Game {
   private beginBossDeath(b:Boss){
     if(b.deathRemaining)return;
     b.surges.length=0;b.deathRemaining=BOSS_DEATH_SECONDS;b.x=b.cell%8+.5;b.y=Math.floor(b.cell/8)+.5;
-    const held=[b.cell,b.cell+1,b.cell+8,b.cell+9];
+    const held=[b.cell,b.cell+1,b.cell+8,b.cell+9].filter(c=>this.board[c]!=='forge'&&(!this.basinElement(c)||this.basinElement(c)===b.element));
     for(const c of b.remaining)if(!held.includes(c)&&this.board[c]===b.element){this.write(c,'stone');this.stoneDepth[c]=1;this.bossStoneEvents.push(c);}
     b.remaining=new Set(held);
     for(const c of held){this.write(c,b.element);this.bossLiquidEvents.push({cell:c,element:b.element});}
@@ -135,7 +139,7 @@ export class Game {
     // Only surviving, connected source cells feed this wave: its own growth
     // cannot grow another layer. Recompute after clears so erased edges retarget.
     for(const c of wave.source)if(b.remaining.has(c)&&this.board[c]===b.element)for(const n of this.neighbors(c)){
-      if(this.board[n]===null&&!wave.grown.has(n)&&!wave.stoneCleared.has(n)&&!this.pets.some(p=>p.leaping&&p.next===n))cells.add(n);
+      if(this.canPlantElementAt(n,b.element)&&!wave.grown.has(n)&&!wave.stoneCleared.has(n)&&!this.pets.some(p=>p.leaping&&p.next===n))cells.add(n);
     }
     return cells;
   }
@@ -155,7 +159,7 @@ export class Game {
       wave.age+=dt;if(wave.age<BOSS_SLAM_DELAY)continue;
       const radius=(wave.age-BOSS_SLAM_DELAY)*BOSS_WAVE_SPEED;
       for(const c of this.surgeFrontier(b,wave))if(Math.hypot(c%8-wave.x,Math.floor(c/8)-wave.y)<=radius){
-        this.write(c,b.element);wave.grown.add(c);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});changed=true;
+        if(!this.canPlantElementAt(c,b.element))continue;this.write(c,b.element);wave.grown.add(c);b.remaining.add(c);this.bossGrowthEvents.push({cell:c,element:b.element});changed=true;
       }
     }
     const count=b.surges.length;b.surges=b.surges.filter(w=>w.age<BOSS_SURGE_DURATION);
@@ -204,6 +208,7 @@ export class Game {
     this.inventory = this.deal();
   }
   private write(cell: number, tile: Tile | null) {
+    if(this.board[cell]==='forge')return;
     if (this.board[cell] !== tile) {
       // Credit actual damage, not detached territory or the scripted death cleanup.
       if(!this.reviving)for(const b of this.bosses)if(!b.deathRemaining&&b.remaining.has(cell)&&this.board[cell]===b.element)b.damageTaken++;
@@ -264,7 +269,7 @@ export class Game {
   }
   clearCells(cells: readonly number[],comboRun=this.comboRun,stoneSweep=false): number[] {
     const removed: number[]=[];
-    for(const cell of new Set(cells)){if(this.board[cell]!==null&&!this.heldByDyingBoss(cell)){if(this.board[cell]==='obsidian')this.recordFeature('obsidian-cleared');this.write(cell,null);removed.push(cell);}}
+    for(const cell of new Set(cells)){if(this.board[cell]!==null&&this.board[cell]!=='forge'&&!this.heldByDyingBoss(cell)){if(this.board[cell]==='obsidian')this.recordFeature('obsidian-cleared');this.write(cell,null);removed.push(cell);}}
     for(const boss of this.bosses)if(!boss.deathRemaining)this.reconcileBossRegion(boss);
     const cleared=removed.filter(c=>this.board[c]===null);
     // Protect actual stone-sweep clears for waves already pending. A later
@@ -291,7 +296,7 @@ export class Game {
   }
   pieceFits(piece:Piece):boolean {return this.board.some((_,cell)=>this.canPlace(piece,cell));}
   hasLegalMove(): boolean {
-    const shapes=this.inventory.filter((piece):piece is Piece=>piece!==null&&piece.tile!=='pet');
+    const shapes=this.inventory.filter((piece):piece is Piece=>piece!==null&&piece.tile!=='pet'&&piece.tile!=='forge');
     if(shapes.length)return shapes.some(piece=>this.pieceFits(piece));
     // Eggs only: finishing this inventory can unlock a fresh hand of shapes.
     return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
@@ -301,7 +306,7 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.berriesGrown=0;
+    this.forges.clear();this.berriesGrown=0;
     this.featureAchievementEvents={};
     this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.leafStones.clear();this.bushBurnouts.forEach(job=>job.done());this.bushBurnouts.clear();this.fireStones.clear();this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
@@ -315,7 +320,7 @@ export class Game {
   }
   beginRevive():number[]{
     if(!this.over||this.won||this.reviving)return [];
-    const cells=this.reviveTargets().filter(c=>!this.heldByDyingBoss(c));if(!cells.length)return [];
+    const cells=this.reviveTargets().filter(c=>this.board[c]!=='forge'&&!this.heldByDyingBoss(c));if(!cells.length)return [];
     for(const pet of this.pets)pet.cancelAbilities();
     for(const b of this.bosses)b.surges.length=0;
     this.comboRun++;this.lastComboWave=-Infinity;
@@ -346,11 +351,12 @@ export class Game {
   claimEggRewards(): number {
     if(this.over)return 0;
     let count=0;
-    while(this.rewardsDealt<MAX_PETS&&this.score>=EGG_GOALS[this.rewardsDealt]){
-      const stack=this.inventory.find(piece=>piece?.tile==='pet');
+    while(this.rewardsDealt<REWARD_GOALS.length&&this.score>=REWARD_GOALS[this.rewardsDealt]){
+      const tile=this.rewardsDealt<MAX_PETS?'pet':'forge';
+      const stack=this.inventory.find(piece=>piece?.tile===tile);
       if(stack)stack.eggCount=(stack.eggCount??1)+1;
       else {
-        const egg:Piece={tile:'pet',eggCount:1,shape:{id:'pet-egg',name:'Mystery Egg',width:1,height:1,cells:[[0,0]]}};
+        const egg:Piece={tile,eggCount:1,shape:tile==='pet'?{id:'pet-egg',name:'Mystery Egg',width:1,height:1,cells:[[0,0]]}:{id:'forge',name:'Obsidian Forge',width:3,height:1,cells:[[0,0],[1,0],[2,0]]}};
         const empty=this.inventory[1]===null?1:this.inventory.indexOf(null);
         if(empty<0)this.inventory.push(egg);else this.inventory[empty]=egg;
       }
@@ -360,9 +366,10 @@ export class Game {
   }
   canPlace(piece: Piece, anchor: number): boolean {
     if(piece.tile==='pet'&&this.pets.length>=MAX_PETS)return false;
+    if(piece.tile==='forge'&&this.forges.size>=MAX_FORGES)return false;
     if (!Number.isInteger(anchor) || anchor < 0 || anchor >= SIZE * SIZE) return false;
     return footprint(piece, anchor).every(([x, y]) =>
-      x >= 0 && x < SIZE && y >= 0 && y < SIZE && this.board[y * SIZE + x] === null);
+      x >= 0 && x < SIZE && y >= 0 && y < SIZE && this.board[y * SIZE + x] === null&&(!this.basinElement(y*SIZE+x)||this.basinElement(y*SIZE+x)===piece.tile));
   }
   canFormStone(cell: number): boolean {
     if (!Number.isInteger(cell) || cell < 0 || cell >= SIZE * SIZE || this.board[cell] !== null) return false;
@@ -378,7 +385,7 @@ export class Game {
     return neighbors.includes('water')&&neighbors.includes('lava');
   }
   plantPetTile(cell:number,element:Element,comboRun=this.comboRun):boolean {
-    if(this.over||this.board[cell]!==null)return false;
+    if(this.over||!this.canPlantElementAt(cell,element))return false;
     this.write(cell,element);this.reconcileObsidian();this.petTileEvents.push(cell);this.reconcileBushes();
     this.onPetPlacement(comboRun);return true;
   }
@@ -414,9 +421,10 @@ export class Game {
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');
-      const pet=new PetMotion(anchor,element,this.board,(cell,run)=>this.plantPetTile(cell,element,run),this.random,()=>this.boardChange,()=>this.pets,undefined,()=>this.helpfulPetTargets(element),()=>this.bossReservedCells);
+      const pet=new PetMotion(anchor,element,this.board,(cell,run)=>this.plantPetTile(cell,element,run),this.random,()=>this.boardChange,()=>this.pets,undefined,()=>this.helpfulPetTargets(element),()=>this.bossReservedCells,c=>this.canPlantElementAt(c,element));
       pet.startHatch();this.pets.push(pet);
     }
+    else if(piece.tile==='forge'){this.write(anchor,'forge');this.forges.set(anchor,{bricks:0,cycles:0});}
     else {
       this.finishChain();this.comboRun++;this.lastComboWave=-Infinity;
       this.shapeMoves++;
@@ -424,10 +432,11 @@ export class Game {
       if(piece.tile==='bush')this.recordFeature('bush-planted',piece.shape.cells.length);
       this.score += piece.shape.cells.length;
       this.reconcileObsidian();
+      this.produceBricks();
       this.advanceBushes();
       this.growBosses();
     }
-    if(piece.tile==='pet'&&(piece.eggCount??1)>1)this.inventory[slot]={...piece,eggCount:piece.eggCount!-1};
+    if((piece.tile==='pet'||piece.tile==='forge')&&(piece.eggCount??1)>1)this.inventory[slot]={...piece,eggCount:piece.eggCount!-1};
     else this.inventory[slot] = null;
     this.claimEggRewards();
     if (!this.over&&this.inventory.every(item => item === null)) this.inventory = this.deal();

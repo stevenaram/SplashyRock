@@ -120,3 +120,8 @@ test('suppressed feature events are consumed without leaking into future rewards
  const p=new Progression(memory()),g=new Game();g.featureAchievementEvents={'obsidian-cleared':100};
  assert.deepEqual(p.observe(g,{...normal,suppressed:true}),[]);assert.deepEqual(p.observe(g,normal),[]);assert.equal(p.gems,0);
 });
+test('legacy pet achievements above 16 retire without taking away earned gems',()=>{
+ const storage=memory();storage.setItem(PROGRESS_KEY,JSON.stringify({gems:320,petBest:64,completed:Array.from({length:64},(_,i)=>`pet-${i+1}`)}));
+ const p=new Progression(storage);assert.equal(p.gems,320);assert.ok(!p.active().some(a=>a.family==='pets'));
+ const saved=JSON.parse(storage.getItem(PROGRESS_KEY)!);assert.equal(saved.petBest,16);assert.equal(saved.completed.filter((id:string)=>id.startsWith('pet-')).length,16);
+});

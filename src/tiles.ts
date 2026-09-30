@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Tile } from './game';
 export const COLORS = {
+  forge:{fill:'#657581',edge:'#cfb48a'},
   obsidian:{fill:'#251c39',edge:'#8a71ac'},
   bush: {fill:'#36764b',edge:'#bee18a'},
   water: { fill: '#248ab2', edge: '#a3ded7' },

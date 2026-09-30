@@ -1,3 +1,4 @@
+import {ForgeField} from './forge';
 import {BushField} from './bush-view';
 import {BossView} from './boss-view';
 import type {SoundCue} from './sound';
@@ -21,6 +22,7 @@ export class World {
   // Same lens and fixed viewing angle as Diggy Splash.
   readonly camera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
   readonly renderer = new THREE.WebGLRenderer({ antialias: false });
+  private readonly forges=new ForgeField(c=>this.onSound('forge',c));
   private readonly stones = new THREE.Group();
   private readonly surface = new ConnectedSurface();
   private readonly effects = new Effects();
@@ -86,6 +88,7 @@ export class World {
     this.flushPetTiles();
 
     if(this.game){
+      if(!this.forges.group.parent)this.scene.add(this.forges.group);this.forges.update(this.game,dt,this.reducedMotion.matches);
       if(this.game.updateBushBurnouts(dt))petsChanged=true;
       if(this.game.updateBoss(dt))petsChanged=true;
       for(const [id,view] of this.bossViews)if(!this.game.bosses.some(b=>b.id===id)){view.dispose();this.bossViews.delete(id);}
@@ -139,7 +142,7 @@ export class World {
   private pieceMesh(cell: number, piece: Piece, preview = false, valid = true) {
     const group = new THREE.Group();
     for (const [x, y] of footprint(piece, cell)) {
-      const mesh = createTile(piece.tile==='pet'?'stone':piece.tile, preview, valid);
+      const mesh = createTile(piece.tile==='forge'?(x<cell%8?'lava':x>cell%8?'water':'forge'):piece.tile==='pet'?'stone':piece.tile, preview, valid);
       mesh.position.x = gridWorld(x);
       mesh.position.z = gridWorld(y);
       group.add(mesh);
@@ -202,7 +205,8 @@ export class World {
   }
 
   addPiece(cell: number, piece: Piece) {
-    this.onSound(piece.tile==='pet'?'egg':piece.tile,cell);
+    this.onSound(piece.tile==='pet'?'egg':piece.tile==='forge'?'stone':piece.tile,cell);
+    if(piece.tile==='forge'){this.surface.set(cell,'forge');if(this.game)this.forges.update(this.game,0,this.reducedMotion.matches);return;}
     if(piece.tile==='pet'){if(this.game?.pet){const pet=new PetWalker(this.game.pet);this.pets.push(pet);this.scene.add(pet.group);}this.render();return;}
     const placed=footprint(piece,cell);
     for(const [x,y] of placed) {
@@ -282,6 +286,7 @@ export class World {
   }
 
   dispose() {
+    this.forges.dispose();
     this.bushes.dispose();this.bossViews.forEach(view=>view.dispose());this.bossViews.clear();
     this.removePet();
     cancelAnimationFrame(this.frame);

@@ -487,3 +487,8 @@ body:has(#game.ending) #notice-rail{visibility:hidden}
 #score-test-controls>div{display:flex;gap:6px}
 
 .bush{--fill:#387b48;--edge:#c0dd95}.space-attempt.bush{fill:#a3d580}
+
+.forge-icon {width: min(144px, 100%); height: 80px; object-fit:contain; image-rendering:pixelated;}
+.slot.forge {--fill:#657581;--edge:#cfb48a;}
+#egg-goal.forge-goal img {width:48px;height:29px;}
+@media(max-height:500px){.forge-icon{height:62px;}}

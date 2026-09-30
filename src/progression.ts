@@ -2,7 +2,7 @@ import {FEATURE_TRACKS,FEATURE_REWARDS,type FeatureMetric} from './feature-achie
 import type {Game,Element,Tile} from './game';
 
 export const PROGRESS_KEY='splashy-rock-progress-v1';
-export const PET_GOALS=Array.from({length:64},(_,i)=>i+1);
+export const PET_GOALS=Array.from({length:16},(_,i)=>i+1);
 export const COMBO_GOALS=Array.from({length:15},(_,i)=>i+2);
 export const CLEAR_GOALS=[16,32,64,128,256,512];
 export const BOSS_GOALS=[1,5,10,20,30,50,100];
@@ -60,7 +60,7 @@ export class Progression {
    const raw=this.storage?.getItem(PROGRESS_KEY);if(!raw)return;const data=JSON.parse(raw);
    if(!data||typeof data!=='object')return;
    const valid=this.validIds();
-   this.state={features:Object.fromEntries(FEATURE_TRACKS.map(t=>[t.id,integer(data.features?.[t.id])])),waterDefeats:integer(data.waterDefeats),lavaDefeats:integer(data.lavaDefeats),waterSummoned:data.waterSummoned===true,lavaSummoned:data.lavaSummoned===true,dualBosses:data.dualBosses===true,scoreBest:integer(data.scoreBest),gems:integer(data.gems),completed:Array.isArray(data.completed)?[...new Set<string>(data.completed.filter((id:unknown)=>typeof id==='string'&&valid.has(id)))]:[],first:data.first==='lava'?'lava':'water',networkStep:integer(data.networkStep,16),petBest:integer(data.petBest,64),comboBest:integer(data.comboBest,64),clearBest:integer(data.clearBest),networkBest:integer(data.networkBest,64)};
+   this.state={features:Object.fromEntries(FEATURE_TRACKS.map(t=>[t.id,integer(data.features?.[t.id])])),waterDefeats:integer(data.waterDefeats),lavaDefeats:integer(data.lavaDefeats),waterSummoned:data.waterSummoned===true,lavaSummoned:data.lavaSummoned===true,dualBosses:data.dualBosses===true,scoreBest:integer(data.scoreBest),gems:integer(data.gems),completed:Array.isArray(data.completed)?[...new Set<string>(data.completed.filter((id:unknown)=>typeof id==='string'&&valid.has(id)))]:[],first:data.first==='lava'?'lava':'water',networkStep:integer(data.networkStep,16),petBest:integer(data.petBest,16),comboBest:integer(data.comboBest,64),clearBest:integer(data.clearBest),networkBest:integer(data.networkBest,64)};
   }catch{}
  }
  private save(){try{this.storage?.setItem(PROGRESS_KEY,JSON.stringify(this.state));}catch{}}

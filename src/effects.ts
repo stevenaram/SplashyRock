@@ -40,6 +40,7 @@ export class Effects {
   private readonly ring=new T.RingGeometry(.36,.39,24);
   private readonly geometry=new T.BoxGeometry(1,1,1);
   private readonly materials={
+    forge:new T.MeshBasicMaterial({color:'#aaa0ba'}),
     obsidian:new T.MeshBasicMaterial({color:'#9c83bb'}),
     ember:new T.MeshBasicMaterial({color:'#f78132'}),
     spark:new T.MeshBasicMaterial({color:'#ffe9a4'}),

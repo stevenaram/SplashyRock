@@ -1,10 +1,12 @@
+import {forgeIcon} from './forge';
+import {seedForgeTest,forgeTestControls} from './forge-test';
 import {seedBushTest,bushTestControls} from './bush-test';
 import {NoSpaceSequence} from './no-space';
 import {noticeRail} from './notice-rail';
 import {HighScore} from './high-score';
 import {BossSpawnQueue} from './boss-spawns';
 import {BossRewardCallout} from './boss-reward';
-import {bossTestMode,scoreTestMode,sandboxMode,bushTestMode} from './test-mode';
+import {bossTestMode,scoreTestMode,sandboxMode,bushTestMode,forgeTestMode} from './test-mode';
 import {scoreTestControls} from './score-test';
 import {seedBossTest,bossTestControls} from './boss-test';
 import {gemIcon,REVIVE_COST} from './gems';
@@ -13,7 +15,7 @@ import {ProgressUI} from './progress-ui';
 import {seenTips} from './seen-tips';
 import {SoundEngine} from './sound';
 import {Tutorial} from './tutorial';
-import {EGG_GOALS,MAX_PETS} from './egg-goals';
+import {REWARD_GOALS,MAX_PETS} from './egg-goals';
 import {eggIcon} from './egg';
 import {Aftermath} from './aftermath';
 import './style.css';
@@ -53,6 +55,8 @@ let unlockTimer:ReturnType<typeof setTimeout>|undefined;
 function announceEggs(){
   if(game.rewardsDealt<=announcedEggs)return;
   sound.play('reward');
+  unlock.querySelector('strong')!.textContent=game.rewardsDealt>MAX_PETS?'Obsidian Forge Unlocked':'Egg Unlocked';
+  (unlock.querySelector('img') as HTMLImageElement).src=game.rewardsDealt>MAX_PETS?forgeIcon():eggIcon();
   announcedEggs=game.rewardsDealt;renderTray();unlock.hidden=false;
   unlock.getAnimations().forEach(a=>a.cancel());
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)unlock.animate([{opacity:0,transform:'translateY(8px) scale(.9)'},{opacity:1,transform:'translateY(-2px) scale(1.03)',offset:.7},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:480,easing:'cubic-bezier(.2,.8,.3,1)'});
@@ -96,12 +100,14 @@ function updateScore(){
   gainLabel.style.left=`${digitBounds.right-hudBounds.left+9}px`;
   gainLabel.style.top=`${digitBounds.top-hudBounds.top+digitBounds.height*.28}px`;
   shownScore=game.score;
-  const earned=game.earnedEggs,index=Math.min(earned,MAX_PETS-1),target=EGG_GOALS[index],previous=index?EGG_GOALS[index-1]:0;
-  const progress=earned===MAX_PETS?1:Math.max(0,Math.min(1,(game.score-previous)/(target-previous)));
-  goal.style.setProperty('--progress',String(progress));goal.querySelector('strong')!.textContent=earned===MAX_PETS?'64 / 64':target.toLocaleString();
+  const earned=REWARD_GOALS.filter(n=>game.score>=n).length,index=Math.min(earned,REWARD_GOALS.length-1),target=REWARD_GOALS[index],previous=index?REWARD_GOALS[index-1]:0;
+  goal.classList.toggle('forge-goal',earned>=MAX_PETS);
+  (goal.querySelector('img') as HTMLImageElement).src=earned>=MAX_PETS?forgeIcon():eggIcon();
+  const progress=earned===REWARD_GOALS.length?1:Math.max(0,Math.min(1,(game.score-previous)/(target-previous)));
+  goal.style.setProperty('--progress',String(progress));goal.querySelector('strong')!.textContent=earned===REWARD_GOALS.length?'8 / 8':target.toLocaleString();
   const pending=Math.max(0,earned-game.rewardsDealt);goal.classList.toggle('ready',pending>0);
   goal.querySelector('.egg-pending')!.textContent=pending?`+${pending}`:'';
-  goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===MAX_PETS?'All egg rewards earned':`Next egg at ${target.toLocaleString()} score`);
+  goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===REWARD_GOALS.length?'All forge rewards earned':`Next ${earned>=MAX_PETS?'forge':'egg'} at ${target.toLocaleString()} score`);
 }
 function refreshRevive(){
   const eligible=!game.won&&game.reviveTargets().length>0;
@@ -253,6 +259,7 @@ function restartRun(){
   shownCombo=0;combo.reset();bossReward.reset();announcedEggs=0;clearTimeout(unlockTimer);unlock.hidden=true;
   if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
   if(bushTestMode){seedBushTest(game,world);announcedEggs=game.rewardsDealt;}
+  if(forgeTestMode){seedForgeTest(game,world);announcedEggs=game.rewardsDealt;}
   shownScore=game.score;resetGain();tutorial.start();updateScore();renderTray();
   tray.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
 }
@@ -277,7 +284,7 @@ function renderTray() {
   tray.classList.toggle('expanded',game.inventory.length>3);
   const markup = game.inventory.map((piece, index) => `<button class="slot ${piece?.tile ?? 'used'}" data-slot="${index}"
     data-pet="${piece?.tile==='pet'?'egg':''}" data-shape="${piece?.shape.id ?? ''}" aria-label="${piece ? `${piece.tile} ${piece.shape.name}, piece ${index + 1}` : 'Used piece'}" aria-pressed="${selected === index}"
-    ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece)+(piece.tile==='pet'&&(piece.eggCount??1)>1?`<span class="egg-count" aria-hidden="true">${piece.eggCount}</span>`:'')+'<svg class="fit-warning" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path class="warning-mark" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>' : ''}</button>`).join('');
+    ${piece ? '' : 'disabled'}>${piece ? pieceIcon(piece)+((piece.tile==='pet'||piece.tile==='forge')&&(piece.eggCount??1)>1?`<span class="egg-count" aria-hidden="true">${piece.eggCount}</span>`:'')+'<svg class="fit-warning" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path class="warning-mark" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>' : ''}</button>`).join('');
   const fresh=game.inventory.map((piece,i)=>!!piece&&piece!==trayPieces[i]);
   if(markup===trayMarkup&&!fresh.some(Boolean)){updateTrayWarnings();return;}
   if(trayPieces.length&&fresh.length===3&&fresh.every(Boolean))sound.play('deal');
@@ -316,13 +323,13 @@ function place() {
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
   if (!game.place(selected, target)){sound.play('reject');return false;}
-  if(piece.tile!=='pet'){resetGain();shownScore=scoreBeforePlacement;if(oldMultiplier>1)combo.finish(0);else combo.reset();shownCombo=0;}
-  if(piece.tile!=='pet'&&!tutorial.guiding)playedBeyondIntro=true;
+  if(piece.tile!=='pet'&&piece.tile!=='forge'){resetGain();shownScore=scoreBeforePlacement;if(oldMultiplier>1)combo.finish(0);else combo.reset();shownCombo=0;}
+  if(piece.tile!=='pet'&&piece.tile!=='forge'&&!tutorial.guiding)playedBeyondIntro=true;
   tutorial.placed(piece,target);
   world.addPiece(target, piece);
   if(game.over){selected=null;clearPreview();renderTray();return true;}
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
-  if(piece.tile!=='pet')game.queuePetActions(()=>{aftermath.retain();return()=>aftermath.release();});
+  if(piece.tile!=='pet'&&piece.tile!=='forge')game.queuePetActions(()=>{aftermath.retain();return()=>aftermath.release();});
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
@@ -391,14 +398,16 @@ tray.addEventListener('click', event => {
 document.addEventListener('click',event=>{if((event.target as HTMLElement).closest('.tutorial-close,.tutorial-done,[data-phase],#goal-hint button'))sound.play('ui');},{signal:events.signal});
 if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rewardsDealt;}
   if(bushTestMode){seedBushTest(game,world);announcedEggs=game.rewardsDealt;}
+  if(forgeTestMode){seedForgeTest(game,world);announcedEggs=game.rewardsDealt;}
 const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility(game.comboRun);});}):()=>{};
 const disposeBushTest=bushTestMode?bushTestControls(restartRun,()=>{game.inventory=['water','lava','bush'].map(tile=>({tile,shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0]]}})) as import('./game').Piece[];renderTray();}):()=>{};
+const disposeForgeTest=forgeTestMode?forgeTestControls(game,world,restartRun,renderTray):()=>{};
 const disposeScoreTest=sandboxMode?scoreTestControls(amount=>{
   if(game.over)return false;
   game.score+=amount;game.claimEggRewards();settled();renderTray();return true;
-},()=>game.score,()=>EGG_GOALS[game.earnedEggs],restartRun,amount=>{
+},()=>game.score,()=>REWARD_GOALS[game.rewardsDealt],restartRun,amount=>{
   if(!progression.addTestGems(amount))return false;
   progressUI.render();refreshRevive();return true;
 },()=>progression.gems,()=>game.berriesGrown,value=>{game.berriesGrown=value;},()=>game.bushShapeLimit):()=>{};
 tutorial.start();updateScore();renderTray();
-if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeBushTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices();noSpace.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer);clearTimeout(gainTimer); combo.dispose();bossReward.reset(); world.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeBushTest();disposeScoreTest();disposeForgeTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices();noSpace.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer);clearTimeout(gainTimer); combo.dispose();bossReward.reset(); world.dispose(); });

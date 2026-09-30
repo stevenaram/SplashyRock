@@ -1,4 +1,4 @@
-export type SoundCue='pick'|'snap'|'reject'|'water'|'lava'|'stone'|'sand'|'steam'|'combo'|'reward'|'egg'|'hatch'|'charge'|'deal'|'over'|'win'|'restart'|'ui'|'warning'|'bossSpawn'|'bossHit'|'bossDeath'|'bossBurst'|'noSpace'|'bossSlam'|'bush'|'berry'|'leafStone'|'leaves';
+export type SoundCue='pick'|'snap'|'reject'|'water'|'lava'|'stone'|'sand'|'steam'|'combo'|'reward'|'egg'|'hatch'|'charge'|'deal'|'over'|'win'|'restart'|'ui'|'warning'|'bossSpawn'|'bossHit'|'bossDeath'|'bossBurst'|'noSpace'|'bossSlam'|'bush'|'berry'|'leafStone'|'leaves'|'forge';
 
 // Small procedural instruments: immediate playback, no downloads, shared noise
 // and one restrained echo bus. Caps keep large pet/reaction chains comfortable.
@@ -81,6 +81,7 @@ export class SoundEngine {
     if(now-(this.last.get(cue)??-100)<gap)return;this.last.set(cue,now);this.pan=Math.max(-.4,Math.min(.4,pan));
     const note=(f:number,d=.25,v=.1,at=0)=>{this.tone(f,f*.998,d,v,at,'sine',true);this.tone(f*2,f*2,d*.55,v*.2,at,'sine');};
     switch(cue){
+      case 'forge':this.air(1900,.18,.025);[0,.17].forEach(at=>{this.tone(740,700,.16,.045,at,'sine',true);this.tone(1480,1400,.09,.012,at,'sine');this.tone(180,110,.08,.04,at,'triangle');});break;
       case 'bossSlam':this.tone(180,65,.24,.12,0,'sine',true);this.air(level===1?2200:950,.38,.12);this.tone(level===1?620:330,180,.18,.055,.03);break;
       case 'bossSpawn':{const water=level===1;this.air(water?1600:950,.7,.095);this.tone(130,110,.3,.08,0,'sine',true);this.air(water?2400:1800,.45,.06,.3);this.roar(water);break;}
       case 'bossHit':{const f=level===1?330:246.94;this.tone(f,f*.84,.3,.075,0,'sine',true);this.tone(f*2,f*1.75,.2,.025,.025,'sine');this.air(level===1?1400:950,.19,.055);break;}
