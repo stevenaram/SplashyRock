@@ -237,3 +237,14 @@ test('lava ability falls back to bush-neighbor sand when no other legal destinat
  const b=Array<Tile|null>(64).fill('stone');b[27]=null;b[28]='bush';
  const p=new PetMotion(27,'lava',b,()=>true,()=>0);p.queueAbility();p.update(.01);assert.equal(p.next,27);
 });
+
+for(const element of ['water','lava'] as const)test(`${element} pet consumes its berry and drops an impossible blast immediately after eating`,()=>{
+ const b=board();b[27]='bush';let berries=1,released=0,blasts=0,planted=0;
+ const p=new PetMotion(27,element,b,()=>planted++,()=>0);
+ p.queueSnack(42,27,()=>{berries--;return true;},()=>released++,()=>{blasts++;return true;});
+ p.update(.5);assert.equal(berries,0);assert.equal(p.feeding,1);
+ p.update(1);assert.equal(p.queued,0);assert.equal(p.hasAbilityFor(42),false);assert.equal(released,1);assert.equal(p.busy,false);
+ // A later valid target must not resurrect the consumed berry's ability.
+ b[0]=element==='lava'?'water':'lava';p.update(5);
+ assert.ok(p.completed>0);assert.equal(p.leaping,false);assert.equal(blasts,0);assert.equal(planted,0);assert.equal(berries,0);assert.equal(released,1);
+});

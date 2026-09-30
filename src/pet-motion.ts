@@ -74,11 +74,15 @@ export class PetMotion {
     // A changed landing tile never consumes the action: retry after recovery.
   }
   private finishSnack(){const snack=this.snacks.shift();this.abilityRuns.shift();this.queued--;snack?.cancel();this.revision++;}
+  private berryTargetAllowed(c:number){
+    const opposite=this.element==='lava'?'water':'lava';
+    return this.board[c]===null&&this.available(c)&&this.cardinal(c).some(n=>this.board[n]===opposite);
+  }
   private berryTarget(){
-    const opposite=this.element==='lava'?'water':'lava';let distance=Infinity;const choices:number[]=[];
+    let distance=Infinity;const choices:number[]=[];
     // A launched jump exposes its destination through next immediately, so
     // subsequent pets in this frame must choose another available tile.
-    for(let c=0;c<64;c++){if(this.board[c]!==null||!this.available(c)||!this.cardinal(c).some(n=>this.board[n]===opposite))continue;
+    for(let c=0;c<64;c++){if(!this.berryTargetAllowed(c))continue;
       const d=Math.hypot(c%8-this.x,Math.floor(c/8)-this.y);if(d<distance-1e-9){distance=d;choices.length=0;choices.push(c);}else if(Math.abs(d-distance)<1e-9)choices.push(c);}
     return choices.length?this.pick(choices):null;
   }
@@ -176,7 +180,11 @@ export class PetMotion {
         if(t===1)this.land();
         continue;
       }
-      if(this.feeding>0){const used=Math.min(dt,this.feeding);this.feeding-=used;dt-=used;if(this.feeding===0)this.revision++;continue;}
+      if(this.feeding>0){const used=Math.min(dt,this.feeding);this.feeding-=used;dt-=used;if(this.feeding===0){
+        // A consumed berry never becomes a deferred ability waiting for space.
+        if(this.snacks[0]?.stage&&!this.board.some((_,c)=>this.berryTargetAllowed(c)))this.finishSnack();
+        this.revision++;
+      }continue;}
       if(this.planting>0){const used=Math.min(dt,.18-this.planting);this.planting+=used;dt-=used;if(this.planting>=.18){this.planting=0;this.revision++;}continue;}
       if(this.queued>0&&this.startLeap())continue;
       if(this.next===null){
