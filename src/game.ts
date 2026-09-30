@@ -18,7 +18,7 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
 }
 export class Game {
   berriesGrown=0;
-  get bushShapeLimit(){return BUSH_SIZE_TIERS[Math.min(BUSH_SIZE_TIERS.length-1,Math.floor(this.berriesGrown/1000))];}
+  get bushShapeLimit(){return BUSH_SIZE_TIERS[Math.min(BUSH_SIZE_TIERS.length-1,Math.floor(this.berriesGrown/300))];}
 
   featureAchievementEvents:Partial<Record<FeatureMetric,number>>={};
   private recordFeature(kind:FeatureMetric,count=1){if(!this.reviving&&count>0)this.featureAchievementEvents[kind]=(this.featureAchievementEvents[kind]??0)+count;}
