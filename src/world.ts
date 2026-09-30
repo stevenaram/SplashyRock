@@ -22,7 +22,7 @@ export class World {
   // Same lens and fixed viewing angle as Diggy Splash.
   readonly camera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
   readonly renderer = new THREE.WebGLRenderer({ antialias: false });
-  private readonly forges=new ForgeField(c=>this.onSound('forge',c));
+  private readonly forges=new ForgeField(c=>this.onSound('forge',c),(c,heat)=>this.surface.setForgeHeat(c,heat));
   private readonly stones = new THREE.Group();
   private readonly surface = new ConnectedSurface();
   private readonly effects = new Effects();

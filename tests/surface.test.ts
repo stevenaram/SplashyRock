@@ -55,12 +55,23 @@ test('stone removes decorations immediately and burial does not regrow them befo
  s.set(26,'water');s.update(.5,true);assert.equal(data[109],255);
  s.texture.dispose();s.mesh.geometry.dispose();s.material.dispose();
 });
-test('forge liquids produce no sand decorations; ordinary shared neighbors and basin decorations remain',()=>{
+test('forge liquids produce no sand decorations; ordinary shared neighbors remain outside the basins',()=>{
  const s=new ConnectedSurface(),data=s.texture.image.data;
  s.set(27,'forge');s.set(26,'lava');s.set(28,'water');s.update(0,true);
  assert.equal(data[18*4+2],0);assert.equal(data[36*4+1],0);
  s.set(10,'lava');s.set(44,'water');s.update(.1,true);
  assert.equal(data[18*4+2],255);assert.equal(data[36*4+1],255);
- s.set(26,null);s.set(18,'water');s.update(.2,true);assert.equal(data[26*4+1],255);
+ s.set(26,null);s.set(18,'water');s.update(.2,true);assert.equal(data[26*4+1],0);assert.equal(data[26*4+2],255);
+ s.texture.dispose();s.mesh.geometry.dispose();s.material.dispose();
+});
+test('empty forge basin cues always match their inputs, ignore exterior sources, and vanish when filled',()=>{
+ const s=new ConnectedSurface(),d=s.texture.image.data;s.set(27,'forge');s.update(0,true);
+ assert.equal(d[26*4+1],0);assert.equal(d[26*4+2],255);assert.equal(d[28*4+1],255);assert.equal(d[28*4+2],0);
+ s.set(18,'water');s.set(20,'lava');s.update(.1,true);
+ assert.equal(d[26*4+1],0);assert.equal(d[28*4+2],0);
+ s.set(26,'lava');s.set(28,'water');s.update(.2,true);
+ assert.equal(d[26*4+2],0);assert.equal(d[28*4+1],0);assert.equal(d[28*4+2],0);
+ const idleHeat=d[26*4+1];assert.ok(idleHeat>0);s.setForgeHeat(26,1);s.update(.3,true);assert.ok(d[26*4+1]>idleHeat);
+ s.set(26,null);s.update(.4,true);assert.equal(d[26*4+1],0);assert.equal(d[26*4+2],255);
  s.texture.dispose();s.mesh.geometry.dispose();s.material.dispose();
 });

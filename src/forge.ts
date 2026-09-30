@@ -24,7 +24,6 @@ export function createForge(){
   for(const z of [-.89,.89])box(group,x,.18,z,1.94,.27,.12,metal);
   for(const dx of [-.9,.9])box(group,x+dx,.18,0,.12,.27,1.8,metal);
   for(const dx of [-.86,.86])for(const z of [-.86,.86]){box(group,x+dx,.28,z,.24,.24,.24,bronze);box(group,x+dx,.415,z,.09,.04,.09,metal);}
-  box(group,x,.04,0,1.7,.025,1.7,new T.MeshBasicMaterial({color:x<0?'#756153':'#5e7880',transparent:true,opacity:.25}));
   // Inlaid element glyphs on the front rail explain the two inputs without words.
   box(group,x,.33,.89,.36,.045,.1,new T.MeshBasicMaterial({color:x<0?'#ffc075':'#a4e5ed'}));
  }
@@ -59,27 +58,31 @@ export function createForge(){
  }
  const chimney=box(group,-.5,1.1,-.67,.25,.35,.25,iron);box(group,-.5,1.29,-.67,.32,.055,.32,metal);
  const steam=Array.from({length:4},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.12,0),new T.MeshBasicMaterial({color:'#dbe9dc',transparent:true,opacity:0,depthWrite:false}));group.add(puff);return puff;});
+ const waterSteam=Array.from({length:5},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.20,1),new T.MeshBasicMaterial({color:'#e4f5ef',transparent:true,opacity:0,depthWrite:false}));puff.name='forge-water-steam';puff.visible=false;group.add(puff);return puff;});
  const paintedMaterials=new Set<T.Material>();group.traverse(o=>{if(o instanceof T.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])paintedMaterials.add(m);});
  gears.forEach(g=>batchPainted(g));bricks.forEach(b=>batchPainted(b));
  const glowParts=group.children.filter((o):o is T.Mesh=>o instanceof T.Mesh&&o.material===glow);batchPainted(group,[...pistons,...steam,...glowParts]);
- return{group,pistons,gears,bricks,glow,steam,chimney,dispose:()=>{disposeGroup(group);paintedMaterials.forEach(m=>m.dispose());}};
+ return{group,pistons,gears,bricks,glow,steam,waterSteam,chimney,dispose:()=>{disposeGroup(group);paintedMaterials.forEach(m=>m.dispose());}};
 }
 export class ForgeField{
  readonly group=new T.Group();
- constructor(private readonly produced:(cell:number)=>void=()=>{}){}
+ constructor(private readonly produced:(cell:number)=>void=()=>{},private readonly heat:(cell:number,value:number)=>void=()=>{}){}
  private views=new Map<number,{model:ReturnType<typeof createForge>;age:number;count:number;production:number;mechanism:number}>();
  update(game:Game,dt:number,reduced:boolean){
-  for(const [c,v] of this.views)if(!game.forges.has(c)){v.model.dispose();this.views.delete(c);}
+  for(const [c,v] of this.views)if(!game.forges.has(c)){this.heat(c-1,0);v.model.dispose();this.views.delete(c);}
   for(const [c,f] of game.forges){
    let v=this.views.get(c);if(!v){const model=createForge();model.group.position.set(gridWorld(c%8),.06,gridWorld(Math.floor(c/8)));this.group.add(model.group);v={model,age:0,count:0,production:10,mechanism:0};this.views.set(c,v);}
    if(v.count!==f.bricks){this.produced(c);v.production=0;v.count=f.bricks;}v.age+=dt;v.production+=dt;
    const active=game.board[c-1]==='lava'&&game.board[c+1]==='water'&&f.bricks<10,working=active||v.production<.8;
    if(working&&!reduced)v.mechanism+=dt;
+   const burst=reduced?0:Math.pow(Math.max(0,1-v.production/.85),.6);
+   this.heat(c-1,game.board[c-1]==='lava'?.3+burst*.7:0);
    const m=v.model;m.glow.color.set(working?'#ffba64':'#50434b');
    m.pistons.forEach((p,i)=>p.position.y=.7+(working&&!reduced?Math.sin(v.mechanism*9+i*Math.PI)*.1:0));
    m.gears.forEach((g,i)=>g.rotation.x=v.mechanism*(i?-1:1)*1.8);
    m.bricks.forEach((b,i)=>{b.visible=i<f.bricks;const t=Math.min(1,Math.max(0,(v.production-(i>=f.bricks-1?.12:0))/.4));const pop=i>=f.bricks-2&&!reduced?1+Math.sin(t*Math.PI)*.22:1;b.scale.setScalar(pop);b.position.y=.4+Math.floor(i/2)*.15+(i>=f.bricks-2&&!reduced?Math.sin(t*Math.PI)*.35:0);});
    m.steam.forEach((p,i)=>{const t=(v.age*.55+i*.25)%1;p.visible=working&&!reduced;p.position.set(-.5+Math.sin(i+t*4)*.06,1.4+t*.7,-.67);p.scale.setScalar(.6+t);p.material.opacity=Math.sin(t*Math.PI)*.24;});
+   m.waterSteam.forEach((p,i)=>{const t=(v.age*.65+i*.2)%1;p.visible=game.board[c+1]==='water'&&!reduced&&(i<4||burst>.05);p.position.set(2+Math.sin(i*2.4)*.53+Math.sin(t*3+i)*.08,.14+t*(.75+burst*.45),Math.cos(i*2.4)*.5);p.scale.setScalar(.35+t*(.9+burst*.4));p.material.opacity=Math.sin(t*Math.PI)*(.22+burst*.16);});
    if(!reduced&&v.age<.45){const t=Math.min(1,v.age/.45);m.group.scale.setScalar(.85+.15*t);m.group.position.y=.06+Math.sin(t*Math.PI)*.22;}
   }
  }

@@ -1,4 +1,4 @@
-import {neighborSource} from './neighbor-rules';
+import {neighborSource,forgeBasin,emptyForgeBasin} from './neighbor-rules';
 import * as T from 'three';
 import { SIZE, type Tile } from './game';
 
@@ -16,6 +16,8 @@ export class ConnectedSurface {
   readonly texture = new T.DataTexture(this.data,8,8,T.RGBAFormat);
   private readonly burying=new Set<number>();
   private cooling=new Float32Array(64);
+  private forgeHeat=new Float32Array(64);
+  setForgeHeat(cell:number,heat:number){this.forgeHeat[cell]=Math.max(0,Math.min(1,heat));}
   private previousTime: number | null = null;
   private readonly targets=new Uint8Array(128);
   private readonly progress=new Float32Array(128);
@@ -129,6 +131,9 @@ export class ConnectedSurface {
             c=crust>.61?vec3(.35,.15,.17):n<.32?vec3(.65,.19,.12):n<.57?vec3(.89,.29,.10):vec3(1.,.48,.13);
             if(abs(n-.48)<.04)c=vec3(1.,.69,.24);
             if(abs(n-.48)<.012)c=vec3(1.,.86,.48);
+            float furnace=texture2D(board,(cell+.5)/8.).g;
+            c=mix(c,vec3(1.,.56,.16),furnace*.38);
+            if(furnace>.01&&abs(n-.48)<.04)c=mix(c,vec3(1.,.95,.70),furnace*.8);
             if(edge<.125)c=vec3(.95,.39,.12);
             if(edge<.0625)c=vec3(1.,.70,.29);
           }else if(k>3.5){
@@ -169,7 +174,7 @@ export class ConnectedSurface {
   }
   finishBurial(cell:number){this.burying.delete(cell);}
   resetInfluences(){
-    this.burying.clear();this.targets.fill(0);this.progress.fill(0);this.starts.fill(0);this.ages.fill(0);this.previousTime=null;
+    this.burying.clear();this.forgeHeat.fill(0);this.targets.fill(0);this.progress.fill(0);this.starts.fill(0);this.ages.fill(0);this.previousTime=null;
     for(let cell=0;cell<64;cell++){this.data[cell*4+1]=0;this.data[cell*4+2]=0;}
     this.texture.needsUpdate=true;
   }
@@ -183,7 +188,8 @@ export class ConnectedSurface {
       const neighbors=[x>0?cell-1:-1,x<7?cell+1:-1,y>0?cell-8:-1,y<7?cell+8:-1];
       for(let element=0;element<2;element++){
         const index=cell*2+element;
-        const desired=this.board[cell]===null&&!this.burying.has(cell)&&neighbors.some(n=>neighborSource(this.board,n,element===0?'water':'lava'))?1:0;
+        const basin=forgeBasin(this.board,cell),kind=element===0?'water':'lava';
+        const desired=this.board[cell]===null&&!this.burying.has(cell)&&(basin?emptyForgeBasin(this.board,cell,kind):neighbors.some(n=>neighborSource(this.board,n,kind)))?1:0;
         if(desired!==this.targets[index]){
           this.targets[index]=desired;this.starts[index]=this.progress[index];
           // A small spatial stagger leads into, rather than delaying, stone's 500ms reaction.
@@ -192,8 +198,9 @@ export class ConnectedSurface {
         this.ages[index]+=dt;
         const t=Math.max(0,Math.min(1,this.ages[index]/(desired?.30:.18)));
         const eased=1-Math.pow(1-t,3);
-        this.progress[index]=reducedMotion||this.board[cell]!==null?desired:this.starts[index]+(desired-this.starts[index])*eased;
-        const byte=Math.round(this.progress[index]*255),offset=cell*4+element+1;
+        this.progress[index]=reducedMotion||this.board[cell]!==null||(basin&&!desired)?desired:this.starts[index]+(desired-this.starts[index])*eased;
+        const value=element===0&&this.board[cell]==='lava'&&forgeBasin(this.board,cell)?Math.max(.3,this.forgeHeat[cell]):this.progress[index];
+        const byte=Math.round(value*255),offset=cell*4+element+1;
         if(this.data[offset]!==byte){this.data[offset]=byte;changed=true;}
       }
     }
