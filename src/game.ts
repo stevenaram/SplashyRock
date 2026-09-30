@@ -317,7 +317,7 @@ export class Game {
     this.bushHandsDealt=0;this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   reviveTargets():number[]{
-    return Array.from({length:16},(_,i)=>(2+Math.floor(i/4))*SIZE+2+i%4);
+    return [27,28,35,36];
   }
   beginRevive():number[]{
     if(!this.over||this.won||this.reviving)return [];
