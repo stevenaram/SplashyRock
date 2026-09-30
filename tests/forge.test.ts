@@ -73,3 +73,13 @@ test('forge sandbox seeds eight hatched pets, first forge, and the next egg mile
  g.score=REWARD_GOALS[9];g.claimEggRewards();assert.equal(g.inventory.find(p=>p?.tile==='pet')?.eggCount,1);
  g.restart();seedForgeTest(g,{addPiece:()=>{},syncBoard:()=>{}} as unknown as import('../src/world').World);assert.equal(g.pets.length,8);
 });
+test('forge lava resists direct water contact while ordinary lava still forms obsidian',()=>{
+ const g=new Game();place(g,forge,27);g.board[26]='lava';g.board[18]='water';g.board[17]='lava';
+ g.reconcileObsidian();assert.equal(g.board[26],'lava');assert.equal(g.board[17],'obsidian');
+});
+test('forge liquids cannot supply stone or berry blast neighbors, but external liquids can',()=>{
+ const g=new Game();place(g,forge,27);g.board[26]='lava';g.board[28]='water';g.board[16]='water';
+ assert.equal(g.canFormStone(18),false);assert.equal(g.formLeafStone(36,'lava'),false);
+ g.board[10]='lava';g.board[19]='water';assert.equal(g.canFormStone(18),true);
+ g.board[44]='water';assert.equal(g.formLeafStone(36,'lava'),true);
+});

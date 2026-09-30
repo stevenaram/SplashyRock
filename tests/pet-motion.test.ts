@@ -265,3 +265,16 @@ test('water berry blasts retain nearest-target behavior',()=>{
  const p=new PetMotion(27,'water',b,()=>{},()=>0);p.queueSnack(1,27,()=>true,()=>{},()=>true);
  p.update(1.51);assert.equal(p.next,29);
 });
+for(const element of ['water','lava'] as const)test(`${element} berry blasts rank forge-adjacent targets last, with a valid fallback`,()=>{
+ const b=Array<Tile|null>(64).fill('stone'),opposite=element==='lava'?'water':'lava';
+ b[27]='forge';b[17]='bush';b[10]=b[0]=opposite;b[18]=b[1]=null;b[8]='bush';
+ const p=new PetMotion(17,element,b,()=>{},()=>0);p.queueSnack(1,17,()=>true,()=>{},()=>true);p.update(1.51);
+ assert.equal(p.next,1); // More distant, bush-adjacent source still beats the forge.
+ const blocker=new PetMotion(1,element,b,()=>{}),q=new PetMotion(17,element,b,()=>{},()=>0,undefined,()=>[blocker]);
+ q.queueSnack(2,17,()=>true,()=>{},()=>true);q.update(1.51);assert.equal(q.next,18);
+});
+test('a forge liquid alone cannot provide a berry-blast landing',()=>{
+ const b=Array<Tile|null>(64).fill('stone');b[27]='forge';b[28]='water';b[36]=null;b[35]='bush';
+ const p=new PetMotion(35,'lava',b,()=>{},()=>0);p.queueSnack(1,35,()=>true,()=>{},()=>true);p.update(1.51);
+ assert.equal(p.queued,0);assert.equal(p.leaping,false);
+});

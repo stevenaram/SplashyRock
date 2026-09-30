@@ -55,3 +55,12 @@ test('stone removes decorations immediately and burial does not regrow them befo
  s.set(26,'water');s.update(.5,true);assert.equal(data[109],255);
  s.texture.dispose();s.mesh.geometry.dispose();s.material.dispose();
 });
+test('forge liquids produce no sand decorations; ordinary shared neighbors and basin decorations remain',()=>{
+ const s=new ConnectedSurface(),data=s.texture.image.data;
+ s.set(27,'forge');s.set(26,'lava');s.set(28,'water');s.update(0,true);
+ assert.equal(data[18*4+2],0);assert.equal(data[36*4+1],0);
+ s.set(10,'lava');s.set(44,'water');s.update(.1,true);
+ assert.equal(data[18*4+2],255);assert.equal(data[36*4+1],255);
+ s.set(26,null);s.set(18,'water');s.update(.2,true);assert.equal(data[26*4+1],255);
+ s.texture.dispose();s.mesh.geometry.dispose();s.material.dispose();
+});

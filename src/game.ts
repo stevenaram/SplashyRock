@@ -1,3 +1,4 @@
+import {forgeBasin,neighborSource} from './neighbor-rules';
 import type {FeatureMetric} from './feature-achievements';
 import {bushTurn,watered,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
@@ -49,7 +50,7 @@ export class Game {
   onLeafStone:(cell:number,run:number)=>void=()=>{};
   readonly obsidianEvents:number[]=[];
   reconcileObsidian(){
-    const cells=this.board.flatMap((tile,c)=>tile==='lava'&&this.neighbors(c).some(n=>this.board[n]==='water')?[c]:[]);
+    const cells=this.board.flatMap((tile,c)=>tile==='lava'&&!forgeBasin(this.board,c)&&this.neighbors(c).some(n=>this.board[n]==='water')?[c]:[]);
     for(const c of cells){this.write(c,'obsidian');this.recordFeature('obsidian-formed');this.obsidianEvents.push(c);}
     return cells.length>0;
   }
@@ -379,7 +380,7 @@ export class Game {
       const nx = x + dx, ny = y + dy;
       if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
         const tile = this.board[ny * SIZE + nx];
-        if (tile) neighbors.push(tile);
+        if ((tile==='water'||tile==='lava')&&neighborSource(this.board,ny*SIZE+nx,tile)) neighbors.push(tile);
       }
     }
     return neighbors.includes('water')&&neighbors.includes('lava');
@@ -398,7 +399,7 @@ export class Game {
   }
   formLeafStone(cell:number,element:Element,run=this.comboRun){
     const opposite=element==='lava'?'water':'lava';
-    if(this.board[cell]!==null||!this.neighbors(cell).some(n=>this.board[n]===opposite))return false;
+    if(this.board[cell]!==null||!this.neighbors(cell).some(n=>neighborSource(this.board,n,opposite)))return false;
     this.createStone(cell,1,run,performance.now());this.recordFeature('berry-blast');this.leafStones.add(cell);this.onLeafStone(cell,run);return true;
   }
   private createStone(cell:number,depth:number,comboRun:number,now:number){

@@ -1,3 +1,4 @@
+import {neighborSource,besideForge} from './neighbor-rules';
 import type {Element, Tile} from './game';
 
 export const PET_LEAP_MIN=.5;
@@ -76,14 +77,16 @@ export class PetMotion {
   private finishSnack(){const snack=this.snacks.shift();this.abilityRuns.shift();this.queued--;snack?.cancel();this.revision++;}
   private berryTargetAllowed(c:number){
     const opposite=this.element==='lava'?'water':'lava';
-    return this.board[c]===null&&this.available(c)&&this.cardinal(c).some(n=>this.board[n]===opposite);
+    return this.board[c]===null&&this.available(c)&&this.cardinal(c).some(n=>neighborSource(this.board,n,opposite));
   }
   private berryTarget(){
     let distance=Infinity;const choices:number[]=[];
-    const candidates=this.board.flatMap((_,c)=>this.berryTargetAllowed(c)?[c]:[]);
+    const available=this.board.flatMap((_,c)=>this.berryTargetAllowed(c)?[c]:[]);
+    const awayFromForge=available.filter(c=>!besideForge(this.board,c));
+    const candidates=awayFromForge.length?awayFromForge:available;
     // Lava berry blasts favor water sources that are not feeding a bush.
     // Rank the water tile itself, not the sand tile where the pet lands.
-    const preferred=this.element==='lava'?candidates.filter(c=>this.cardinal(c).some(n=>this.board[n]==='water'&&!this.cardinal(n).some(b=>this.board[b]==='bush'))):[];
+    const preferred=this.element==='lava'?candidates.filter(c=>this.cardinal(c).some(n=>neighborSource(this.board,n,'water')&&!this.cardinal(n).some(b=>this.board[b]==='bush'))):[];
     // A launched jump exposes its destination through next immediately, so
     // subsequent pets in this frame must choose another available tile.
     for(const c of preferred.length?preferred:candidates){
@@ -101,7 +104,7 @@ export class PetMotion {
     if(this.board[cell]===this.element||this.board[cell]==='bush')return true;
     if(this.board[cell]!==null)return false;
     const opposite=this.element==='water'?'lava':'water',x=cell%8,y=Math.floor(cell/8);
-    return ![x>0?cell-1:-1,x<7?cell+1:-1,y>0?cell-8:-1,y<7?cell+8:-1].some(n=>n>=0&&this.board[n]===opposite);
+    return ![x>0?cell-1:-1,x<7?cell+1:-1,y>0?cell-8:-1,y<7?cell+8:-1].some(n=>neighborSource(this.board,n,opposite));
   }
   private neighbors(cell:number){
     const x=cell%8,y=Math.floor(cell/8),result:number[]=[];
