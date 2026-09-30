@@ -78,3 +78,22 @@ test('non-bush hands retain board-majority element rules and alternating hands r
  g.dealInventory();assert.ok(g.inventory.some(p=>p?.tile==='bush'));
  g.restart();pets(g,4);g.dealInventory();assert.ok(g.inventory.some(p=>p?.tile==='bush'));
 });
+test('pet water refills an unwatered bush once per shape placement, sharing the initial refill budget',()=>{
+ const g=new Game();bush(g,27);put(g,'water',63);
+ assert.equal(g.bushes.get(27)!.berries,0);
+ g.plantPetTile(26,'water');assert.equal(g.bushes.get(27)!.berries,4);
+ g.bushes.get(27)!.berries=1;g.plantPetTile(28,'water');assert.equal(g.bushes.get(27)!.berries,1);
+ put(g,'water',62);assert.equal(g.bushes.get(27)!.berries,4);
+ g.bushes.get(27)!.berries=2;g.plantPetTile(19,'water');assert.equal(g.bushes.get(27)!.berries,2);
+});
+test('egg placement and an old queued pet action cannot reset the current berry refill allowance',()=>{
+ const g=new Game();bush(g,27);g.board[26]='water';put(g,'water',63);const oldRun=g.comboRun;
+ put(g,'water',62);g.bushes.get(27)!.berries=0;put(g,'pet',48);
+ g.plantPetTile(28,'water',oldRun);assert.equal(g.bushes.get(27)!.berries,0);
+});
+test('pet water extinguishes a burning bush but berries still wait for the next shape',()=>{
+ const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');
+ g.plantPetTile(28,'water');assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
+ g.plantPetTile(19,'water');assert.equal(g.bushes.get(27)!.berries,0);
+ put(g,'water',63);assert.equal(g.bushes.get(27)!.berries,4);
+});

@@ -191,7 +191,7 @@ export class Game {
   }
   reconcileBushes(){
     const extinguish=[...this.bushes].filter(([c,b])=>b.phase==='ablaze'&&watered(this.board,c)).map(([c])=>c);
-    for(const c of extinguish){const b=this.bushes.get(c)!;b.phase='healthy';b.berries=0;}
+    for(const c of extinguish){const b=this.bushes.get(c)!;b.phase='healthy';b.berries=0;b.berryTurn=this.shapeMoves;}
     for(const [c,b] of this.bushes){
       if(this.board[c]!=='bush'){this.bushes.delete(c);continue;}
       // Only lava ignites between turns; bush-to-bush spread is turn based.
@@ -199,13 +199,18 @@ export class Game {
       if(b.phase==='ablaze')b.berries=0;
     }
   }
+  private replenishBush(cell:number){
+    const b=this.bushes.get(cell);
+    if(!b||b.phase!=='healthy'||!watered(this.board,cell)||b.berryTurn===this.shapeMoves)return;
+    b.berries=4;b.berryTurn=this.shapeMoves;
+  }
   private advanceBushes(){
     const wetBlocked=new Set([...this.bushes].filter(([c,b])=>watered(this.board,c)&&b.phase==='ablaze').map(([c])=>c));
     const turn=bushTurn(this.board,this.bushes);
     for(const c of turn.burnout){this.write(c,null);this.bushBurnouts.push(c);}
-    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;}}
+    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;if(wetBlocked.has(c))b.berryTurn=this.shapeMoves;}}
     this.reconcileBushes();
-    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&!wetBlocked.has(c)&&watered(this.board,c))b.berries=4;
+    for(const c of this.bushes.keys())this.replenishBush(c);
   }
   queuePetActions(pending?:()=>()=>void){
     const pets=[...this.pets];
@@ -338,7 +343,11 @@ export class Game {
   }
   plantPetTile(cell:number,element:Element,comboRun=this.comboRun):boolean {
     if(this.over||this.board[cell]!==null)return false;
-    this.write(cell,element);this.reconcileObsidian();this.petTileEvents.push(cell);this.reconcileBushes();this.onPetPlacement(comboRun);return true;
+    this.write(cell,element);this.reconcileObsidian();this.petTileEvents.push(cell);this.reconcileBushes();
+    // Use the current placement window, even for an older queued pet action.
+    // Its refill cannot stack with one already granted by the latest shape.
+    if(element==='water')for(const neighbor of this.neighbors(cell))this.replenishBush(neighbor);
+    this.onPetPlacement(comboRun);return true;
   }
   stoneCandidates(): number[] {
     return this.board.flatMap((_, cell) => this.canFormStone(cell) ? [cell] : []);
