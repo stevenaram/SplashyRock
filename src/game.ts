@@ -203,6 +203,9 @@ export class Game {
   }
   pieceFits(piece:Piece):boolean {return this.board.some((_,cell)=>this.canPlace(piece,cell));}
   hasLegalMove(): boolean {
+    const shapes=this.inventory.filter((piece):piece is Piece=>piece!==null&&piece.tile!=='pet');
+    if(shapes.length)return shapes.some(piece=>this.pieceFits(piece));
+    // Eggs only: finishing this inventory can unlock a fresh hand of shapes.
     return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
   }
   finishIfBlocked(pending: boolean): boolean {
@@ -306,7 +309,7 @@ export class Game {
   }
   place(slot: number, anchor: number): boolean {
     const piece = this.inventory[slot];
-    if (this.over || !piece || !this.canPlace(piece, anchor)) return false;
+    if (!piece || (this.over&&(this.won||piece.tile!=='pet')) || !this.canPlace(piece, anchor)) return false;
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');
@@ -323,7 +326,7 @@ export class Game {
     if(piece.tile==='pet'&&(piece.eggCount??1)>1)this.inventory[slot]={...piece,eggCount:piece.eggCount!-1};
     else this.inventory[slot] = null;
     this.claimEggRewards();
-    if (this.inventory.every(item => item === null)) this.inventory = this.deal();
+    if (!this.over&&this.inventory.every(item => item === null)) this.inventory = this.deal();
     return true;
   }
 }

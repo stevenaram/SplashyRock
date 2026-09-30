@@ -297,8 +297,9 @@ function updateTarget(x: number, y: number) {
   ghost.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
 }
 function place() {
-  if (game.over || selected === null || target === null) return false;
+  if (selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
+  if(!piece||(game.over&&(game.won||piece.tile!=='pet')))return false;
   const pets=[...game.pets];
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
@@ -307,6 +308,7 @@ function place() {
   if(piece.tile!=='pet'&&!tutorial.guiding)playedBeyondIntro=true;
   tutorial.placed(piece,target);
   world.addPiece(target, piece);
+  if(game.over){selected=null;clearPreview();renderTray();return true;}
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
   if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility(game.comboRun);
   aftermaths.add(aftermath);
@@ -342,7 +344,7 @@ window.addEventListener('pointerup', event => {
   if (!drag || event.pointerId !== drag.pointer) return;
   if (drag.moved) {
     updateTarget(event.clientX, event.clientY - drag.offset);
-    if(target===null||game.over)sound.play('reject');
+    if(target===null||(game.over&&(game.won||selected===null||game.inventory[selected]?.tile!=='pet')))sound.play('reject');
     place();
     selected = null;
   }

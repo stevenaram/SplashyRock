@@ -48,3 +48,25 @@ test('the final egg in a stack refills an otherwise exhausted inventory',()=>{
  g.place(0,0);assert.equal(g.inventory[0]?.eggCount,1);assert.equal(g.inventory[1],null);
  g.place(0,1);assert.equal(g.inventory.length,3);assert.ok(g.inventory.every(p=>p&&p.tile!=='pet'));
 });
+
+test('eggs can still hatch after a lost run without refilling or reviving',()=>{
+ const g=new Game();g.inventory=[{...egg,eggCount:2},null,null];
+ g.over=true;
+ assert.equal(g.place(0,0),true);assert.equal(g.inventory[0]?.eggCount,1);assert.equal(g.over,true);
+ assert.equal(g.place(0,1),true);assert.ok(g.inventory.every(p=>p===null));
+ g.pets.forEach(p=>p.update(2));assert.equal(g.pets.length,2);assert.ok(g.pets.every(p=>p.hatchRemaining===0&&p.queued===0));assert.equal(g.over,true);assert.ok(g.board.every(t=>t===null));
+});
+test('an egg cannot rescue blocked shapes or be placed onto a full board after losing',()=>{
+ const g=new Game();g.board.fill('water');g.board[0]=null;
+ const large={tile:'lava' as const,shape:{id:'square',name:'Square',width:2,height:2,cells:[[0,0],[1,0],[0,1],[1,1]] as [number,number][]}};
+ g.inventory=[large,egg];assert.equal(g.hasLegalMove(),false);assert.equal(g.finishIfBlocked(false),true);assert.equal(g.place(0,0),false);assert.equal(g.place(1,0),true);
+ g.inventory=[egg];g.board[0]='water';assert.equal(g.place(0,0),false);
+});
+
+test('an egg-only hand stays playable on open sand and refills after the final egg',()=>{
+ const g=new Game();g.inventory=[null,null,null,{...egg,eggCount:2}];
+ assert.equal(g.hasLegalMove(),true);assert.equal(g.finishIfBlocked(false),false);
+ assert.equal(g.place(3,0),true);assert.equal(g.hasLegalMove(),true);
+ assert.equal(g.place(3,1),true);assert.ok(g.inventory.every(p=>p&&p.tile!=='pet'));assert.equal(g.over,false);
+ const full=new Game();full.board.fill('water');full.inventory=[egg];assert.equal(full.hasLegalMove(),false);assert.equal(full.finishIfBlocked(false),true);
+});

@@ -3,7 +3,7 @@ import type {SoundCue} from './sound';
 import {eggIcon} from './egg';
 
 export function noSpacePieces(inventory:readonly(Piece|null)[]):Piece[]{
- const remaining=inventory.filter((p):p is Piece=>p!==null);
+ const remaining=inventory.filter((p):p is Piece=>p!==null&&p.tile!=='pet');
  return remaining.length?Array.from({length:3},(_,i)=>remaining[i%remaining.length]):[];
 }
 // Choose real, in-bounds failed placements across the board, favoring remaining sand.
