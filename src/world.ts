@@ -145,9 +145,9 @@ export class World {
   }
 
   addStone(cell: number, animate = true) {
-    if(animate)this.onSound('stone',cell);
-    this.surface.set(cell,'stone');
     const leafy=this.game?.leafStones.has(cell)??false;
+    if(animate)this.onSound(leafy?'leafStone':'stone',cell);
+    this.surface.set(cell,'stone');
     const group=stoneCluster(cell);
     if(leafy){this.leafSweeps.add(cell);for(let i=0;i<9;i++){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),new THREE.MeshBasicMaterial({color:i%2?'#75b565':'#387b48'}));const a=i*2.399;leaf.scale.set(1,.18,.55);leaf.position.set(Math.cos(a)*.48,.36+(i%3)*.08,Math.sin(a)*.48);leaf.rotation.set(.3,a,.4);group.add(leaf);}}
     group.userData.cell=cell;
@@ -181,7 +181,7 @@ export class World {
 
   sandSweep(board: readonly (Tile | null)[], cells: readonly number[], origin: number, phase: 'stone'|'neighbors') {
     const leafy=this.leafSweeps.has(origin);
-    if(cells.length)this.onSound(leafy?'bush':phase==='stone'?'sand':'steam',origin);
+    if(leafy){if(phase==='stone'||cells.length)this.onSound('leaves',origin);}else if(cells.length)this.onSound(phase==='stone'?'sand':'steam',origin);
     for(const cell of cells){
       const previous=this.surface.board[cell];
       this.surface.set(cell,null);

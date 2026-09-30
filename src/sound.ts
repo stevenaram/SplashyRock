@@ -1,4 +1,4 @@
-export type SoundCue='pick'|'snap'|'reject'|'water'|'lava'|'stone'|'sand'|'steam'|'combo'|'reward'|'egg'|'hatch'|'charge'|'deal'|'over'|'win'|'restart'|'ui'|'warning'|'bossSpawn'|'bossHit'|'bossDeath'|'bossBurst'|'noSpace'|'bossSlam'|'bush'|'berry';
+export type SoundCue='pick'|'snap'|'reject'|'water'|'lava'|'stone'|'sand'|'steam'|'combo'|'reward'|'egg'|'hatch'|'charge'|'deal'|'over'|'win'|'restart'|'ui'|'warning'|'bossSpawn'|'bossHit'|'bossDeath'|'bossBurst'|'noSpace'|'bossSlam'|'bush'|'berry'|'leafStone'|'leaves';
 
 // Small procedural instruments: immediate playback, no downloads, shared noise
 // and one restrained echo bus. Caps keep large pet/reaction chains comfortable.
@@ -77,7 +77,7 @@ export class SoundEngine {
   play(cue:SoundCue,level=1,pan=0){
     if(this.muted||document.hidden||!this.context)return;
     if(this.context.state!=='running'){this.pending={cue,level,pan,at:performance.now()};return;}
-    const now=this.context.currentTime,gap=cue==='snap'?.085:['charge','hatch','reward','combo'].includes(cue)?.24:.065;
+    const now=this.context.currentTime,gap=cue==='snap'?.085:['charge','hatch','reward','combo','leafStone','leaves'].includes(cue)?.24:.065;
     if(now-(this.last.get(cue)??-100)<gap)return;this.last.set(cue,now);this.pan=Math.max(-.4,Math.min(.4,pan));
     const note=(f:number,d=.25,v=.1,at=0)=>{this.tone(f,f*.998,d,v,at,'sine',true);this.tone(f*2,f*2,d*.55,v*.2,at,'sine');};
     switch(cue){
@@ -95,6 +95,16 @@ export class SoundEngine {
       case 'water':this.tone(590,175,.18,.17);this.air(2500,.24,.07);this.tone(870,430,.1,.075,.045);this.tone(1100,680,.09,.04,.10);break;
       case 'lava':this.tone(135,62,.22,.18,0,'triangle');this.air(1100,.22,.10);this.air(2900,.06,.065,.02);this.tone(440,180,.10,.055,.06);break;
       case 'stone':this.tone(270,125,.16,.16,0,'triangle');this.air(1500,.13,.14);note(660,.18,.05,.025);break;
+      case 'leafStone':
+        // A small stony knock wrapped in crisp foliage, rather than dust.
+        this.tone(235,115,.10,.07,0,'triangle');
+        this.air(4200,.07,.075,0,1.2);this.air(2300,.19,.055,.025,.8);
+        this.air(5200,.055,.025,.085,1.4);break;
+      case 'leaves':
+        // The cross shoots outward first, then individual leaves flutter down.
+        this.air(1700,.28,.095,0,.5);this.air(4700,.12,.065,.012,1.1);
+        for(let i=0;i<5;i++)this.air([3400,5600,2800,4900,3800][i],.045+i*.01,.04-i*.005,.06+i*.065,1.4);
+        break;
       case 'bush':this.air(1900,.14,.07);this.tone(340,200,.09,.045);break;
       case 'berry':for(let i=0;i<4;i++){this.air(2100+i%2*600,.085,.045,i*.22);this.tone(310+i%2*65,180,.065,.04,i*.22);}break;
       case 'sand':this.air(950,.23,.10);this.tone(120,60,.17,.065);break;
