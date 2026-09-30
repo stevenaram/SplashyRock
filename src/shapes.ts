@@ -39,3 +39,6 @@ export const SHAPES: readonly Shape[] = [
   shape('cross-wide', 'wide eight-square cross', ['0110','1111','0110']),
   shape('cup-up', 'up-opening cup', ['101', '111']),
 ];
+
+// Bush progression uses only existing shapes, skipping absent sizes.
+export const BUSH_SIZE_TIERS=[3,...new Set(SHAPES.map(s=>s.cells.length).filter(n=>n>3))].sort((a,b)=>a-b);
