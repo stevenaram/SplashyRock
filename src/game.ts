@@ -99,7 +99,7 @@ export class Game {
     // Only surviving, connected source cells feed this wave: its own growth
     // cannot grow another layer. Recompute after clears so erased edges retarget.
     for(const c of wave.source)if(b.remaining.has(c)&&this.board[c]===b.element)for(const n of this.neighbors(c)){
-      if(this.board[n]===null&&!wave.grown.has(n)&&!this.pets.some(p=>p.leaping&&p.next===n))cells.add(n);
+      if(this.board[n]===null&&!wave.grown.has(n)&&!this.pets.some(p=>p.claimsLanding(n)))cells.add(n);
     }
     return cells;
   }

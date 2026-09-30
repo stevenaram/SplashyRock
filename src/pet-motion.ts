@@ -16,6 +16,7 @@ export class PetMotion {
   private abilityRuns:number[]=[];
   private abilityTargets:(number|undefined)[]=[];
   get plannedLanding(){return this.abilityTargets[0];}
+  claimsLanding(cell:number){return this.abilityTargets.includes(cell)||!!(this.flight&&!this.flight.cancelled&&this.flight.target===cell);}
   hasAbilityFor(run:number){return this.abilityRuns.includes(run);}
   queued=0; // Ready abilities, not walking steps.
   completed=0;
@@ -36,12 +37,11 @@ export class PetMotion {
   cancelAbilities(){this.abilityRuns.length=0;this.abilityTargets.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
   private leapTarget(){
     let distance=Infinity;const choices:number[]=[];
-    const reserved=this.reserved?.();
     const planned=this.abilityTargets[0];
-    if(planned!==undefined&&this.board[planned]===null&&!this.peers?.().some(p=>p!==this&&p.leaping&&p.next===planned)&&!reserved?.has(planned))return planned;
-    const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c))??[];
+    if(planned!==undefined&&this.board[planned]===null&&!this.peers?.().some(p=>p!==this&&p.leaping&&p.next===planned))return planned;
+    const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c))??[];
     for(let c=0;c<64;c++){
-      if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||reserved?.has(c)||(preferred.length&&!preferred.includes(c)))continue;
+      if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||(preferred.length&&!preferred.includes(c)))continue;
       const d=Math.hypot(c%8-this.x,Math.floor(c/8)-this.y);
       if(d<distance-1e-9){distance=d;choices.length=0;choices.push(c);}
       else if(Math.abs(d-distance)<1e-9)choices.push(c);
@@ -52,6 +52,7 @@ export class PetMotion {
     const attack=this.attack?.();
     const targets=attack?.cells.filter(c=>this.available(c))??[];
     const target=attack?(targets[0]??null):this.leapTarget();if(target===null)return false;
+    if(this.abilityTargets[0]!==undefined)this.abilityTargets[0]=target;
     this.attacking=!!attack;
     const distance=Math.hypot(target%8-this.x,Math.floor(target/8)-this.y)*2;
     const duration=Math.max(PET_LEAP_MIN,Math.min(PET_LEAP_MAX,distance/PET_LEAP_SPEED))*(attack?2:1);

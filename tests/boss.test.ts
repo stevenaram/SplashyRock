@@ -144,11 +144,11 @@ test('waves retarget cleared source edges and do not grow into disconnected terr
  assert.equal(g.bossReservedCells.has(10),false);assert.ok(g.bossReservedCells.has(18));
  g.updateBoss(1.5);assert.equal(g.board[10],null);assert.equal(g.board[18],'water');
 });
-test('pet leaps avoid pending expansion cells, and a dying boss releases reservations',()=>{
+test('pet leaps can claim pending expansion cells, and a dying boss releases reservations',()=>{
  const g=fixture();g.trySpawnBoss();g.inventory=[single];g.place(0,63);
  const reserved=new Set(g.bossReservedCells);assert.ok(reserved.has(10));
  const p=new PetMotion(10,'water',g.board,c=>g.plantPetTile(c,'water'),()=>0,()=>g.boardChange,()=>g.pets,undefined,undefined,()=>g.bossReservedCells);g.pets.push(p);
- p.queueAbility();p.update(.01);assert.ok(p.leaping);assert.ok(!reserved.has(p.next!));
+ p.queueAbility(0,10);p.update(.01);assert.ok(p.leaping);assert.equal(p.next,10);assert.ok(!g.bossReservedCells.has(10));
  g.clearCells([...g.boss!.remaining]);assert.equal(g.bossesExpanding,false);assert.equal(g.bossReservedCells.size,0);
 });
 test('growth respects a pet already in flight, newly occupied targets, and revive cancellation',()=>{

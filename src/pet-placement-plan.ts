@@ -1,16 +1,14 @@
 import {footprint,type Game,type Piece,type Element} from './game';
 import type {PetMotion} from './pet-motion';
 export interface PetLanding {cell:number;element:Element;pet:PetMotion}
-const neighbors=(c:number)=>[c%8>0?c-1:-1,c%8<7?c+1:-1,c-8,c+8].filter(n=>n>=0&&n<64);
 // Stable tile ordering while hovering; nearest available pets are assigned only
 // when the plan is committed. Abilities can pack opposing elements together.
 export function planPetLandings(game:Game,piece:Piece,anchor:number):PetLanding[]{
  if(piece.tile==='pet'||game.over||!game.canPlace(piece,anchor))return [];
  const board=[...game.board],shape=new Set(footprint(piece,anchor).map(([x,y])=>y*8+x));
  for(const c of shape)board[c]=piece.tile;
- const blocked=new Set(game.bossReservedCells);
- for(const boss of game.bosses)if(!boss.deathRemaining)for(const c of boss.remaining)for(const n of neighbors(c))if(board[n]===null)blocked.add(n);
- for(const pet of game.pets){if(pet.leaping&&pet.next!==null)blocked.add(pet.next);if(pet.plannedLanding!==undefined)blocked.add(pet.plannedLanding);}
+ const blocked=new Set<number>();
+ for(let c=0;c<64;c++)if(game.pets.some(p=>p.claimsLanding(c)))blocked.add(c);
  const distance=(c:number)=>Math.min(...[...shape].map(s=>Math.abs(s%8-c%8)+Math.abs(Math.floor(s/8)-Math.floor(c/8))));
  const plan:PetLanding[]=[];
  for(const element of [piece.tile,piece.tile==='water'?'lava':'water'] as Element[]){
