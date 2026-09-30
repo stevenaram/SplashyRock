@@ -59,3 +59,7 @@ Placement previews sit on the grid plane with exact two-unit cell bounds and nev
 - Ten points per occupied square returned to sand by a stone sweep.
 
 A run ends only when none of the remaining inventory pieces can legally fit anywhere, after pending reactions and both stages of sand sweeps have finished. The result panel shows final score, locally saved best score, and Play Again. Restart cancels all timers, clears the board and effects, resets the score, and deals a fresh mixed tray. Reduced-motion preferences suppress the animation without changing timing or rules.
+
+### Boat construction sandbox
+
+Open `?test=boat` (or `?test=forge`) for eight pets, the forge reward, score/gem/berry controls, ready-to-build setup, forge stock controls, and boat progress presets. The boat uses 1,985 individually delivered bricks: an outward-flared hull followed by the deck. Every normal shape assigns available forge bricks before berries; each delivery then attempts a bush-safe obsidian-shard blast. Canceling an unfinished delivery releases its construction reservation and refunds its carried brick when storage has room. The deck never occupies gameplay cells. Completing the boat and its pending reactions triggers the launch celebration and victory.

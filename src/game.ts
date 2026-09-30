@@ -1,3 +1,4 @@
+import {BoatProgress,BOAT_BLUEPRINT} from './boat';
 import {forgeBasin,neighborSource} from './neighbor-rules';
 import type {FeatureMetric} from './feature-achievements';
 import {bushTurn,watered,type BushState} from './bush';
@@ -18,6 +19,10 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
   return piece.shape.cells.map(([dx, dy]) => [x + dx, y + dy]);
 }
 export class Game {
+  readonly boat=new BoatProgress();
+  readonly shardStones=new Set<number>();
+  private brickReservations=new Map<number,number>();
+  readonly boatDeliveries:number[]=[];
   readonly forges=new Map<number,{bricks:number;cycles:number}>();
   basinElement(cell:number):Element|null {for(const c of this.forges.keys()){if(cell===c-1)return 'lava';if(cell===c+1)return 'water';}return null;}
   canPlantElementAt(cell:number,element:Element){return this.board[cell]===null&&(!this.basinElement(cell)||this.basinElement(cell)===element);}
@@ -76,7 +81,7 @@ export class Game {
   get petRewardDealt(){return this.rewardsDealt>0;}
   get earnedEggs(){return earnedEggs(this.score);}
   get petsBusy(){return this.pets.some(p=>p.busy);}
-  finishIfWon(){return this.won;}
+  finishIfWon(){if(this.boat.complete&&!this.petsBusy){this.won=true;this.over=true;}return this.won;}
   readonly bosses:Boss[]=[];
   get boss(){return this.bosses.find(b=>!b.deathRemaining)??null;}
   get bossesDying(){return this.bosses.some(b=>b.deathRemaining>0);}
@@ -213,7 +218,7 @@ export class Game {
     if (this.board[cell] !== tile) {
       // Credit actual damage, not detached territory or the scripted death cleanup.
       if(!this.reviving)for(const b of this.bosses)if(!b.deathRemaining&&b.remaining.has(cell)&&this.board[cell]===b.element)b.damageTaken++;
-      this.leafStones.delete(cell);this.fireStones.delete(cell);
+      this.shardStones.delete(cell);this.leafStones.delete(cell);this.fireStones.delete(cell);
       if(tile==='bush')this.bushes.set(cell,{phase:'healthy',berries:0,reserved:0});else this.bushes.delete(cell);
       this.board[cell] = tile; this.versions[cell]++;this.boardChange++; }
   }
@@ -256,6 +261,7 @@ export class Game {
     const pets=[...this.pets];
     for(let i=pets.length-1;i>0;i--){const j=Math.min(i,Math.floor(this.random()*(i+1)));[pets[i],pets[j]]=[pets[j],pets[i]];}
     for(const pet of pets){
+      if(this.queueBuilder(pet,pending))continue;
       const choices=[...this.bushes].filter(([,b])=>b.phase==='healthy'&&b.berries>b.reserved);
       if(!choices.length){pet.queueAbility(this.comboRun);continue;}
       const [cell,b]=choices[Math.min(choices.length-1,Math.floor(this.random()*choices.length))];b.reserved++;
@@ -264,6 +270,23 @@ export class Game {
       pet.queueSnack(run,cell,()=>{release();if(this.bushes.get(cell)===b&&b.phase==='healthy'&&b.berries>0){b.berries--;this.recordFeature('berries-eaten');this.berryEaten.push(cell);return true;}return false;},()=>{release();done();},c=>this.formLeafStone(c,pet.element,run));
     }
   }
+  private queueBuilder(pet:PetMotion,pending?:()=>()=>void){
+    const options=[...this.forges].filter(([c,f])=>f.bricks>(this.brickReservations.get(c)??0));
+    if(!options.length)return false;
+    const id=this.boat.reserve();if(id===null)return false;
+    options.sort(([a],[b])=>Math.hypot(a%8-pet.x,Math.floor(a/8)-pet.y)-Math.hypot(b%8-pet.x,Math.floor(b/8)-pet.y));
+    const [cell,forge]=options[0],brick=BOAT_BLUEPRINT[id],run=this.comboRun,done=pending?.()??(()=>{});
+    this.brickReservations.set(cell,(this.brickReservations.get(cell)??0)+1);
+    let reserved=true,taken=false,delivered=false,closed=false;
+    const release=()=>{if(reserved){this.brickReservations.set(cell,Math.max(0,(this.brickReservations.get(cell)??1)-1));reserved=false;}};
+    pet.queueBuild(run,cell,()=>{release();if(this.forges.get(cell)!==forge||forge.bricks<1)return false;forge.bricks--;taken=true;return true;},()=>{
+      if(closed)return;closed=true;release();this.boat.release(id);
+      if(taken&&!delivered&&this.forges.get(cell)===forge)forge.bricks=Math.min(10,forge.bricks+1);
+      done();
+    },{x:brick.x/2+3.5,y:brick.z/2+3.5,height:brick.deck?0:brick.y+.15,place:()=>{delivered=this.boat.deliver(id);if(delivered)this.boatDeliveries.push(id);}},c=>this.formLeafStone(c,pet.element,run,true));
+    return true;
+  }
+  setBoatProgress(count:number){if(this.won)this.over=false;this.pets.forEach(p=>p.cancelAbilities());this.boat.setProgress(count);this.boatDeliveries.length=0;this.won=false;}
   neighbors(cell: number): number[] {
     const x=cell%SIZE,y=Math.floor(cell/SIZE);
     return [[x-1,y],[x+1,y],[x,y-1],[x,y+1]].filter(([x,y])=>x>=0&&x<SIZE&&y>=0&&y<SIZE).map(([x,y])=>y*SIZE+x);
@@ -307,9 +330,9 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.forges.clear();this.berriesGrown=0;
+    this.pets.forEach(p=>p.cancelAbilities());this.boat.reset();this.boatDeliveries.length=0;this.shardStones.clear();this.brickReservations.clear();this.forges.clear();this.berriesGrown=0;
     this.featureAchievementEvents={};
-    this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.leafStones.clear();this.bushBurnouts.forEach(job=>job.done());this.bushBurnouts.clear();this.fireStones.clear();this.berryEaten.length=0;this.obsidianEvents.length=0;
+    this.bushes.clear();this.leafStones.clear();this.bushBurnouts.forEach(job=>job.done());this.bushBurnouts.clear();this.fireStones.clear();this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;
@@ -397,10 +420,10 @@ export class Game {
     if (!this.canFormStone(cell)) return false;
     return this.createStone(cell,depth,comboRun,now);
   }
-  formLeafStone(cell:number,element:Element,run=this.comboRun){
+  formLeafStone(cell:number,element:Element,run=this.comboRun,shards=false){
     const opposite=element==='lava'?'water':'lava';
     if(this.board[cell]!==null||!this.neighbors(cell).some(n=>neighborSource(this.board,n,opposite)))return false;
-    this.createStone(cell,1,run,performance.now());this.recordFeature('berry-blast');this.leafStones.add(cell);this.onLeafStone(cell,run);return true;
+    this.createStone(cell,1,run,performance.now());if(!shards)this.recordFeature('berry-blast');this.leafStones.add(cell);if(shards)this.shardStones.add(cell);this.onLeafStone(cell,run);return true;
   }
   private createStone(cell:number,depth:number,comboRun:number,now:number){
     this.write(cell, 'stone');
@@ -418,7 +441,7 @@ export class Game {
   }
   place(slot: number, anchor: number): boolean {
     const piece = this.inventory[slot];
-    if (!piece || (this.over&&(this.won||piece.tile!=='pet')) || !this.canPlace(piece, anchor)) return false;
+    if (!piece || this.won || (this.over&&piece.tile!=='pet') || !this.canPlace(piece, anchor)) return false;
     this.moves++;
     if(piece.tile==='pet'){
       const element:Element=this.pets.length===1?(this.pets[0].element==='lava'?'water':'lava'):piece.petElement??(this.random()<.5?'lava':'water');

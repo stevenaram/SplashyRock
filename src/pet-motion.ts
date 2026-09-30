@@ -5,16 +5,20 @@ export const PET_LEAP_MIN=.5;
 export const PET_LEAP_MAX=1.28;
 export const PET_LEAP_SPEED=15; // World units per second, bounded by the stone reaction beats.
 
+export interface BuildDelivery {x:number;y:number;height:number;place:()=>void}
 export class PetMotion {
+  carryingBrick=false;
+  altitude=0;
+  get flightDestination(){return this.flight?{x:this.flight.tx??this.flight.target%8,y:this.flight.ty??Math.floor(this.flight.target/8)}:null;}
   visualOffsetX=0;visualOffsetY=0;
   attacking=false;
   leaping=false;
   leapProgress=0;
-  private flight:{x:number;y:number;target:number;age:number;duration:number;hit?:()=>void;cancelled?:boolean}|null=null;
+  private flight:{x:number;y:number;target:number;age:number;duration:number;tx?:number;ty?:number;fromHeight?:number;toHeight?:number;hit?:()=>void;cancelled?:boolean}|null=null;
   hatchRemaining=0;
   startHatch(){this.hatchRemaining=1.8;this.revision++;}
   abilitiesUsed=0;
-  private snacks:({cell:number;eat:()=>boolean;cancel:()=>void;blast?:(cell:number)=>boolean;stage?:boolean}|undefined)[]=[];
+  private snacks:({cell:number;eat:()=>boolean;cancel:()=>void;blast?:(cell:number)=>boolean;stage?:boolean;build?:BuildDelivery;delivered?:boolean}|undefined)[]=[];
   snacksEaten=0;
   feeding=0;
   private abilityRuns:number[]=[];
@@ -36,7 +40,8 @@ export class PetMotion {
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
   queueAbility(comboRun=0){this.snacks.push(undefined);this.abilityRuns.push(comboRun);this.queued++;this.revision++;}
   queueSnack(run:number,cell:number,eat:()=>boolean,cancel:()=>void,blast?:(cell:number)=>boolean){this.queueAbility(run);this.snacks[this.snacks.length-1]={cell,eat,cancel,blast};}
-  cancelAbilities(){this.snacks.forEach(s=>s?.cancel());this.snacks.length=0;this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.feeding=0;this.attacking=false;this.revision++;}
+  queueBuild(run:number,cell:number,take:()=>boolean,cancel:()=>void,build:BuildDelivery,blast:(cell:number)=>boolean){this.queueSnack(run,cell,take,cancel,blast);this.snacks[this.snacks.length-1]!.build=build;}
+  cancelAbilities(){this.carryingBrick=false;this.snacks.forEach(s=>s?.cancel());this.snacks.length=0;this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.feeding=0;this.attacking=false;if(!this.flight)this.returnFromBoat();this.revision++;}
   private leapTarget(){
     // Fuel every available forge before considering ordinary placement preferences.
     // next is reserved immediately on launch, so later pets choose another basin.
@@ -57,28 +62,45 @@ export class PetMotion {
   }
   private startLeap(){
     const snack=this.snacks[0];
+    if(snack?.build&&snack.stage&&!snack.delivered){
+      const b=snack.build;this.carryingBrick=true;
+      this.launch(this.closestBoardCell(b.x,b.y),b.x,b.y,b.height);return true;
+    }
     const attack=snack?null:this.attack?.();
     const targets=attack?.cells.filter(c=>this.available(c))??[];
-    const target=snack?(snack.stage?this.berryTarget():snack.cell):attack?(targets[0]??null):this.leapTarget();if(target===null){if(snack?.stage){this.finishSnack();return true;}return false;}
+    const target=snack?(snack.stage?this.berryTarget():snack.cell):attack?(targets[0]??null):this.leapTarget();if(target===null){if(snack?.stage){this.finishSnack();this.returnFromBoat();return true;}return false;}
     this.attacking=!!attack;
     const distance=Math.hypot(target%8-this.x,Math.floor(target/8)-this.y)*2;
     const duration=Math.max(PET_LEAP_MIN,Math.min(PET_LEAP_MAX,distance/PET_LEAP_SPEED))*(attack?2:1);
-    this.flight={x:this.x,y:this.y,target,age:0,duration,hit:attack?.hit};this.next=target;this.progress=0;this.leaping=true;this.leapProgress=0;this.retreating=false;
+    this.flight={x:this.x,y:this.y,target,age:0,duration,fromHeight:this.altitude,toHeight:0,hit:attack?.hit};this.next=target;this.progress=0;this.leaping=true;this.leapProgress=0;this.retreating=false;
     const dx=target%8-this.x,dy=Math.floor(target/8)-this.y;if(dx||dy)this.heading=Math.atan2(-dx,-dy);
     this.revision++;return true;
   }
+  private closestBoardCell(x:number,y:number){return Math.max(0,Math.min(7,Math.round(y)))*8+Math.max(0,Math.min(7,Math.round(x)));}
+  private launch(target:number,x=target%8,y=Math.floor(target/8),height=0,cancelled=false){
+    const duration=Math.max(.5,Math.min(1.28,Math.hypot(x-this.x,y-this.y)*2/15));
+    this.flight={x:this.x,y:this.y,target,age:0,duration,tx:x,ty:y,fromHeight:this.altitude,toHeight:height,cancelled};
+    this.next=target;this.leaping=true;this.leapProgress=0;this.heading=Math.atan2(this.x-x,this.y-y);this.revision++;
+  }
+  private returnFromBoat(){
+    if(this.x>=0&&this.x<=7&&this.y>=0&&this.y<=7&&this.altitude===0)return;
+    const safe=this.board.flatMap((_,c)=>this.allowed(c)?[c]:[]);
+    const target=safe.sort((a,b)=>Math.hypot(a%8-this.x,Math.floor(a/8)-this.y)-Math.hypot(b%8-this.x,Math.floor(b/8)-this.y))[0]??this.closestBoardCell(this.x,this.y);
+    this.launch(target,undefined,undefined,0,true);
+  }
   private land(){
     const flight=this.flight;if(!flight)return;
-    this.cell=flight.target;this.x=this.cell%8;this.y=Math.floor(this.cell/8);this.next=null;this.progress=0;
+    this.cell=flight.target;this.x=flight.tx??this.cell%8;this.y=flight.ty??Math.floor(this.cell/8);this.altitude=flight.toHeight??0;this.next=null;this.progress=0;
     this.flight=null;this.leaping=false;this.leapProgress=0;this.planting=.000001;this.revision++;
-    if(flight.cancelled)return;
+    if(flight.cancelled){this.returnFromBoat();return;}
     const snack=this.snacks[0];
-    if(snack){if(snack.stage){snack.blast?.(this.cell);this.finishSnack();}else if(snack.eat()){this.feeding=1;this.planting=0;this.snacksEaten++;snack.stage=true;}else this.finishSnack();return;}
+    if(snack?.build&&snack.stage&&!snack.delivered){snack.build.place();snack.delivered=true;this.carryingBrick=false;return;}
+    if(snack){if(snack.stage){snack.blast?.(this.cell);this.finishSnack();}else if(snack.eat()){this.feeding=snack.build?.25:1;this.planting=0;if(!snack.build)this.snacksEaten++;else this.carryingBrick=true;snack.stage=true;}else this.finishSnack();return;}
     if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.snacks.shift();this.attacking=false;}
     else if((this.allowed(this.cell)||emptyForgeBasin(this.board,this.cell,this.element))&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.snacks.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
   }
-  private finishSnack(){const snack=this.snacks.shift();this.abilityRuns.shift();this.queued--;snack?.cancel();this.revision++;}
+  private finishSnack(){this.carryingBrick=false;const snack=this.snacks.shift();this.abilityRuns.shift();this.queued--;snack?.cancel();this.revision++;}
   private berryTargetAllowed(c:number){
     const opposite=this.element==='lava'?'water':'lava';
     return this.board[c]===null&&this.available(c)&&this.cardinal(c).some(n=>neighborSource(this.board,n,opposite));
@@ -187,13 +209,13 @@ export class PetMotion {
       if(this.flight){
         const f=this.flight,used=Math.min(dt,Math.max(0,f.duration-f.age));f.age+=used;dt-=used;
         const t=this.leapProgress=Math.min(1,f.age/f.duration);
-        this.x=f.x+(f.target%8-f.x)*t;this.y=f.y+(Math.floor(f.target/8)-f.y)*t;
+        this.x=f.x+((f.tx??f.target%8)-f.x)*t;this.y=f.y+((f.ty??Math.floor(f.target/8))-f.y)*t;this.altitude=(f.fromHeight??0)+((f.toHeight??0)-(f.fromHeight??0))*t;
         if(t===1)this.land();
         continue;
       }
       if(this.feeding>0){const used=Math.min(dt,this.feeding);this.feeding-=used;dt-=used;if(this.feeding===0){
         // A consumed berry never becomes a deferred ability waiting for space.
-        if(this.snacks[0]?.stage&&!this.board.some((_,c)=>this.berryTargetAllowed(c)))this.finishSnack();
+        if(this.snacks[0]?.stage&&!this.snacks[0]?.build&&!this.board.some((_,c)=>this.berryTargetAllowed(c)))this.finishSnack();
         this.revision++;
       }continue;}
       if(this.planting>0){const used=Math.min(dt,.18-this.planting);this.planting+=used;dt-=used;if(this.planting>=.18){this.planting=0;this.revision++;}continue;}

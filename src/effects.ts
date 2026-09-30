@@ -84,9 +84,9 @@ export class Effects {
       this.particles.push({mesh:m,vx:Math.cos(a)*speed,vy:1.5+(i%5)*.24,vz:Math.sin(a)*speed,age:0,life:.52+(i%4)*.09,steam:false,size:.09+(i%3)*.025,spark:true});
     }
   }
-  leaves(cell:number,cross=false){
+  leaves(cell:number,cross=false,shards=false){
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
-    for(let i=0;i<12;i++){const a=i*2.399,mesh=new T.Mesh(this.geometry,this.materials.bush);mesh.position.set(x,.45,z);mesh.rotation.set(a,a*.7,.4);this.group.add(mesh);this.particles.push({mesh,vx:Math.cos(cross?(i%4)*Math.PI/2:a)*(cross?3:1+i%3*.3),vy:1.4+i%3*.25,vz:Math.sin(cross?(i%4)*Math.PI/2:a)*(cross?3:1+i%3*.3),age:0,life:.8,steam:false,size:.18,leaf:true});}
+    for(let i=0;i<12;i++){const a=i*2.399,mesh=new T.Mesh(this.geometry,shards?this.materials.obsidian:this.materials.bush);mesh.position.set(x,.45,z);mesh.rotation.set(a,a*.7,.4);this.group.add(mesh);this.particles.push({mesh,vx:Math.cos(cross?(i%4)*Math.PI/2:a)*(cross?3:1+i%3*.3),vy:1.4+i%3*.25,vz:Math.sin(cross?(i%4)*Math.PI/2:a)*(cross?3:1+i%3*.3),age:0,life:.8,steam:false,size:.18,leaf:!shards});}
   }
   dissolve(cell:number,tile:Tile) {
     const material=new T.MeshBasicMaterial({color:tile==='water'?'#72c9cf':tile==='lava'?'#ffb957':'#d4d1b6',transparent:true,opacity:.6,depthWrite:false});

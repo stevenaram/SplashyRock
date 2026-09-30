@@ -122,17 +122,19 @@ function checkAchievements(){
 }
 function showEnd(won=false){
   refreshRevive();
-  sound.play(won?'win':'over');
+  if(!won)sound.play('over');
   tutorial.dismiss();tutorial.dismissGoal();
   best=highScore.record(game.score);
   updateBest();
-  document.querySelector('#end-title')!.textContent=won?'The game is beat!':'Game Over';
+  document.querySelector('#end-title')!.textContent=won?'Boat complete!':'Game Over';
+  document.querySelector('#close-game-over')!.setAttribute('aria-label',won?'Close victory and view your boat':'Close Game Over and review board');
   endDialog.style.setProperty('--end-digits',String(Math.max(game.score.toLocaleString().length,best.toLocaleString().length)));
   document.querySelector('#final-score')!.textContent=game.score.toLocaleString();document.querySelector('#best-score')!.textContent=best.toLocaleString();
   document.querySelector('#revive-offer')!.prepend(reviveButton);endDialog.append(again);host!.classList.remove('reviewing');
   endDialog.hidden=false;host!.classList.add('ended');host!.classList.toggle('won',won);
 }
 function settled(){
+  if(game.won)return;
   game.reconcileObsidian();
   game.reconcileBushes();
   for(const events of [game.bossGrowthEvents,game.bossLiquidEvents]){
@@ -150,7 +152,7 @@ function settled(){
     game.finishRevive();reviveInFlight=false;renderTray();updateScore();
   }
   checkAchievements();
-  if(!game.won&&game.finishIfWon()){clearTimeout(endTimer);aftermaths.forEach(a=>a.cancel());aftermaths.clear();reactions.dispose();sweeps.dispose();updateScore();showEnd(true);return;}
+  if(!reactions.busy&&!sweeps.busy&&aftermaths.size===0&&game.finishIfWon()){clearTimeout(endTimer);aftermaths.forEach(a=>a.cancel());aftermaths.clear();reactions.dispose();sweeps.dispose();updateScore();host!.classList.add('won');endTimer=setTimeout(()=>{endTimer=undefined;showEnd(true);},2800);return;}
   // Every committed change (placement, stone creation, either sweep phase)
   // reconciles reactions before deciding whether the board has settled.
   if (!game.over) reactions.schedule();
@@ -401,7 +403,7 @@ if(bossTestMode){seedBossTest(game,world,testBossElement);announcedEggs=game.rew
   if(forgeTestMode){seedForgeTest(game,world);announcedEggs=game.rewardsDealt;}
 const disposeBossTest=bossTestMode?bossTestControls(element=>{testBossElement=element;restartRun();},()=>{if(!game.over)game.pets.forEach(p=>{if(!p.busy)p.queueAbility(game.comboRun);});}):()=>{};
 const disposeBushTest=bushTestMode?bushTestControls(restartRun,()=>{game.inventory=['water','lava','bush'].map(tile=>({tile,shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0]]}})) as import('./game').Piece[];renderTray();}):()=>{};
-const disposeForgeTest=forgeTestMode?forgeTestControls(game,world,restartRun,renderTray):()=>{};
+const disposeForgeTest=forgeTestMode?forgeTestControls(game,world,restartRun,renderTray,()=>{clearTimeout(endTimer);endTimer=undefined;endDialog.hidden=true;endDialog.append(again);document.querySelector('#revive-offer')!.prepend(reviveButton);host!.classList.remove('ended','won','reviewing');}):()=>{};
 const disposeScoreTest=sandboxMode?scoreTestControls(amount=>{
   if(game.over)return false;
   game.score+=amount;game.claimEggRewards();settled();renderTray();return true;

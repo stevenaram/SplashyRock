@@ -1,3 +1,4 @@
+import {BoatView} from './boat-view';
 import {ForgeField} from './forge';
 import {BushField} from './bush-view';
 import {BossView} from './boss-view';
@@ -14,6 +15,12 @@ import {PetBatch} from './pet-batch';
 import { PixelRenderer } from './pixel-renderer';
 
 export class World {
+  private readonly boat:BoatView;
+  private boatFrame={x:8,minZ:-8,maxZ:8,height:0};
+  private launchAge=0;
+  private launchObjects:{object:THREE.Object3D;position:THREE.Vector3}[]=[];
+  private readonly map=createMap();
+  private shardSweeps=new Set<number>();
   private bushes=new BushField();
   private leafSweeps=new Set<number>();
   private fireSweeps=new Set<number>();
@@ -47,6 +54,7 @@ export class World {
   private readonly observer: ResizeObserver;
 
   constructor(private readonly host: HTMLElement) {
+    this.boat=new BoatView(host);this.scene.add(this.boat.group);
     this.scene.background = new THREE.Color('#168eac');
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.autoUpdate = false;
@@ -60,7 +68,7 @@ export class World {
     sun.shadow.normalBias = .035; sun.shadow.bias = -.0001;
     this.island = createIsland();
     this.scene.add(sun, this.island, this.surface.mesh, this.effects.group, this.stones);
-    this.scene.add(createMap(),this.petBatch.group);
+    this.scene.add(this.map,this.petBatch.group);
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     this.renderer.domElement.classList.add('world-canvas');
     host.parentElement!.append(this.renderer.domElement);
@@ -75,6 +83,7 @@ export class World {
     if (document.hidden || ms-this.previousTime < 1000/30) return;
     const dt=Math.min((ms-this.previousTime)/1000,.05);this.previousTime=ms;
     const time=this.reducedMotion.matches?0:ms/1000;
+    if(!this.game?.won&&this.launchObjects.length){for(const {object,position} of this.launchObjects)object.position.copy(position);this.launchObjects=[];this.launchAge=0;}
     this.surface.update(ms/1000,this.reducedMotion.matches);
     this.petBatch.prepare();
     let petsChanged=false;
@@ -88,14 +97,21 @@ export class World {
     this.flushPetTiles();
 
     if(this.game){
+      if(this.game.boatDeliveries.length)this.onSound('forge');this.boat.update(this.game,dt,this.reducedMotion.matches);
+      let reframed=false;for(const key of ['x','minZ','maxZ','height'] as const){const delta=this.boat.bounds[key]-this.boatFrame[key];if(Math.abs(delta)>.001){this.boatFrame[key]=this.reducedMotion.matches||Math.abs(delta)<.005?this.boat.bounds[key]:this.boatFrame[key]+delta*(1-Math.exp(-dt*6));reframed=true;}}if(reframed)this.resize();
       if(!this.forges.group.parent)this.scene.add(this.forges.group);this.forges.update(this.game,dt,this.reducedMotion.matches);
-      if(this.game.updateBushBurnouts(dt))petsChanged=true;
-      if(this.game.updateBoss(dt))petsChanged=true;
+      if(!this.game.won&&this.game.updateBushBurnouts(dt))petsChanged=true;
+      if(!this.game.won&&this.game.updateBoss(dt))petsChanged=true;
       for(const [id,view] of this.bossViews)if(!this.game.bosses.some(b=>b.id===id)){view.dispose();this.bossViews.delete(id);}
       for(const boss of this.game.bosses){let view=this.bossViews.get(boss.id);if(!view){view=new BossView(this.scene,this.host,(x,y,height)=>this.gridScreen(x,y,height),(cue,cell,level)=>this.onSound(cue,cell,level));this.bossViews.set(boss.id,view);}view.update(this.game,dt,this.reducedMotion.matches,boss);}
     }
     if(this.game){if(!this.bushes.group.parent)this.scene.add(this.bushes.group);this.bushes.update(this.game,time,this.reducedMotion.matches);for(const cell of this.game.berryEaten.splice(0)){this.onSound('berry',cell);if(!this.reducedMotion.matches)this.effects.burst(cell,'bush');}}
     if(this.game)for(const cell of this.game.obsidianEvents.splice(0)){if(this.game.board[cell]!=='obsidian')continue;this.surface.set(cell,'obsidian');this.onObsidian();this.onSound('steam',cell);if(!this.reducedMotion.matches)this.effects.evaporate(cell,'lava');}
+    if(this.game?.won){
+      if(!this.launchObjects.length){this.launchObjects=[this.boat.group,this.forges.group,this.bushes.group,this.surface.mesh,this.stones,this.map,...this.pets.map(p=>p.group)].map(object=>({object,position:object.position.clone()}));this.onSound('win');}
+      this.launchAge+=dt;const t=Math.min(1,this.launchAge/2.4),ease=t*t*(3-2*t);
+      for(const {object,position} of this.launchObjects)object.position.copy(position).add(new THREE.Vector3(0,this.reducedMotion.matches?0:Math.sin(t*Math.PI)*.12+ease*.12,this.reducedMotion.matches?0:-ease*1.5));
+    }
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {
@@ -153,23 +169,24 @@ export class World {
   addStone(cell: number, animate = true) {
     const leafy=this.game?.leafStones.has(cell)??false,fiery=this.game?.fireStones.has(cell)??false;
     if(this.game?.fireStones.has(cell)){this.fireSweeps.add(cell);if(animate&&!this.reducedMotion.matches){this.effects.ashPuff(cell);this.effects.fireCross(cell,false);}}
-    if(animate)this.onSound(leafy?'leafStone':'stone',cell);
+    const shards=this.game?.shardStones.has(cell)??false;if(shards)this.shardSweeps.add(cell);
+    if(animate)this.onSound(shards?'stone':leafy?'leafStone':'stone',cell);
     this.surface.set(cell,fiery?'bush':'stone');
     const group=fiery?charredBush(cell):stoneCluster(cell);
     if(leafy)this.leafSweeps.add(cell);
-    if(leafy&&!fiery){for(let i=0;i<9;i++){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),new THREE.MeshBasicMaterial({color:i%2?'#75b565':'#387b48'}));const a=i*2.399;leaf.scale.set(1,.18,.55);leaf.position.set(Math.cos(a)*.48,.36+(i%3)*.08,Math.sin(a)*.48);leaf.rotation.set(.3,a,.4);group.add(leaf);}}
+    if(leafy&&!fiery){for(let i=0;i<9;i++){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),new THREE.MeshBasicMaterial({color:shards?(i%2?'#a388c1':'#443452'):(i%2?'#75b565':'#387b48')}));const a=i*2.399;leaf.scale.set(1,.18,.55);leaf.position.set(Math.cos(a)*.48,.36+(i%3)*.08,Math.sin(a)*.48);leaf.rotation.set(.3,a,.4);group.add(leaf);}}
     group.userData.cell=cell;
     this.stones.add(group);
     if(animate&&!fiery&&!this.reducedMotion.matches){group.scale.y=.05;this.arrivals.push({group,age:0});}
     this.renderer.shadowMap.needsUpdate = true;
-    if(animate && !this.reducedMotion.matches){if(leafy)this.effects.leaves(cell);else this.effects.burst(cell,'stone');}
+    if(animate && !this.reducedMotion.matches){if(leafy)this.effects.leaves(cell,false,shards);else this.effects.burst(cell,'stone');}
     if(animate)this.render();
   }
 
   syncBoard(board: readonly (Tile | null)[], animate = true) {
     const before=[...this.surface.board];
     for (const group of [...this.stones.children]) disposeGroup(group as THREE.Group);
-    this.leafSweeps.clear();this.fireSweeps.clear();this.arrivals=[];this.departures.forEach(a=>disposeGroup(a.group));this.departures=[];
+    this.shardSweeps.clear();this.leafSweeps.clear();this.fireSweeps.clear();this.arrivals=[];this.departures.forEach(a=>disposeGroup(a.group));this.departures=[];
     this.effects.clear();
     board.forEach((tile, cell) => {
       this.surface.set(cell, tile);
@@ -188,18 +205,18 @@ export class World {
   }
 
   sandSweep(board: readonly (Tile | null)[], cells: readonly number[], origin: number, phase: 'stone'|'neighbors') {
-    const leafy=this.leafSweeps.has(origin),fiery=this.fireSweeps.has(origin);
-    if(leafy){if(phase==='stone'||cells.length)this.onSound('leaves',origin);if(fiery&&phase==='stone')this.onSound('lava',origin);}else if(cells.length)this.onSound(phase==='stone'?'sand':'steam',origin);
+    const shards=this.shardSweeps.has(origin),leafy=this.leafSweeps.has(origin),fiery=this.fireSweeps.has(origin);
+    if(leafy){if(phase==='stone'||cells.length)this.onSound(shards?'stone':'leaves',origin);if(fiery&&phase==='stone')this.onSound('lava',origin);}else if(cells.length)this.onSound(phase==='stone'?'sand':'steam',origin);
     for(const cell of cells){
       const previous=this.surface.board[cell];
       this.surface.set(cell,null);
       for(const group of [...this.stones.children]){
         if(group.userData.cell===cell){this.arrivals=this.arrivals.filter(a=>a.group!==group);if(this.reducedMotion.matches)disposeGroup(group as THREE.Group);else{this.scene.attach(group);this.departures.push({group:group as THREE.Group,age:0});}}
       }
-      if(!this.reducedMotion.matches){if(previous==='water'||previous==='lava')this.effects.evaporate(cell,previous);else if(leafy)this.effects.leaves(cell);else this.effects.sand(cell);}
+      if(!this.reducedMotion.matches){if(previous==='water'||previous==='lava')this.effects.evaporate(cell,previous);else if(leafy)this.effects.leaves(cell,false,shards);else this.effects.sand(cell);}
     }
-    if(phase==='neighbors'){this.fireSweeps.delete(origin);this.surface.finishBurial(origin);if(leafy){this.leafSweeps.delete(origin);if(!this.reducedMotion.matches)for(const c of [origin,...cells])this.effects.leaves(c);}}
-    if(phase==='stone'&&!this.reducedMotion.matches){if(leafy){this.effects.leaves(origin,true);if(fiery)this.effects.fireCross(origin);}else this.effects.sandWave(origin);}
+    if(phase==='neighbors'){this.fireSweeps.delete(origin);this.surface.finishBurial(origin);if(leafy){this.leafSweeps.delete(origin);if(!this.reducedMotion.matches)for(const c of [origin,...cells])this.effects.leaves(c,false,shards);}this.shardSweeps.delete(origin);}
+    if(phase==='stone'&&!this.reducedMotion.matches){if(leafy){this.effects.leaves(origin,true,shards);if(fiery)this.effects.fireCross(origin);}else this.effects.sandWave(origin);}
     this.renderer.shadowMap.needsUpdate=true;
     this.render();
   }
@@ -258,9 +275,8 @@ export class World {
     };
     update();
 
-    const half = BOARD_EXTENT / 2;
-    const corners = [-half, half].flatMap(x =>
-      [-half, half].map(z => new THREE.Vector3(x, 0, z)));
+    const f=this.boatFrame;
+    const corners=[-f.x,f.x].flatMap(x=>[f.minZ,f.maxZ].map(z=>new THREE.Vector3(x,f.height,z)));
     // Center the projected footprint, as in Diggy Splash's camera framing.
     for (let pass = 0; pass < 3; pass++) {
       const points = corners.map(point => point.clone().project(this.camera));
@@ -286,7 +302,7 @@ export class World {
   }
 
   dispose() {
-    this.forges.dispose();
+    this.boat.dispose();this.forges.dispose();
     this.bushes.dispose();this.bossViews.forEach(view=>view.dispose());this.bossViews.clear();
     this.removePet();
     cancelAnimationFrame(this.frame);

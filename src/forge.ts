@@ -52,9 +52,9 @@ export function createForge(){
  }
  box(group,0,.27,.55,1.12,.13,.71,bronze);
  for(let i=0;i<10;i++){
-  const brick=new T.Group();brick.position.set((i%2?1:-1)*.235,.4+Math.floor(i/2)*.15,.54+(Math.floor(i/2)%2?-.035:.035));
-  box(brick,0,0,0,.43,.14,.38,purple);box(brick,-.02,.073,-.02,.3,.008,.23,new T.MeshBasicMaterial({color:'#695382'}));
-  box(brick,.14,.025,-.194,.025,.07,.008,new T.MeshBasicMaterial({color:'#a68abb'}));brick.visible=false;group.add(brick);bricks.push(brick);
+  const brick=new T.Group();brick.position.set(0,.4+i*.10,.54+(i%2?-.025:.025));
+  box(brick,0,0,0,.80,.095,.38,purple);box(brick,-.02,.05,-.02,.58,.008,.23,new T.MeshBasicMaterial({color:'#695382'}));
+  box(brick,.3,.025,-.194,.025,.07,.008,new T.MeshBasicMaterial({color:'#a68abb'}));brick.visible=false;group.add(brick);bricks.push(brick);
  }
  const chimney=box(group,-.5,1.1,-.67,.25,.35,.25,iron);box(group,-.5,1.29,-.67,.32,.055,.32,metal);
  const steam=Array.from({length:4},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.12,0),new T.MeshBasicMaterial({color:'#dbe9dc',transparent:true,opacity:0,depthWrite:false}));group.add(puff);return puff;});
@@ -67,12 +67,12 @@ export function createForge(){
 export class ForgeField{
  readonly group=new T.Group();
  constructor(private readonly produced:(cell:number)=>void=()=>{},private readonly heat:(cell:number,value:number)=>void=()=>{}){}
- private views=new Map<number,{model:ReturnType<typeof createForge>;age:number;count:number;production:number;mechanism:number}>();
+ private views=new Map<number,{model:ReturnType<typeof createForge>;age:number;count:number;cycles:number;production:number;mechanism:number}>();
  update(game:Game,dt:number,reduced:boolean){
   for(const [c,v] of this.views)if(!game.forges.has(c)){this.heat(c-1,0);v.model.dispose();this.views.delete(c);}
   for(const [c,f] of game.forges){
-   let v=this.views.get(c);if(!v){const model=createForge();model.group.position.set(gridWorld(c%8),.06,gridWorld(Math.floor(c/8)));this.group.add(model.group);v={model,age:0,count:0,production:10,mechanism:0};this.views.set(c,v);}
-   if(v.count!==f.bricks){this.produced(c);v.production=0;v.count=f.bricks;}v.age+=dt;v.production+=dt;
+   let v=this.views.get(c);if(!v){const model=createForge();model.group.position.set(gridWorld(c%8),.06,gridWorld(Math.floor(c/8)));this.group.add(model.group);v={model,age:0,count:0,cycles:0,production:10,mechanism:0};this.views.set(c,v);}
+   if(v.cycles!==f.cycles){this.produced(c);v.production=0;v.cycles=f.cycles;}v.count=f.bricks;v.age+=dt;v.production+=dt;
    const active=game.board[c-1]==='lava'&&game.board[c+1]==='water'&&f.bricks<10,working=active||v.production<.8;
    if(working&&!reduced)v.mechanism+=dt;
    const burst=reduced?0:Math.pow(Math.max(0,1-v.production/.85),.6);
@@ -80,7 +80,7 @@ export class ForgeField{
    const m=v.model;m.glow.color.set(working?'#ffba64':'#50434b');
    m.pistons.forEach((p,i)=>p.position.y=.7+(working&&!reduced?Math.sin(v.mechanism*9+i*Math.PI)*.1:0));
    m.gears.forEach((g,i)=>g.rotation.x=v.mechanism*(i?-1:1)*1.8);
-   m.bricks.forEach((b,i)=>{b.visible=i<f.bricks;const t=Math.min(1,Math.max(0,(v.production-(i>=f.bricks-1?.12:0))/.4));const pop=i>=f.bricks-2&&!reduced?1+Math.sin(t*Math.PI)*.22:1;b.scale.setScalar(pop);b.position.y=.4+Math.floor(i/2)*.15+(i>=f.bricks-2&&!reduced?Math.sin(t*Math.PI)*.35:0);});
+   m.bricks.forEach((b,i)=>{b.visible=i<f.bricks;const t=Math.min(1,Math.max(0,(v.production-(i>=f.bricks-1?.12:0))/.4));const pop=i>=f.bricks-2&&!reduced?1+Math.sin(t*Math.PI)*.22:1;b.scale.setScalar(pop);b.position.y=.4+i*.10+(i>=f.bricks-2&&!reduced?Math.sin(t*Math.PI)*.35:0);});
    m.steam.forEach((p,i)=>{const t=(v.age*.55+i*.25)%1;p.visible=working&&!reduced;p.position.set(-.5+Math.sin(i+t*4)*.06,1.4+t*.7,-.67);p.scale.setScalar(.6+t);p.material.opacity=Math.sin(t*Math.PI)*.24;});
    m.waterSteam.forEach((p,i)=>{const t=(v.age*.65+i*.2)%1;p.visible=game.board[c+1]==='water'&&!reduced&&(i<4||burst>.05);p.position.set(2+Math.sin(i*2.4)*.53+Math.sin(t*3+i)*.08,.14+t*(.75+burst*.45),Math.cos(i*2.4)*.5);p.scale.setScalar(.35+t*(.9+burst*.4));p.material.opacity=Math.sin(t*Math.PI)*(.22+burst*.16);});
    if(!reduced&&v.age<.45){const t=Math.min(1,v.age/.45);m.group.scale.setScalar(.85+.15*t);m.group.position.y=.06+Math.sin(t*Math.PI)*.22;}

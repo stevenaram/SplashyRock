@@ -13,7 +13,7 @@ export class PetBatch {
    if(!object.visible)return;
    if(object instanceof T.Mesh&&object.material instanceof T.MeshBasicMaterial&&!object.material.transparent){
     const geometry=object.geometry as T.BufferGeometry&{parameters?:unknown};
-    const key=geometry.type+JSON.stringify(geometry.parameters)+':'+(object.material.map?.name??'solid')+':'+object.material.side;
+    const key=geometry.type+':'+geometry.name+':'+object.material.vertexColors+JSON.stringify(geometry.parameters)+':'+(object.material.map?.name??'solid')+':'+object.material.side;
     const list=buckets.get(key)??[];list.push(object);buckets.set(key,list);
    }
    object.children.forEach(visit);

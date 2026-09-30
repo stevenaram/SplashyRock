@@ -1,3 +1,4 @@
+import {carriedBrick} from './boat-view';
 import * as T from 'three';
 import {createEgg} from './egg';
 import {gridWorld} from './map';
@@ -66,9 +67,10 @@ export class PetWalker {
  private gait=0;private walkBlend=0;private swimPhase=0;
  private readonly wake=new T.Group();
  private readonly wakeMaterial:T.ShaderMaterial;
+ private readonly cargo=carriedBrick();
  private readonly shadow:T.Mesh;
  private readonly landing:T.Mesh<T.RingGeometry,T.MeshBasicMaterial>;
- constructor(readonly motion:PetMotion){this.age=motion.cell*.371;this.gait=(motion.cell*.618)%1;this.swimPhase=motion.cell*1.37;this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root,this.egg.group);this.model.root.visible=false;
+ constructor(readonly motion:PetMotion){this.age=motion.cell*.371;this.gait=(motion.cell*.618)%1;this.swimPhase=motion.cell*1.37;this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root,this.egg.group);this.model.root.visible=false;this.model.body.add(this.cargo);this.cargo.position.set(0,.86,.08);this.cargo.visible=false;
   // A small contact shadow follows the pet without re-rendering the island shadow map.
   const shadow=this.shadow=new T.Mesh(new T.CircleGeometry(.48,12),new T.MeshBasicMaterial({color:'#705536',transparent:true,opacity:.24,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.8,1);shadow.position.y=.005;this.group.add(shadow);
@@ -103,6 +105,7 @@ export class PetWalker {
     return;
   }
   this.egg.group.visible=false;this.model.root.visible=true;
+  this.cargo.visible=this.motion.carryingBrick;this.model.root.position.y=this.motion.altitude;
   const leaping=this.motion.leaping,walking=this.motion.next!==null&&!leaping;
   const targetSwim=this.motion.onOwnLiquid&&!leaping&&this.motion.planting===0?1:0;
   this.swim+=(targetSwim-this.swim)*Math.min(1,dt*9);
@@ -111,8 +114,8 @@ export class PetWalker {
   // Height is purely visual: the ability still lands on the same gameplay frame.
   const height=reduced?0:flightArc*4.5*(this.motion.attacking?1.8:1);
   this.landing.visible=leaping;
-  if(leaping&&this.motion.next!==null){
-    this.landing.position.set(gridWorld(this.motion.next%8)-gridWorld(this.motion.x),.035,gridWorld(Math.floor(this.motion.next/8))-gridWorld(this.motion.y));
+  if(leaping&&this.motion.flightDestination){
+    const target=this.motion.flightDestination;this.landing.position.set(gridWorld(target.x)-gridWorld(this.motion.x),.035,gridWorld(target.y)-gridWorld(this.motion.y));
     this.landing.material.opacity=reduced?.6:.3+this.motion.leapProgress*.5;
   }
   const shadowLift=reduced?0:flightArc;
