@@ -97,3 +97,11 @@ test('pet water extinguishes a burning bush but berries still wait for the next 
  g.plantPetTile(19,'water');assert.equal(g.bushes.get(27)!.berries,0);
  put(g,'water',63);assert.equal(g.bushes.get(27)!.berries,4);
 });
+test('pet-water replenishment never assigns extra snacks or pet abilities',()=>{
+ const g=new Game(()=>.2);pets(g,2);bush(g,27);put(g,'water',63);g.queuePetActions();
+ const queued=g.pets.map(p=>p.queued),eaten=g.pets.map(p=>p.snacksEaten);
+ g.plantPetTile(26,'water');
+ assert.equal(g.bushes.get(27)!.berries,4);assert.equal(g.bushes.get(27)!.reserved,0);
+ assert.deepEqual(g.pets.map(p=>p.queued),queued);assert.deepEqual(g.pets.map(p=>p.snacksEaten),eaten);
+ assert.deepEqual(g.berryEaten,[]);
+});
