@@ -1,3 +1,4 @@
+import type {PetLanding} from './pet-placement-plan';
 import {BossView} from './boss-view';
 import type {SoundCue} from './sound';
 import * as THREE from 'three';
@@ -199,14 +200,20 @@ export class World {
     this.render();
   }
 
-  showPreview(cell: number | null, piece: Piece | null, valid = true) {
-    const key = cell === null || !piece ? '' : `${cell}-${piece.tile}-${piece.shape.id}-${valid}`;
+  showPreview(cell: number | null, piece: Piece | null, valid = true,landings:readonly PetLanding[] = []) {
+    const key = cell === null || !piece ? '' : `${cell}-${piece.tile}-${piece.shape.id}-${valid}-${landings.map(p=>`${p.cell}:${p.element}`).join(",")}`;
     if (key === this.previewKey) return;
     if (this.preview) disposeGroup(this.preview);
     this.preview = null;
     this.previewKey = key;
     if (cell !== null && piece) {
       this.preview = this.pieceMesh(cell, piece, true, valid);
+      for(const landing of landings){
+        const tile=createTile(landing.element,true,true);
+        tile.position.set(gridWorld(landing.cell%8),.04,gridWorld(Math.floor(landing.cell/8)));
+        tile.traverse(o=>{if(o instanceof THREE.Mesh){const m=o.material as THREE.MeshBasicMaterial;m.opacity=m.opacity<1?.36:.72;m.color.set(landing.element==='water'?'#75dcea':'#ffad6d');}});
+        this.preview.add(tile);
+      }
       this.scene.add(this.preview);
     }
     this.render();

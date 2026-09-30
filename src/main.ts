@@ -1,3 +1,4 @@
+import {planPetLandings} from './pet-placement-plan';
 import {NoSpaceSequence} from './no-space';
 import {noticeRail} from './notice-rail';
 import {HighScore} from './high-score';
@@ -287,7 +288,8 @@ function updateTarget(x: number, y: number) {
   const previousTarget=target;
   target = world.cellAt(x, y);
   if(target!==null&&target!==previousTarget&&game.canPlace(piece,target))sound.play('snap');
-  world.showPreview(target, piece, target !== null && (game.canPlace(piece, target)&&tutorial.permits(piece,target)));
+  const valid=target!==null&&game.canPlace(piece,target)&&tutorial.permits(piece,target);
+  world.showPreview(target,piece,valid,valid?planPetLandings(game,piece,target!):[]);
   ghost.className = piece.tile;
   if (ghost.dataset.shape !== piece.shape.id) {
     ghost.innerHTML = pieceIcon(piece);
@@ -300,6 +302,7 @@ function place() {
   if (game.over || selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
   const pets=[...game.pets];
+  const petPlan=planPetLandings(game,piece,target);
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
   if (!game.place(selected, target)){sound.play('reject');return false;}
@@ -308,7 +311,7 @@ function place() {
   tutorial.placed(piece,target);
   world.addPiece(target, piece);
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
-  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility(game.comboRun);
+  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility(game.comboRun,petPlan.find(p=>p.pet===pet)?.cell);
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;
