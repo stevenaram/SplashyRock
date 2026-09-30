@@ -15,6 +15,8 @@ export class Tutorial {
   private tip=document.createElement('div');
   private petTip=document.createElement('div');
   private warningTip=document.createElement('div');
+  private obsidianTip=document.createElement('div');
+  private obsidianTimer:ReturnType<typeof setTimeout>|undefined;
   private warningTimer:ReturnType<typeof setTimeout>|undefined;
   private petTimer:ReturnType<typeof setTimeout>|undefined;
   private goalHint=document.createElement('div');
@@ -31,13 +33,15 @@ export class Tutorial {
     this.goalHint.id='goal-hint';this.goalHint.hidden=true;this.goalHint.innerHTML=`<img src="${eggIcon()}" alt=""/><p>Earn <strong>${FIRST_EGG_SCORE.toLocaleString()}</strong> score<br/>to hatch a pet</p><button aria-label="Dismiss pet goal">×</button>`;
     this.petTip.id='pet-ability-tip';this.petTip.hidden=true;this.petTip.setAttribute('role','status');this.petTip.innerHTML='<p></p><button type="button">Got it</button>';board.append(this.petTip);
     this.petTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.petTimer);this.petTip.hidden=true;});
+    this.obsidianTip.id='obsidian-tip';this.obsidianTip.hidden=true;this.obsidianTip.setAttribute('role','status');this.obsidianTip.innerHTML='<p>Water next to lava creates obsidian, which is harder to clear.</p><button type="button">Got it</button>';board.append(this.obsidianTip);
+    this.obsidianTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.obsidianTimer);this.obsidianTip.hidden=true;});
     this.warningTip.id='fit-warning-tip';this.warningTip.hidden=true;this.warningTip.setAttribute('role','status');this.warningTip.innerHTML='<p>When none of your remaining shapes fit, it&#39;s game over.</p><button type="button">Got it</button>';board.append(this.warningTip);
     this.warningTip.querySelector('button')!.addEventListener('click',()=>{clearTimeout(this.warningTimer);this.warningTip.hidden=true;});
     goal.append(this.goalHint);board.append(this.tip);document.querySelector('#game')!.append(this.hand,this.target);
     this.tip.querySelector('button')!.addEventListener('click',()=>this.showGoal());this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal());
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
-  start(){clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+  start(){clearTimeout(this.obsidianTimer);this.obsidianTip.hidden=true;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
     if(seenTips.has('intro')){this.phase=3;this.showClearingTip();}
     else seenTips.mark('intro');
     this.refresh();
@@ -98,6 +102,11 @@ export class Tutorial {
     seenTips.mark('blocked-shape');this.dismissGoal();this.tip.hidden=true;this.petTip.hidden=true;
     this.warningTip.hidden=false;clearTimeout(this.warningTimer);this.warningTimer=setTimeout(()=>{this.warningTip.hidden=true;},TOOLTIP_DURATION);
   }
+  showObsidian(){
+    if(seenTips.has('obsidian'))return;
+    seenTips.mark('obsidian');this.obsidianTip.hidden=false;
+    clearTimeout(this.obsidianTimer);this.obsidianTimer=setTimeout(()=>{this.obsidianTip.hidden=true;},TOOLTIP_DURATION);
+  }
   showPetAbility(element:Element){
     if(seenTips.has('pet-ability'))return;
     seenTips.mark('pet-ability');
@@ -106,7 +115,7 @@ export class Tutorial {
     this.petTip.querySelector('p')!.textContent=`Your ${element} pet places 1 ${element} tile each time you place a shape.`;
     this.petTip.hidden=false;clearTimeout(this.petTimer);this.petTimer=setTimeout(()=>{this.petTip.hidden=true;},TOOLTIP_DURATION);
   }
-  dismiss(){clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;this.phase=5;this.tip.hidden=true;clearTimeout(this.timer);this.refresh();}
+  dismiss(){clearTimeout(this.obsidianTimer);this.obsidianTip.hidden=true;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;this.phase=5;this.tip.hidden=true;clearTimeout(this.timer);this.refresh();}
   dismissGoal(){this.goalHint.hidden=true;}
-  dispose(){this.dismiss();cancelAnimationFrame(this.frame);this.animation?.cancel();this.observer.disconnect();this.hand.remove();this.target.remove();this.tip.remove();this.petTip.remove();this.warningTip.remove();this.goalHint.remove();}
+  dispose(){this.dismiss();cancelAnimationFrame(this.frame);this.animation?.cancel();this.observer.disconnect();this.hand.remove();this.target.remove();this.tip.remove();this.petTip.remove();this.warningTip.remove();this.obsidianTip.remove();this.goalHint.remove();}
 }

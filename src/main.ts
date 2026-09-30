@@ -191,6 +191,7 @@ for(const type of ['contextmenu','selectstart','dragstart','gesturestart','gestu
 host.addEventListener('touchmove',preventNativeGesture,{passive:false,signal:events.signal});
 const tutorial=new Tutorial(board,goal,tray,game,cell=>world.cellScreen(cell,0));
 world.onFirstPetAbility=element=>tutorial.showPetAbility(element);
+world.onObsidian=()=>tutorial.showObsidian();
 const progressUI=new ProgressUI(progression,()=>{cancel();sound.play('ui');});
 const disposeNotices=noticeRail(goal,tray);
 let selected: number | null = null;

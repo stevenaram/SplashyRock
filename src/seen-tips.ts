@@ -1,5 +1,5 @@
 import {sandboxMode} from './test-mode';
-export type TipId='intro-complete'|'intro'|'clearing'|'egg-goal'|'blocked-shape'|'pet-ability'|'egg-drag';
+export type TipId='intro-complete'|'intro'|'clearing'|'egg-goal'|'blocked-shape'|'pet-ability'|'egg-drag'|'obsidian';
 const PREFIX='splashy-rock-tip-v1:';
 
 // Keep an in-memory fallback when private browsing or storage policy blocks writes.
