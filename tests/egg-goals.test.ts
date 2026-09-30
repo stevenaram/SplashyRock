@@ -7,8 +7,8 @@ const shape={id:'single',name:'Single',width:1,height:1,cells:[[0,0] as const]};
 const egg:Piece={tile:'pet',petElement:'water',shape};
 function deal(g:Game){g.inventory=[{tile:'water',shape},null,null];g.board[0]=null;g.place(0,0);g.board[0]=null;}
 test('egg milestones grow the incremental requirement by 1.2 from a 3000-score first egg',()=>{
- assert.deepEqual(EGG_GOALS.slice(0,5),[3000, 6600, 10920, 16104, 22325]);assert.equal(EGG_GOALS.length,16);assert.equal(EGG_GOALS[15],262326);
- assert.equal(earnedEggs(262325),15);assert.equal(earnedEggs(262326),16);
+ assert.deepEqual(EGG_GOALS.slice(0,5),[3000, 6600, 10920, 16104, 22325]);assert.equal(EGG_GOALS.length,16);assert.equal(EGG_GOALS[15],1177453);
+ assert.equal(earnedEggs(1177452),15);assert.equal(earnedEggs(1177453),16);
  EGG_GOALS.forEach((goal,i)=>{assert.ok(Number.isSafeInteger(goal));if(i)assert.ok(goal>EGG_GOALS[i-1]);});
  assert.equal(earnedEggs(2999),0);assert.equal(earnedEggs(3000),1);assert.equal(earnedEggs(EGG_GOALS[3]),4);assert.equal(earnedEggs(Number.MAX_SAFE_INTEGER),16);
 });

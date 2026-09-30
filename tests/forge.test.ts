@@ -49,3 +49,27 @@ test('boss waves respect both forge basin types and cannot cover the permanent c
  place(g,single('water'),56);g.updateBoss(1.5);
  assert.equal(g.board[26],null);assert.equal(g.board[27],'forge');assert.equal(g.board[28],'water');assert.equal(g.forges.get(27)?.bricks,0);
 });
+test('first eight milestones are eggs, then exactly eight forge/egg pairs',async()=>{
+ const {REWARD_TYPES,EGG_GOALS,earnedEggs}=await import('../src/egg-goals');
+ assert.deepEqual(REWARD_TYPES.slice(0,8),Array(8).fill('pet'));
+ assert.deepEqual(REWARD_TYPES.slice(8),Array.from({length:16},(_,i)=>i%2?'pet':'forge'));
+ const g=new Game();
+ for(let i=0;i<24;i++){
+  g.score=REWARD_GOALS[i];assert.equal(g.claimEggRewards(),1);
+  const eggs=REWARD_TYPES.slice(0,i+1).filter(t=>t==='pet').length;
+  assert.equal(g.inventory.find(p=>p?.tile==='pet')?.eggCount??0,eggs);
+  assert.equal(g.inventory.find(p=>p?.tile==='forge')?.eggCount??0,i+1-eggs);
+  assert.equal(earnedEggs(g.score),eggs);
+ }
+ assert.equal(EGG_GOALS[8],REWARD_GOALS[9]);assert.equal(EGG_GOALS.at(-1),REWARD_GOALS[23]);
+});
+test('forge sandbox seeds eight hatched pets, first forge, and the next egg milestone',async()=>{
+ const {seedForgeTest}=await import('../src/forge-test');
+ const g=new Game();let rendered=0;
+ seedForgeTest(g,{addPiece:()=>rendered++,syncBoard:()=>{}} as unknown as import('../src/world').World);
+ assert.equal(g.pets.length,8);assert.equal(rendered,8);assert.ok(g.pets.every(p=>p.hatchRemaining===0&&p.queued===0));
+ assert.equal(g.pets.filter(p=>p.element==='water').length,4);assert.equal(g.pets.filter(p=>p.element==='lava').length,4);
+ assert.equal(g.score,REWARD_GOALS[8]);assert.equal(g.rewardsDealt,9);assert.equal(g.inventory[1]?.tile,'forge');
+ g.score=REWARD_GOALS[9];g.claimEggRewards();assert.equal(g.inventory.find(p=>p?.tile==='pet')?.eggCount,1);
+ g.restart();seedForgeTest(g,{addPiece:()=>{},syncBoard:()=>{}} as unknown as import('../src/world').World);assert.equal(g.pets.length,8);
+});

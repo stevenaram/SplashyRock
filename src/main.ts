@@ -15,7 +15,7 @@ import {ProgressUI} from './progress-ui';
 import {seenTips} from './seen-tips';
 import {SoundEngine} from './sound';
 import {Tutorial} from './tutorial';
-import {REWARD_GOALS,MAX_PETS} from './egg-goals';
+import {REWARD_GOALS,REWARD_TYPES} from './egg-goals';
 import {eggIcon} from './egg';
 import {Aftermath} from './aftermath';
 import './style.css';
@@ -55,8 +55,8 @@ let unlockTimer:ReturnType<typeof setTimeout>|undefined;
 function announceEggs(){
   if(game.rewardsDealt<=announcedEggs)return;
   sound.play('reward');
-  unlock.querySelector('strong')!.textContent=game.rewardsDealt>MAX_PETS?'Obsidian Forge Unlocked':'Egg Unlocked';
-  (unlock.querySelector('img') as HTMLImageElement).src=game.rewardsDealt>MAX_PETS?forgeIcon():eggIcon();
+  unlock.querySelector('strong')!.textContent=REWARD_TYPES[game.rewardsDealt-1]==='forge'?'Obsidian Forge Unlocked':'Egg Unlocked';
+  (unlock.querySelector('img') as HTMLImageElement).src=REWARD_TYPES[game.rewardsDealt-1]==='forge'?forgeIcon():eggIcon();
   announcedEggs=game.rewardsDealt;renderTray();unlock.hidden=false;
   unlock.getAnimations().forEach(a=>a.cancel());
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)unlock.animate([{opacity:0,transform:'translateY(8px) scale(.9)'},{opacity:1,transform:'translateY(-2px) scale(1.03)',offset:.7},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:480,easing:'cubic-bezier(.2,.8,.3,1)'});
@@ -101,13 +101,13 @@ function updateScore(){
   gainLabel.style.top=`${digitBounds.top-hudBounds.top+digitBounds.height*.28}px`;
   shownScore=game.score;
   const earned=REWARD_GOALS.filter(n=>game.score>=n).length,index=Math.min(earned,REWARD_GOALS.length-1),target=REWARD_GOALS[index],previous=index?REWARD_GOALS[index-1]:0;
-  goal.classList.toggle('forge-goal',earned>=MAX_PETS);
-  (goal.querySelector('img') as HTMLImageElement).src=earned>=MAX_PETS?forgeIcon():eggIcon();
+  goal.classList.toggle('forge-goal',REWARD_TYPES[index]==='forge');
+  (goal.querySelector('img') as HTMLImageElement).src=REWARD_TYPES[index]==='forge'?forgeIcon():eggIcon();
   const progress=earned===REWARD_GOALS.length?1:Math.max(0,Math.min(1,(game.score-previous)/(target-previous)));
-  goal.style.setProperty('--progress',String(progress));goal.querySelector('strong')!.textContent=earned===REWARD_GOALS.length?'8 / 8':target.toLocaleString();
+  goal.style.setProperty('--progress',String(progress));goal.querySelector('strong')!.textContent=earned===REWARD_GOALS.length?'✓':target.toLocaleString();
   const pending=Math.max(0,earned-game.rewardsDealt);goal.classList.toggle('ready',pending>0);
   goal.querySelector('.egg-pending')!.textContent=pending?`+${pending}`:'';
-  goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===REWARD_GOALS.length?'All forge rewards earned':`Next ${earned>=MAX_PETS?'forge':'egg'} at ${target.toLocaleString()} score`);
+  goal.setAttribute('aria-valuemin',String(previous));goal.setAttribute('aria-valuemax',String(target));goal.setAttribute('aria-valuenow',String(Math.min(game.score,target)));goal.setAttribute('aria-label',earned===REWARD_GOALS.length?'All egg and forge rewards earned':`Next ${REWARD_TYPES[index]==='forge'?'forge':'egg'} at ${target.toLocaleString()} score`);
 }
 function refreshRevive(){
   const eligible=!game.won&&game.reviveTargets().length>0;

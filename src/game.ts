@@ -1,7 +1,7 @@
 import type {FeatureMetric} from './feature-achievements';
 import {bushTurn,watered,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
-import {REWARD_GOALS,MAX_PETS,MAX_FORGES,earnedEggs} from './egg-goals';
+import {REWARD_GOALS,REWARD_TYPES,MAX_PETS,MAX_FORGES,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
 import { BUSH_SIZE_TIERS, SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
@@ -352,7 +352,7 @@ export class Game {
     if(this.over)return 0;
     let count=0;
     while(this.rewardsDealt<REWARD_GOALS.length&&this.score>=REWARD_GOALS[this.rewardsDealt]){
-      const tile=this.rewardsDealt<MAX_PETS?'pet':'forge';
+      const tile=REWARD_TYPES[this.rewardsDealt];
       const stack=this.inventory.find(piece=>piece?.tile===tile);
       if(stack)stack.eggCount=(stack.eggCount??1)+1;
       else {
