@@ -127,6 +127,7 @@ function showEnd(won=false){
   endDialog.hidden=false;host!.classList.add('ended');host!.classList.toggle('won',won);
 }
 function settled(){
+  game.reconcileObsidian();
   game.reconcileBushes();
   for(const c of game.bushBurnouts.splice(0))world.sandSweep(game.board,[c],c,'neighbors');
   for(const events of [game.bossGrowthEvents,game.bossLiquidEvents]){

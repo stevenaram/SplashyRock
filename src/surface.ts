@@ -1,7 +1,7 @@
 import * as T from 'three';
 import { SIZE, type Tile } from './game';
 
-export const elementCode = (tile: Tile | null) => tile === 'water' ? 1 : tile === 'lava' ? 2 : tile === 'stone' ? 3 : 0;
+export const elementCode = (tile: Tile | null) => tile === 'water' ? 1 : tile === 'lava' ? 2 : tile === 'stone' ? 3 : tile === 'obsidian' ? 4 : 0;
 export function exposedEdges(board: readonly (Tile | null)[], cell: number) {
   const x=cell%SIZE,y=Math.floor(cell/SIZE),tile=board[cell];
   return [x===0||board[cell-1]!==tile,x===SIZE-1||board[cell+1]!==tile,y===0||board[cell-SIZE]!==tile,y===SIZE-1||board[cell+SIZE]!==tile];
@@ -14,6 +14,7 @@ export class ConnectedSurface {
   private readonly data = new Uint8Array(8*8*4);
   readonly texture = new T.DataTexture(this.data,8,8,T.RGBAFormat);
   private readonly burying=new Set<number>();
+  private cooling=new Float32Array(64);
   private previousTime: number | null = null;
   private readonly targets=new Uint8Array(128);
   private readonly progress=new Float32Array(128);
@@ -129,6 +130,19 @@ export class ConnectedSurface {
             if(abs(n-.48)<.012)c=vec3(1.,.86,.48);
             if(edge<.125)c=vec3(.95,.39,.12);
             if(edge<.0625)c=vec3(1.,.70,.29);
+          }else if(k>3.5){
+            // World-aligned, unlit volcanic glass; shared edges join into one slab.
+            vec2 shard=floor(p*3.);float facet=hash(shard);
+            c=facet<.28?vec3(.075,.055,.12):facet<.65?vec3(.14,.10,.21):vec3(.24,.17,.33);
+            vec2 grain=fract(p*3.);float seam=min(grain.x,grain.y);
+            if(seam<.09)c*=.65;
+            if(grain.y>.87&&facet>.55)c=vec3(.39,.29,.51);
+            if(hash(floor(p*16.))>.96)c+=vec3(.06,.04,.08);
+            if(edge<.125)c=vec3(.29,.21,.40);
+            if(edge<.0625)c=vec3(.53,.40,.65);
+            float heat=texture2D(board,(cell+.5)/8.).a;
+            float crust=smoothstep(heat-.07,heat+.07,noise(p*3.7)*.8+.1);
+            c=mix(mix(vec3(.83,.23,.08),vec3(1.,.65,.24),step(.47,noise(p*5.))),c,crust);
           }else{
             c=vec3(.50,.43,.34);if(noise(p*7.)>.72)c=vec3(.61,.52,.40);
             if(edge<.0625)c=vec3(.973,.851,.757);
@@ -140,6 +154,8 @@ export class ConnectedSurface {
     this.mesh=new T.Mesh(new T.PlaneGeometry(16,16),this.material);this.mesh.rotation.x=-Math.PI/2;this.mesh.position.y=.065;
   }
   set(cell:number,tile:Tile|null){
+    if(tile==='obsidian'&&this.board[cell]!=='obsidian')this.cooling[cell]=1;
+    if(tile!=='obsidian')this.cooling[cell]=0;
     if(this.board[cell]==='stone'&&tile===null)this.burying.add(cell);
     if(tile!==null){
       this.burying.delete(cell);
@@ -148,7 +164,7 @@ export class ConnectedSurface {
         this.data[cell*4+element+1]=0;
       }
     }
-    this.board[cell]=tile;this.data[cell*4]=elementCode(tile);this.data[cell*4+3]=255;this.texture.needsUpdate=true;
+    this.board[cell]=tile;this.data[cell*4]=elementCode(tile);this.data[cell*4+3]=tile==='obsidian'?Math.round(this.cooling[cell]*255):255;this.texture.needsUpdate=true;
   }
   finishBurial(cell:number){this.burying.delete(cell);}
   resetInfluences(){
@@ -161,6 +177,7 @@ export class ConnectedSurface {
     this.previousTime=time;this.material.uniforms.time.value=reducedMotion?0:time;
     let changed=false;
     for(let cell=0;cell<64;cell++){
+      const heat=reducedMotion?0:Math.max(0,this.cooling[cell]-dt/ .65);this.cooling[cell]=heat;const heatByte=this.board[cell]==='obsidian'?Math.round(heat*255):255;if(this.data[cell*4+3]!==heatByte){this.data[cell*4+3]=heatByte;changed=true;}
       const x=cell%8,y=Math.floor(cell/8);
       const neighbors=[x>0?cell-1:-1,x<7?cell+1:-1,y>0?cell-8:-1,y<7?cell+8:-1];
       for(let element=0;element<2;element++){

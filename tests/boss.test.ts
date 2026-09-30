@@ -61,7 +61,7 @@ test('full boss surges can refill recently cleared cells of either checkerboard 
  g.clearCells([18,19]);assert.equal(g.place(0,63),true);g.updateBoss(1.5);
  assert.equal(g.board[18],'water');assert.equal(g.board[19],'water');
  assert.equal(g.board[63],'lava');assert.equal(g.board[0],null);
- assert.equal(g.place(1,62),true);g.updateBoss(1.5);assert.equal(g.board[4],'water');assert.equal(g.board[62],'lava');
+ assert.equal(g.place(1,62),true);g.updateBoss(1.5);assert.equal(g.board[4],'water');assert.equal(g.board[62],'obsidian');
 });
 
 test('splitting a pool removes detached tiles from health and cannot rescue a stranded boss',()=>{

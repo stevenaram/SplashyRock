@@ -27,7 +27,7 @@ test('every shape can be dealt in either element and every tray has a 2:1 mix', 
       const values = [majority, (slot + .5)/3, ...Array(3).fill((index+.5)/SHAPES.length)];
       const game = new Game(() => values.shift()??.1);
       // Only the third and subsequent hands draw from the full shape pool.
-      const refill=()=>{game.board.fill(null);game.board[1]='lava';game.inventory=[piece('single'),null,null];game.place(0,0);game.board.fill(null);};
+      const refill=()=>{game.board.fill(null);game.board[63]='lava';game.inventory=[piece('single'),null,null];game.place(0,0);game.board.fill(null);};
       refill();values.splice(0,values.length,majority,(slot+.5)/3,...Array(3).fill((index+.5)/SHAPES.length));refill();
       assert.ok(game.inventory.every(p => p?.shape === shape));
       const water = game.inventory.filter(p => p?.tile === 'water').length;
@@ -88,7 +88,7 @@ test('bounds never wrap to adjacent rows, and holes may straddle occupied cells'
   // Anchor 27: cup occupies x=2..4, y=2..3; hole at (3,2).
   game.board[19] = 'lava';
   assert.equal(game.place(0, 27), true);
-  assert.equal(game.board[19], 'lava');
+  assert.equal(game.board[19], 'obsidian');
 });
 
 for (const element of ['water','lava'] as const) for (const axis of ['row','column']) {

@@ -40,6 +40,7 @@ export class Effects {
   private readonly ring=new T.RingGeometry(.36,.39,24);
   private readonly geometry=new T.BoxGeometry(1,1,1);
   private readonly materials={
+    obsidian:new T.MeshBasicMaterial({color:'#9c83bb'}),
     bush:new T.MeshBasicMaterial({color:'#8ac478'}),
     water:new T.MeshBasicMaterial({color:'#b1efed'}),
     lava:new T.MeshBasicMaterial({color:'#ffbd5b'}),

@@ -4,7 +4,7 @@ import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
 import { SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
-export type Tile = Element | 'stone' | 'bush';
+export type Tile = Element | 'stone' | 'bush' | 'obsidian';
 export interface Piece { tile: Element | 'bush' | 'pet'; shape: Shape; petElement?: Element; eggCount?: number }
 export const SIZE = 8;
 
@@ -19,6 +19,12 @@ export class Game {
   readonly bushes=new Map<number,BushState>();
   readonly bushBurnouts:number[]=[];
   readonly berryEaten:number[]=[];
+  readonly obsidianEvents:number[]=[];
+  reconcileObsidian(){
+    const cells=this.board.flatMap((tile,c)=>tile==='lava'&&this.neighbors(c).some(n=>this.board[n]==='water')?[c]:[]);
+    for(const c of cells){this.write(c,'obsidian');this.obsidianEvents.push(c);}
+    return cells.length>0;
+  }
   get bushesUnlocked(){return this.pets.filter(p=>p.hatchRemaining===0).length>=4;}
   readonly board: (Tile | null)[] = Array(SIZE * SIZE).fill(null);
   inventory: (Piece | null)[];
@@ -148,7 +154,7 @@ export class Game {
       if(d>.001){const step=Math.min(d,dt*.8);b.x+=(tx-b.x)/d*step;b.y+=(ty-b.y)/d*step;continue;}
       b.moveAge+=dt;if(b.moveAge<1.6)continue;b.moveAge=0;
       const choices=squares.filter(c=>this.neighbors(b.cell).includes(c));if(choices.length)b.cell=choices[Math.floor(this.random()*choices.length)];
-    }this.reconcileBushes();return finished;
+    }if(this.reconcileObsidian())finished=true;this.reconcileBushes();return finished;
   }
   private helpfulPetTargets(element:Element):number[]{
     const pools=this.bosses.filter(b=>!b.deathRemaining&&b.element!==element);if(!pools.length)return [];
@@ -251,7 +257,7 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.bushBurnouts.length=0;this.berryEaten.length=0;
+    this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.bushBurnouts.length=0;this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;
@@ -326,7 +332,7 @@ export class Game {
   }
   plantPetTile(cell:number,element:Element,comboRun=this.comboRun):boolean {
     if(this.over||this.board[cell]!==null)return false;
-    this.write(cell,element);this.petTileEvents.push(cell);this.reconcileBushes();this.onPetPlacement(comboRun);return true;
+    this.write(cell,element);this.reconcileObsidian();this.petTileEvents.push(cell);this.reconcileBushes();this.onPetPlacement(comboRun);return true;
   }
   stoneCandidates(): number[] {
     return this.board.flatMap((_, cell) => this.canFormStone(cell) ? [cell] : []);
@@ -360,6 +366,7 @@ export class Game {
       this.shapeMoves++;
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       this.score += piece.shape.cells.length;
+      this.reconcileObsidian();
       this.advanceBushes();
       this.growBosses();
     }
