@@ -3,7 +3,7 @@ import type {PetMotion} from './pet-motion';
 export interface PetLanding {cell:number;element:Element;pet:PetMotion}
 const neighbors=(c:number)=>[c%8>0?c-1:-1,c%8<7?c+1:-1,c-8,c+8].filter(n=>n>=0&&n<64);
 // Stable tile ordering while hovering; nearest available pets are assigned only
-// when the plan is committed. Future liquids are included in safety checks.
+// when the plan is committed. Abilities can pack opposing elements together.
 export function planPetLandings(game:Game,piece:Piece,anchor:number):PetLanding[]{
  if(piece.tile==='pet'||game.over||!game.canPlace(piece,anchor))return [];
  const board=[...game.board],shape=new Set(footprint(piece,anchor).map(([x,y])=>y*8+x));
@@ -15,8 +15,7 @@ export function planPetLandings(game:Game,piece:Piece,anchor:number):PetLanding[
  const plan:PetLanding[]=[];
  for(const element of [piece.tile,piece.tile==='water'?'lava':'water'] as Element[]){
   const pets=game.pets.filter(p=>p.element===element);
-  const opposite=element==='water'?'lava':'water';
-  const candidates=Array.from({length:64},(_,c)=>c).filter(c=>board[c]===null&&!blocked.has(c)&&distance(c)>=(element===piece.tile?1:2)&&distance(c)<=(element===piece.tile?1:3)&&!neighbors(c).some(n=>board[n]===opposite)&&!game.pets.some(p=>p.element!==element&&(p.next??p.cell)===c)).sort((a,b)=>distance(a)-distance(b)||a-b);
+  const candidates=Array.from({length:64},(_,c)=>c).filter(c=>board[c]===null&&!blocked.has(c)).sort((a,b)=>distance(a)-distance(b)||a-b);
   for(const cell of candidates){
    if(!pets.length)break;
    const pet=pets.reduce((a,b)=>Math.hypot(a.x-cell%8,a.y-Math.floor(cell/8))<=Math.hypot(b.x-cell%8,b.y-Math.floor(cell/8))?a:b);

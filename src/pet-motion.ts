@@ -38,7 +38,7 @@ export class PetMotion {
     let distance=Infinity;const choices:number[]=[];
     const reserved=this.reserved?.();
     const planned=this.abilityTargets[0];
-    if(planned!==undefined&&this.board[planned]===null&&this.allowed(planned)&&!this.peers?.().some(p=>p!==this&&p.leaping&&p.next===planned)&&!reserved?.has(planned))return planned;
+    if(planned!==undefined&&this.board[planned]===null&&!this.peers?.().some(p=>p!==this&&p.leaping&&p.next===planned)&&!reserved?.has(planned))return planned;
     const preferred=this.preferred?.().filter(c=>this.board[c]===null&&this.allowed(c)&&this.available(c)&&!reserved?.has(c))??[];
     for(let c=0;c<64;c++){
       if(this.board[c]!==null||!this.allowed(c)||!this.available(c)||reserved?.has(c)||(preferred.length&&!preferred.includes(c)))continue;
@@ -65,7 +65,7 @@ export class PetMotion {
     this.flight=null;this.leaping=false;this.leapProgress=0;this.planting=.000001;this.revision++;
     if(flight.cancelled)return;
     if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();this.attacking=false;}
-    else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();this.abilitiesUsed++;}
+    else if((this.abilityTargets[0]===this.cell||this.allowed(this.cell))&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.abilityTargets.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
   }
   // Ability landings keep exclusive destinations; wandering uses soft occupancy.

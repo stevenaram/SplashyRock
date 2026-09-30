@@ -1,3 +1,4 @@
+import {petPortrait} from './pet-portrait';
 import type {PetLanding} from './pet-placement-plan';
 import {BossView} from './boss-view';
 import type {SoundCue} from './sound';
@@ -213,6 +214,9 @@ export class World {
         tile.position.set(gridWorld(landing.cell%8),.04,gridWorld(Math.floor(landing.cell/8)));
         tile.traverse(o=>{if(o instanceof THREE.Mesh){const m=o.material as THREE.MeshBasicMaterial;m.opacity=m.opacity<1?.36:.72;m.color.set(landing.element==='water'?'#75dcea':'#ffad6d');}});
         this.preview.add(tile);
+        const portrait=new THREE.Mesh(new THREE.PlaneGeometry(1.25,1.25),new THREE.MeshBasicMaterial({map:petPortrait(landing.element),transparent:true,depthTest:false,depthWrite:false,opacity:.96}));
+        portrait.position.set(gridWorld(landing.cell%8),.12,gridWorld(Math.floor(landing.cell/8)));
+        portrait.quaternion.copy(this.camera.quaternion);portrait.renderOrder=12;this.preview.add(portrait);
       }
       this.scene.add(this.preview);
     }
