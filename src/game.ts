@@ -203,7 +203,10 @@ export class Game {
   }
   pieceFits(piece:Piece):boolean {return this.board.some((_,cell)=>this.canPlace(piece,cell));}
   hasLegalMove(): boolean {
-    return this.inventory.some(piece=>piece!==null&&piece.tile!=='pet'&&this.pieceFits(piece));
+    const shapes=this.inventory.filter((piece):piece is Piece=>piece!==null&&piece.tile!=='pet');
+    if(shapes.length)return shapes.some(piece=>this.pieceFits(piece));
+    // Eggs only: finishing this inventory can unlock a fresh hand of shapes.
+    return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
   }
   finishIfBlocked(pending: boolean): boolean {
     if(!pending&&!this.bossesDying&&!this.bossesExpanding&&!this.petsBusy&&!this.hasLegalMove()){this.finishChain();if(!this.hasLegalMove())this.over=true;}
