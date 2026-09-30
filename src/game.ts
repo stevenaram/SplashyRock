@@ -31,7 +31,7 @@ export class Game {
     }return changed;
   }
   igniteBlastBushes(cells:readonly number[]){
-    for(const c of cells){const b=this.bushes.get(c);if(b){b.phase='ablaze';b.berries=0;b.blastTurn=this.shapeMoves;}}
+    for(const c of cells){const b=this.bushes.get(c);if(b){b.phase='ablaze';b.berries=0;b.blastTurn=this.shapeMoves;b.waterCooled=false;}}
   }
   readonly berryEaten:number[]=[];
   readonly leafStones=new Set<number>();
@@ -209,8 +209,14 @@ export class Game {
     for(const c of extinguish){const b=this.bushes.get(c)!;b.phase='healthy';b.berries=0;b.berryTurn=this.shapeMoves;}
     for(const [c,b] of this.bushes){
       if(this.board[c]!=='bush'){this.bushes.delete(c);continue;}
+      const wet=watered(this.board,c),lava=this.neighbors(c).some(n=>this.board[n]==='lava');
+      if(wet&&b.phase==='healthy')b.waterCooled=true;
+      // A cooled bush can briefly relight when water clears before lava in the
+      // same aftermath. Keep that relight dependent on its remaining lava source.
+      // Committed burnouts and fire spread by a blast remain irreversible here.
+      if(b.waterCooled&&b.phase==='ablaze'&&!lava&&!this.bushBurnouts.has(c))b.phase='healthy';
       // Only lava ignites between turns; bush-to-bush spread is turn based.
-      if(!watered(this.board,c)&&this.neighbors(c).some(n=>this.board[n]==='lava'))b.phase='ablaze';
+      if(!wet&&lava)b.phase='ablaze';
       if(b.phase==='ablaze')b.berries=0;
     }
   }

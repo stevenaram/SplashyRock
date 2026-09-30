@@ -125,3 +125,16 @@ for(const source of ['pet','shape'] as const)test(`${source} water cannot exting
  assert.equal(g.bushes.get(27)!.phase,'ablaze');g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');
  g.updateBushBurnouts(.43);assert.equal(g.board[27],'stone');assert.equal(g.fireStones.has(27),true);
 });
+
+for(const staggered of [false,true])test(`water-cooled bushes stay extinguished after both neighbors clear (${staggered?'staggered':'simultaneous'})`,()=>{
+ const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();
+ g.plantPetTile(28,'water');assert.equal(g.bushes.get(27)!.phase,'healthy');
+ if(staggered){g.clearCells([28]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');g.clearCells([26]);}
+ else g.clearCells([26,28]);
+ g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
+ put(g,'water',63);assert.equal(g.bushesBusy,false);assert.equal(g.board[27],'bush');
+});
+test('blast fire remains valid without lava even on a previously watered bush',()=>{
+ const g=new Game();bush(g,27);g.board[26]='water';g.reconcileBushes();g.clearCells([26]);
+ g.igniteBlastBushes([27]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');
+});
