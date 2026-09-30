@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { BOARD_EXTENT, createMap, gridWorld, TILE_SIZE } from './map';
 import { SIZE, footprint, type Piece, type Tile, type Game, type Element } from './game';
 import { createTile, disposeGroup } from './tiles';
-import { createIsland, stoneCluster } from './island';
+import { createIsland, stoneCluster, charredBush } from './island';
 import { ConnectedSurface } from './surface';
 import { Effects } from './effects';
 import {PetWalker} from './pet';
@@ -97,6 +97,7 @@ export class World {
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {
       this.effects.update(dt);
+      for(const group of this.stones.children)group.userData.animate?.(time);
       if(this.arrivals.length||this.departures.length)this.renderer.shadowMap.needsUpdate=true;
       this.arrivals=this.arrivals.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.32);const rise=1-Math.pow(1-t,3);const settle=Math.sin(t*Math.PI)*.12;a.group.scale.set(1-settle*.25,rise+settle,1-settle*.25);return t<1;});
       this.departures=this.departures.filter(a=>{a.age+=dt;const t=Math.min(1,a.age/.18);a.group.position.y=.07-t*t*.5;a.group.scale.setScalar(1-t*t*.55);if(t===1){disposeGroup(a.group);return false;}return true;});
@@ -147,15 +148,16 @@ export class World {
   }
 
   addStone(cell: number, animate = true) {
-    const leafy=this.game?.leafStones.has(cell)??false;
+    const leafy=this.game?.leafStones.has(cell)??false,fiery=this.game?.fireStones.has(cell)??false;
     if(this.game?.fireStones.has(cell)){this.fireSweeps.add(cell);if(animate&&!this.reducedMotion.matches){this.effects.ashPuff(cell);this.effects.fireCross(cell,false);}}
     if(animate)this.onSound(leafy?'leafStone':'stone',cell);
-    this.surface.set(cell,'stone');
-    const group=stoneCluster(cell);
-    if(leafy){this.leafSweeps.add(cell);for(let i=0;i<9;i++){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),new THREE.MeshBasicMaterial({color:i%2?'#75b565':'#387b48'}));const a=i*2.399;leaf.scale.set(1,.18,.55);leaf.position.set(Math.cos(a)*.48,.36+(i%3)*.08,Math.sin(a)*.48);leaf.rotation.set(.3,a,.4);group.add(leaf);}}
+    this.surface.set(cell,fiery?'bush':'stone');
+    const group=fiery?charredBush(cell):stoneCluster(cell);
+    if(leafy)this.leafSweeps.add(cell);
+    if(leafy&&!fiery){for(let i=0;i<9;i++){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),new THREE.MeshBasicMaterial({color:i%2?'#75b565':'#387b48'}));const a=i*2.399;leaf.scale.set(1,.18,.55);leaf.position.set(Math.cos(a)*.48,.36+(i%3)*.08,Math.sin(a)*.48);leaf.rotation.set(.3,a,.4);group.add(leaf);}}
     group.userData.cell=cell;
     this.stones.add(group);
-    if(animate&&!this.reducedMotion.matches){group.scale.y=.05;this.arrivals.push({group,age:0});}
+    if(animate&&!fiery&&!this.reducedMotion.matches){group.scale.y=.05;this.arrivals.push({group,age:0});}
     this.renderer.shadowMap.needsUpdate = true;
     if(animate && !this.reducedMotion.matches){if(leafy)this.effects.leaves(cell);else this.effects.burst(cell,'stone');}
     if(animate)this.render();

@@ -131,7 +131,7 @@ for(const staggered of [false,true])test(`water-cooled bushes stay extinguished 
  g.plantPetTile(28,'water');assert.equal(g.bushes.get(27)!.phase,'healthy');
  if(staggered){g.clearCells([28]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');g.clearCells([26]);}
  else g.clearCells([26,28]);
- g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
+ g.reconcileBushes();g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
  put(g,'water',63);assert.equal(g.bushesBusy,false);assert.equal(g.board[27],'bush');
 });
 test('blast fire remains valid without lava even on a previously watered bush',()=>{
@@ -158,4 +158,21 @@ test('water discovered during general reconciliation hydrates without requiring 
  const g=new Game();bush(g,27);put(g,'water',63);
  g.board[26]='water';g.reconcileBushes();assert.equal(g.bushes.get(27)!.berries,4);
  g.bushes.get(27)!.berries=0;g.reconcileBushes();assert.equal(g.bushes.get(27)!.berries,0);
+});
+
+test('fire loses its source only when aftermath settles, with no berry refill',()=>{
+ const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();
+ g.clearCells([26]);g.reconcileBushes();assert.equal(g.bushes.get(27)!.phase,'ablaze');
+ g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'healthy');assert.equal(g.bushes.get(27)!.berries,0);
+ put(g,'water',63);assert.equal(g.bushesBusy,false);
+});
+test('a new shape before fire settles commits burnout even after its lava source disappears',()=>{
+ const g=new Game();bush(g,27);g.board[26]='lava';g.reconcileBushes();g.clearCells([26]);
+ put(g,'water',63);assert.equal(g.bushesBusy,true);
+ g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'ablaze');
+ g.updateBushBurnouts(.73);assert.equal(g.board[27],'stone');assert.equal(g.fireStones.has(27),true);
+});
+test('settlement retains lava-supported fire but extinguishes unsupported blast fire',()=>{
+ const g=new Game();bush(g,27);bush(g,45);g.board[26]='lava';g.reconcileBushes();g.igniteBlastBushes([45]);
+ g.settleBushFires();assert.equal(g.bushes.get(27)!.phase,'ablaze');assert.equal(g.bushes.get(45)!.phase,'healthy');
 });

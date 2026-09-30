@@ -62,6 +62,22 @@ export function stoneCluster(cell:number){
   }
   return group;
 }
+// A collapsed bush silhouette: split charcoal stems and small glowing embers.
+export function charredBush(cell:number){
+ const group=new T.Group();group.position.set(gridWorld(cell%8),.07,gridWorld(Math.floor(cell/8)));
+ const coal=new T.MeshBasicMaterial({color:'#393831'}),ash=new T.MeshBasicMaterial({color:'#696354'});
+ const ember=new T.MeshBasicMaterial({color:'#e87832'}),hot=new T.MeshBasicMaterial({color:'#ffc86b'});
+ const embers:T.Mesh[]=[];
+ for(let i=0;i<11;i++){
+  const a=i*2.399+cell,r=.12+(i%4)*.12;
+  const branch=new T.Mesh(new T.BoxGeometry(.09+(i%2)*.04,.1,.3+(i%3)*.1),i%3?coal:ash);
+  branch.position.set(Math.cos(a)*r,.08+(i%3)*.06,Math.sin(a)*r);branch.rotation.set((i%3-1)*.3,a,.14);group.add(branch);
+  const glow=new T.Mesh(new T.BoxGeometry(.055,.045,.08),i%3?ember:hot);
+  glow.position.copy(branch.position);glow.position.y+=.065;glow.rotation.y=a;group.add(glow);embers.push(glow);
+ }
+ group.userData.animate=(time:number)=>embers.forEach((e,i)=>e.scale.setScalar(.8+.2*Math.sin(time*8+i*2.399)));
+ return group;
+}
 function palm(x:number,z:number,scale:number,rotation:number) {
   const palm=new T.Group();palm.position.set(x,-.13,z);palm.scale.setScalar(scale);palm.rotation.y=rotation;
   const bark=new T.MeshStandardMaterial({color:'#927047',flatShading:true});

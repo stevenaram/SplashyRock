@@ -155,6 +155,7 @@ function settled(){
   }
   bossSpawns.update([...aftermaths,...reactions.activeAftermaths,...sweeps.activeAftermaths]);
   if(game.bossAchievementEvents.length)checkAchievements();
+  if(!reactions.busy&&!sweeps.busy&&!aftermaths.size&&!game.petsBusy&&!game.bushesBusy&&!game.bossesExpanding&&!game.bossesDying)game.settleBushFires();
   tutorial.settled(!reactions.busy&&!sweeps.busy);
   game.claimEggRewards();announceEggs();
   updateScore();
