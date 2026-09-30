@@ -1,3 +1,4 @@
+import {obsidianMaterial} from './obsidian-material';
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import type {Game} from './game';
@@ -53,14 +54,14 @@ export function createForge(){
  box(group,0,.27,.55,1.12,.13,.71,bronze);
  for(let i=0;i<10;i++){
   const brick=new T.Group();brick.position.set(0,.4+i*.10,.54+(i%2?-.025:.025));
-  box(brick,0,0,0,.80,.095,.38,purple);box(brick,-.02,.05,-.02,.58,.008,.23,new T.MeshBasicMaterial({color:'#695382'}));
-  box(brick,.3,.025,-.194,.025,.07,.008,new T.MeshBasicMaterial({color:'#a68abb'}));brick.visible=false;group.add(brick);bricks.push(brick);
+  box(brick,0,0,0,.80,.095,.38,obsidianMaterial());
+  brick.visible=false;group.add(brick);bricks.push(brick);
  }
  const chimney=box(group,-.5,1.1,-.67,.25,.35,.25,iron);box(group,-.5,1.29,-.67,.32,.055,.32,metal);
  const steam=Array.from({length:4},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.12,0),new T.MeshBasicMaterial({color:'#dbe9dc',transparent:true,opacity:0,depthWrite:false}));group.add(puff);return puff;});
  const waterSteam=Array.from({length:5},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.20,1),new T.MeshBasicMaterial({color:'#e4f5ef',transparent:true,opacity:0,depthWrite:false}));puff.name='forge-water-steam';puff.visible=false;group.add(puff);return puff;});
  const paintedMaterials=new Set<T.Material>();group.traverse(o=>{if(o instanceof T.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])paintedMaterials.add(m);});
- gears.forEach(g=>batchPainted(g));bricks.forEach(b=>batchPainted(b));
+ gears.forEach(g=>batchPainted(g));
  const glowParts=group.children.filter((o):o is T.Mesh=>o instanceof T.Mesh&&o.material===glow);batchPainted(group,[...pistons,...steam,...glowParts]);
  return{group,pistons,gears,bricks,glow,steam,waterSteam,chimney,dispose:()=>{disposeGroup(group);paintedMaterials.forEach(m=>m.dispose());}};
 }

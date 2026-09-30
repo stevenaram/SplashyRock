@@ -1,8 +1,8 @@
 import {CatmullRomCurve3,Vector3} from 'three';
+import {SHIP_PARTS} from './ship-details';
 /** Coordinates use world units; the playable grid remains independent of the hull. */
-export interface BoatBrick {x:number;y:number;z:number;angle:number;width:number;depth:number;height:number;deck:boolean;cell?:number}
+export interface BoatBrick {x:number;y:number;z:number;angle:number;width:number;depth:number;height:number;deck:boolean;cell?:number;detail?:number}
 const outline=[[-8.5,8.5],[-8.5,-7.8],[-5.7,-11.4],[0,-14.2],[5.7,-11.4],[8.5,-7.8],[8.5,8.5],[5.6,10.5],[0,11.3],[-5.6,10.5]];
-function inside(x:number,z:number){let hit=false;for(let i=0,j=outline.length-1;i<outline.length;j=i++){const a=outline[i],b=outline[j];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])hit=!hit;}return hit;}
 const curve=new CatmullRomCurve3(outline.map(([x,z])=>new Vector3(x,0,z)),true,'catmullrom',.22);
 function hullRing(out:number,y:number,stagger:boolean){
  const points=Array.from({length:512},(_,i)=>{const t=i/512,p=curve.getPointAt(t),n=curve.getTangentAt(t);return {x:p.x+n.z*out,z:p.z-n.x*out};});
@@ -12,16 +12,16 @@ function hullRing(out:number,y:number,stagger:boolean){
 }
 function blueprint(){
  const result:BoatBrick[]=[];
- // The staggered, rounded courses widen outward as they rise. Each offset
- // ring is sampled by its own length so the bow has no cracks or overlap fans.
- for(let course=0;course<8;course++)for(let lane=0;lane<5;lane++)result.push(...hullRing(lane*.64+Math.pow(course/7,1.5)*.85,.21+course/3,course%2===1));
- // Lay the bow/stern first, then cover the playable sand from back to front.
+ // One brick across; deliveries beyond the masonry assemble ship fittings.
+ for(let course=0;course<4;course++)result.push(...hullRing(course*.09,.16+course/3,course%2===1));
+ const work=1985-192-result.length;
+ for(let i=0;i<work;i++){const detail=Math.floor(i*SHIP_PARTS.length/work),p=SHIP_PARTS[detail];result.push({x:p.x,y:p.y,z:p.z,angle:0,width:p.width,height:p.height,depth:p.depth,deck:false,detail});}
  const deck:BoatBrick[]=[];
- for(let row=0;row<39;row++){const z=-14+(row+.5)*2/3;for(let col=0;col<8;col++){const x=-7+col*2;if(!inside(x-.88,z)||!inside(x+.88,z))continue;const cell=z>=-8&&z<8?Math.floor((z+8)/2)*8+col:undefined;deck.push({x,z,y:-.112,angle:0,width:1.96,depth:.62,height:.30,deck:true,cell});}}
- deck.sort((a,b)=>(a.cell===undefined?0:1)-(b.cell===undefined?0:1)||a.z-b.z||a.x-b.x);
+ for(let row=0;row<24;row++)for(let col=0;col<8;col++)deck.push({x:-7+col*2,z:-8+(row+.5)*2/3,y:-.17,angle:0,width:2,depth:2/3,height:.30,deck:true,cell:Math.floor(row/3)*8+col});
  result.push(...deck);return result;
 }
 export const BOAT_BLUEPRINT:readonly BoatBrick[]=blueprint();
+export const BOAT_HULL_BRICKS=BOAT_BLUEPRINT.findIndex(b=>b.detail!==undefined);
 export const BOAT_WALL_BRICKS=BOAT_BLUEPRINT.findIndex(b=>b.deck);
 export const BOAT_TOTAL_BRICKS=BOAT_BLUEPRINT.length;
 export class BoatProgress {

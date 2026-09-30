@@ -130,7 +130,9 @@ export function createIsland() {
     const foam=new T.Mesh(new T.PlaneGeometry(.12+(i%4)*.065,.04),foamMaterial);
     foam.rotation.set(-Math.PI/2,0,-angle+Math.PI/2);foam.position.set(p.x,-.405,p.y);group.add(foam);
   }
+  group.userData.shipShore=group.children.slice(1);
   const sand=new T.Mesh(new T.PlaneGeometry(17.6,17.6),new T.MeshStandardMaterial({map:sandTexture(17.6),roughness:1}));sand.rotation.x=-Math.PI/2;sand.position.y=-.09;sand.receiveShadow=true;group.add(sand);
+  const sceneryStart=group.children.length;
   group.add(palm(-6.7,-9.1,.94,.3),palm(-8.6,-8.7,.65,-.7));
   const rng=random(552);
   for(const [x,z,s] of [[7.1,-9.05,.65],[7.9,-9,.4],[6.7,-9.5,.3],[-9.3,5,.35],[9.1,4.1,.4],[-5.8,9.2,.28]]) {
@@ -142,5 +144,6 @@ export function createIsland() {
     if(Math.abs(edge.x)<8.2&&Math.abs(edge.y)<8.2)continue;
     const shell=new T.Mesh(new T.BoxGeometry(.07+rng()*.12,.035,.06+rng()*.12),new T.MeshStandardMaterial({color:i%3?'#fff0c6':'#c4a774'}));shell.position.set(edge.x,-.045,edge.y);shell.rotation.y=rng()*6;group.add(shell);
   }
+  group.userData.shipScenery=group.children.slice(sceneryStart);
   return group;
 }

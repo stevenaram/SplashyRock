@@ -1,3 +1,4 @@
+import {SHIP_PARTS} from '../src/ship-details';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {BoatProgress,BOAT_BLUEPRINT,BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS} from '../src/boat';
@@ -5,9 +6,10 @@ import {Game} from '../src/game';
 import {PetMotion} from '../src/pet-motion';
 const advance=(g:Game,seconds=12)=>{for(let t=0;t<seconds;t+=.05)for(const p of g.pets)p.update(.05);};
 function fixture(pets=1,bricks=2){const g=new Game(()=>.3,()=>true);g.board[27]='forge';g.forges.set(27,{bricks,cycles:1});for(let i=0;i<pets;i++)g.pets.push(new PetMotion(48+i,i%2?'water':'lava',g.board,()=>true,()=>.3,()=>g.boardChange,()=>g.pets));return g;}
-test('hull is about 2,000 unique bricks, begins with walls and ends with a full playable deck',()=>{
- assert.equal(BOAT_TOTAL_BRICKS,1985);assert.ok(BOAT_BLUEPRINT.slice(0,BOAT_WALL_BRICKS).every(b=>!b.deck));assert.ok(BOAT_BLUEPRINT.slice(BOAT_WALL_BRICKS).every(b=>b.deck));
- assert.equal(new Set(BOAT_BLUEPRINT.map(b=>`${b.x},${b.y},${b.z}`)).size,BOAT_TOTAL_BRICKS);
+test('1,985 deliveries build a single-thickness hull, every fitting, and a flush full deck',()=>{
+ assert.equal(BOAT_TOTAL_BRICKS,1985);assert.equal(new Set(BOAT_BLUEPRINT.flatMap(b=>b.detail===undefined?[]:[b.detail])).size,SHIP_PARTS.length);assert.ok(BOAT_BLUEPRINT.slice(0,BOAT_WALL_BRICKS).every(b=>!b.deck));assert.ok(BOAT_BLUEPRINT.slice(BOAT_WALL_BRICKS).every(b=>b.deck));
+ assert.ok(BOAT_BLUEPRINT.filter(b=>b.detail===undefined&&!b.deck).every(b=>b.depth===.64));
+ assert.ok(BOAT_BLUEPRINT.filter(b=>b.deck).every(b=>b.y+b.height/2<0&&b.width===2&&b.depth===2/3));
  for(let c=0;c<64;c++)assert.equal(BOAT_BLUEPRINT.filter(b=>b.cell===c).length,3);
  for(const b of BOAT_BLUEPRINT.filter(b=>!b.deck))assert.ok(Math.abs(b.x)>8||Math.abs(b.z)>8);
 });
