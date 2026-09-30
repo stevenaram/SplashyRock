@@ -13,7 +13,8 @@ test('fire propagates only one edge per placement; burnout clears only itself',(
 });
 test('water extinguishes smolder before spreading, but cannot extinguish ablaze',()=>{
  const g=new Game();[9,10].forEach(c=>bush(g,c));g.board[8]='lava';g.reconcileBushes();put(g,'water',1);
- assert.equal(g.bushes.get(9)!.phase,'healthy');assert.equal(g.bushes.get(9)!.berries,4);assert.equal(g.bushes.get(10)!.phase,'healthy');
+ assert.equal(g.bushes.get(9)!.phase,'healthy');assert.equal(g.bushes.get(9)!.berries,0);assert.equal(g.bushes.get(10)!.phase,'healthy');
+ put(g,'water',62);assert.equal(g.bushes.get(9)!.berries,4);
  g.bushes.get(10)!.phase='ablaze';g.board[2]='water';g.reconcileBushes();assert.equal(g.bushes.get(10)!.phase,'ablaze');put(g,'water',63);assert.equal(g.board[10],null);
 });
 test('berries refill only on normal placements and persist without water',()=>{
@@ -45,4 +46,11 @@ test('a fitting bush shape keeps the run alive when neither liquid shape fits',(
  const large={id:'square',name:'Square',width:2,height:2,cells:[[0,0],[1,0],[0,1],[1,1]] as const};
  g.inventory=[{tile:'water',shape:large},{tile:'lava',shape:large},{tile:'bush',shape:single}];
  assert.equal(g.hasLegalMove(),true);assert.equal(g.finishIfBlocked(false),false);
+});
+
+test('egg placements do not end the berry delay after extinguishing',()=>{
+ const g=new Game();bush(g,9);g.board[8]='lava';g.reconcileBushes();
+ put(g,'water',1);assert.equal(g.bushes.get(9)!.phase,'healthy');assert.equal(g.bushes.get(9)!.berries,0);
+ put(g,'pet',48);g.reconcileBushes();assert.equal(g.bushes.get(9)!.berries,0);
+ put(g,'water',63);assert.equal(g.bushes.get(9)!.berries,4);
 });

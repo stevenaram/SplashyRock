@@ -189,11 +189,13 @@ export class Game {
     }
   }
   private advanceBushes(){
+    // Extinguishing uses this turn; fruit can grow on the next normal placement.
+    const extinguished=new Set([...this.bushes].filter(([c,b])=>b.phase==='smoldering'&&watered(this.board,c)).map(([c])=>c));
     const turn=bushTurn(this.board,this.bushes);
     for(const c of turn.burnout){this.write(c,null);this.bushBurnouts.push(c);}
     for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase!=='healthy')b.berries=0;}}
     this.reconcileBushes();
-    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&watered(this.board,c))b.berries=4;
+    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&!extinguished.has(c)&&watered(this.board,c))b.berries=4;
   }
   queuePetActions(){
     const pets=[...this.pets];
