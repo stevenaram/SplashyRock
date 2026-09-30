@@ -204,7 +204,7 @@ export class Game {
     for(const c of turn.burnout){this.write(c,null);this.bushBurnouts.push(c);}
     for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;}}
     this.reconcileBushes();
-    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&!wetBlocked.has(c)&&watered(this.board,c))b.berries=Math.min(4,b.berries+1);
+    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&!wetBlocked.has(c)&&watered(this.board,c))b.berries=4;
   }
   queuePetActions(pending?:()=>()=>void){
     const pets=[...this.pets];
