@@ -1,4 +1,4 @@
-import {bushTurn,watered,type BushState} from './bush';
+import {bushTurn,watered,heated,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
@@ -19,6 +19,8 @@ export class Game {
   readonly bushes=new Map<number,BushState>();
   readonly bushBurnouts:number[]=[];
   readonly berryEaten:number[]=[];
+  readonly leafStones=new Set<number>();
+  onLeafStone:(cell:number,run:number)=>void=()=>{};
   readonly obsidianEvents:number[]=[];
   reconcileObsidian(){
     const cells=this.board.flatMap((tile,c)=>tile==='lava'&&this.neighbors(c).some(n=>this.board[n]==='water')?[c]:[]);
@@ -182,28 +184,29 @@ export class Game {
     if (this.board[cell] !== tile) {
       // Credit actual damage, not detached territory or the scripted death cleanup.
       if(!this.reviving)for(const b of this.bosses)if(!b.deathRemaining&&b.remaining.has(cell)&&this.board[cell]===b.element)b.damageTaken++;
+      this.leafStones.delete(cell);
       if(tile==='bush')this.bushes.set(cell,{phase:'healthy',berries:0,reserved:0});else this.bushes.delete(cell);
       this.board[cell] = tile; this.versions[cell]++;this.boardChange++; }
   }
   reconcileBushes(){
+    const extinguish=[...this.bushes].filter(([c,b])=>b.phase==='ablaze'&&watered(this.board,c)).map(([c])=>c);
+    for(const c of extinguish){const b=this.bushes.get(c)!;b.phase='healthy';b.berries=0;}
     for(const [c,b] of this.bushes){
       if(this.board[c]!=='bush'){this.bushes.delete(c);continue;}
-      if(b.phase==='ablaze')continue;
-      if(watered(this.board,c)){if(b.phase==='smoldering')b.phase='healthy';}
-      else if(b.phase==='healthy'&&this.neighbors(c).some(n=>this.board[n]==='lava')){b.phase='smoldering';b.berries=0;}
-      if(b.phase!=='healthy')b.berries=0;
+      // Only lava ignites between turns; bush-to-bush spread is turn based.
+      if(!watered(this.board,c)&&this.neighbors(c).some(n=>this.board[n]==='lava'))b.phase='ablaze';
+      if(b.phase==='ablaze'||(watered(this.board,c)&&heated(this.board,this.bushes,c)))b.berries=0;
     }
   }
   private advanceBushes(){
-    // Extinguishing uses this turn; fruit can grow on the next normal placement.
-    const extinguished=new Set([...this.bushes].filter(([c,b])=>b.phase==='smoldering'&&watered(this.board,c)).map(([c])=>c));
+    const wetBlocked=new Set([...this.bushes].filter(([c,b])=>watered(this.board,c)&&(b.phase==='ablaze'||heated(this.board,this.bushes,c))).map(([c])=>c));
     const turn=bushTurn(this.board,this.bushes);
     for(const c of turn.burnout){this.write(c,null);this.bushBurnouts.push(c);}
-    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase!=='healthy')b.berries=0;}}
+    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;}}
     this.reconcileBushes();
-    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&!extinguished.has(c)&&watered(this.board,c))b.berries=4;
+    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&!wetBlocked.has(c)&&watered(this.board,c)&&!heated(this.board,this.bushes,c))b.berries=Math.min(4,b.berries+1);
   }
-  queuePetActions(){
+  queuePetActions(pending?:()=>()=>void){
     const pets=[...this.pets];
     for(let i=pets.length-1;i>0;i--){const j=Math.min(i,Math.floor(this.random()*(i+1)));[pets[i],pets[j]]=[pets[j],pets[i]];}
     for(const pet of pets){
@@ -211,7 +214,8 @@ export class Game {
       if(!choices.length){pet.queueAbility(this.comboRun);continue;}
       const [cell,b]=choices[Math.min(choices.length-1,Math.floor(this.random()*choices.length))];b.reserved++;
       let released=false;const release=()=>{if(!released){b.reserved=Math.max(0,b.reserved-1);released=true;}};
-      pet.queueSnack(this.comboRun,cell,()=>{release();if(this.bushes.get(cell)===b&&b.phase==='healthy'&&b.berries>0){b.berries--;this.berryEaten.push(cell);}},release);
+      const run=this.comboRun,done=pending?.()??(()=>{});
+      pet.queueSnack(run,cell,()=>{release();if(this.bushes.get(cell)===b&&b.phase==='healthy'&&b.berries>0){b.berries--;this.berryEaten.push(cell);return true;}return false;},()=>{release();done();},c=>this.formLeafStone(c,pet.element,run));
     }
   }
   neighbors(cell: number): number[] {
@@ -257,7 +261,7 @@ export class Game {
     return this.over;
   }
   restart() {
-    this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.bushBurnouts.length=0;this.berryEaten.length=0;this.obsidianEvents.length=0;
+    this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.leafStones.clear();this.bushBurnouts.length=0;this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;
@@ -290,7 +294,7 @@ export class Game {
     const minoritySlot = Math.floor(this.random() * (hand===0?2:3));
     return Array.from({ length: 3 }, (_, slot) => ({
       shape: (()=>{
-        const pool=hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
+        const pool=this.bushesUnlocked&&slot===2?SHAPES.filter(s=>s.cells.length<=3):hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
         return pool[Math.floor(this.random()*pool.length)];
       })(),
       tile: this.bushesUnlocked&&slot===2?'bush':this.bushesUnlocked?(bossCounter??(slot===0?majority:(majority==='water'?'lava':'water'))):bossCounter ?? (slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority),
@@ -339,6 +343,14 @@ export class Game {
   }
   formStone(cell: number, depth = 1,comboRun=this.comboRun,now=performance.now()): boolean {
     if (!this.canFormStone(cell)) return false;
+    return this.createStone(cell,depth,comboRun,now);
+  }
+  formLeafStone(cell:number,element:Element,run=this.comboRun){
+    const opposite=element==='lava'?'water':'lava';
+    if(this.board[cell]!==null||!this.neighbors(cell).some(n=>this.board[n]===opposite))return false;
+    this.createStone(cell,1,run,performance.now());this.leafStones.add(cell);this.onLeafStone(cell,run);return true;
+  }
+  private createStone(cell:number,depth:number,comboRun:number,now:number){
     this.write(cell, 'stone');
 
     this.score += 20;

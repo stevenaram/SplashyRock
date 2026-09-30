@@ -27,10 +27,10 @@ export class BushField {
   const put=(m:T.InstancedMesh,i:number,x:number,y:number,z:number,sx:number,sy:number,sz:number,color?:string)=>{this.dummy.position.set(x,y,z);this.dummy.scale.set(sx*entrance,sy*entrance,sz*entrance);this.dummy.rotation.set(0,i*2.399,0);this.dummy.updateMatrix();m.setMatrixAt(i,this.dummy.matrix);if(color)m.setColorAt(i,this.color.set(color));};
   for(const [c,b] of g.bushes){
    if(!this.born.has(c))this.born.set(c,time);const age=Math.min(1,(time-this.born.get(c)!)/.24);entrance=reduced?1:1-Math.pow(1-age,3);
-   const x=gridWorld(c%8),z=gridWorld(Math.floor(c/8)),burn=b.phase==='ablaze',warm=b.phase==='smoldering';
-   for(let i=0;i<5;i++){const a=i*2.399,r=i===0?0:.43,wave=reduced?0:Math.sin(time*2+c+i)*.018;put(this.leaves,leaf++,x+Math.cos(a)*r,.32+(i===0?.16:0)+wave,z+Math.sin(a)*r,.53,.35,.52,burn?(i%2?'#684d35':'#443c31'):warm?(i%2?'#7c793e':'#a39a49'):['#387b48','#559e58','#75b565','#306d43','#8ac478'][i]);}
+   const x=gridWorld(c%8),z=gridWorld(Math.floor(c/8)),burn=b.phase==='ablaze';
+   for(let i=0;i<5;i++){const a=i*2.399,r=i===0?0:.43,wave=reduced?0:Math.sin(time*2+c+i)*.018;put(this.leaves,leaf++,x+Math.cos(a)*r,.32+(i===0?.16:0)+wave,z+Math.sin(a)*r,.53,.35,.52,burn?(i%2?'#4e893e':'#367746'):['#387b48','#559e58','#75b565','#306d43','#8ac478'][i]);}
    if(b.phase==='healthy')for(let i=0;i<b.berries;i++){const a=i*Math.PI/2+.5,fx=x+Math.cos(a)*.46,fz=z+Math.sin(a)*.46;put(this.fruit,fruit,fx,.7,fz,1,1,1);put(this.shine,fruit++,fx-.035,.77,fz-.055,1,1,1);}
-   if(burn||warm){for(let i=0;i<(burn?4:2);i++){const a=i*2.399+c,pulse=reduced?1:1+Math.sin(time*12+i+c)*.18;put(this.fire,fire++,x+Math.cos(a)*.45,warm?.67:.85,z+Math.sin(a)*.4,warm?.58:.8,(warm?.4:1.1)*pulse,warm?.42:.8,i%2?'#ffcf68':'#ef7534');}
+   if(burn){for(let i=0;i<4;i++){const a=i*2.399+c,pulse=reduced?1:1+Math.sin(time*12+i+c)*.18;put(this.fire,fire++,x+Math.cos(a)*.45,.85,z+Math.sin(a)*.4,.8,1.1*pulse,.8,i%2?'#ffcf68':'#ef7534');}
     for(let i=0;i<3;i++){const t=reduced?.3:(time*.65+i/3+c*.17)%1;put(this.smoke,smoke++,x+Math.sin(c+i)*.25+t*.2,.65+t*.7,z+Math.cos(i)*.2,.6+t,.6+t,.6+t);}}
   }
   for(const c of this.born.keys())if(!g.bushes.has(c))this.born.delete(c);

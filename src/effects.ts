@@ -2,7 +2,7 @@ import * as T from 'three';
 import { gridWorld } from './map';
 import type { Tile } from './game';
 
-type Particle={mesh:T.Mesh;vx:number;vy:number;vz:number;age:number;life:number;steam:boolean;size:number};
+type Particle={mesh:T.Mesh;vx:number;vy:number;vz:number;age:number;life:number;steam:boolean;size:number;leaf?:boolean};
 export class Effects {
   readonly group=new T.Group();
   private particles:Particle[]=[];
@@ -64,6 +64,10 @@ export class Effects {
     }
     this.waves.push({meshes,age:0});
   }
+  leaves(cell:number,cross=false){
+    const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
+    for(let i=0;i<12;i++){const a=i*2.399,mesh=new T.Mesh(this.geometry,this.materials.bush);mesh.position.set(x,.45,z);mesh.rotation.set(a,a*.7,.4);this.group.add(mesh);this.particles.push({mesh,vx:Math.cos(cross?(i%4)*Math.PI/2:a)*(cross?3:1+i%3*.3),vy:1.4+i%3*.25,vz:Math.sin(cross?(i%4)*Math.PI/2:a)*(cross?3:1+i%3*.3),age:0,life:.8,steam:false,size:.18,leaf:true});}
+  }
   dissolve(cell:number,tile:Tile) {
     const material=new T.MeshBasicMaterial({color:tile==='water'?'#72c9cf':tile==='lava'?'#ffb957':'#d4d1b6',transparent:true,opacity:.6,depthWrite:false});
     const mesh=new T.Mesh(this.tileGeometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.set(gridWorld(cell%8),.10,gridWorld(Math.floor(cell/8)));this.group.add(mesh);this.fades.push({mesh,age:0,stone:tile==='stone'});
@@ -111,6 +115,7 @@ export class Effects {
       if(!p.steam)p.vy-=5*dt;
       p.mesh.visible=p.mesh.position.y>.08;
       const t=p.age/p.life;p.mesh.scale.setScalar(p.size*(p.steam?1+t*.6:1)*Math.min(1,(1-t)*3));
+      if(p.leaf){p.mesh.scale.y*=.15;p.mesh.scale.z*=.55;p.mesh.rotation.x+=dt*5;p.mesh.rotation.z+=dt*3;p.vy+=dt*2;}
       return true;
     });
   }

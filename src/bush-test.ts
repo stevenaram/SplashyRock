@@ -8,7 +8,7 @@ export function seedBushTest(game:Game,world:World){
  }
  game.moves=0;game.score=13923;game.rewardsDealt=4;
  game.board[8]='lava';game.board[38]='water';
- for(const c of [9,10,11,12,30,37,39,46]){game.board[c]='bush';game.bushes.set(c,{phase:'healthy',berries:[30,37,39,46].includes(c)?4:0,reserved:0});}
+ for(const c of [9,10,11,12,37,46]){game.board[c]='bush';game.bushes.set(c,{phase:'healthy',berries:[37,46].includes(c)?4:0,reserved:0});}
  game.reconcileBushes();game.boardChange++;world.syncBoard(game.board,false);game.dealInventory();
 }
 export function bushTestControls(reset:()=>void,singles:()=>void){

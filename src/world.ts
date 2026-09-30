@@ -14,6 +14,7 @@ import { PixelRenderer } from './pixel-renderer';
 
 export class World {
   private bushes=new BushField();
+  private leafSweeps=new Set<number>();
   private bossViews=new Map<number,BossView>();
   readonly scene = new THREE.Scene();
   // Same lens and fixed viewing angle as Diggy Splash.
@@ -146,19 +147,21 @@ export class World {
   addStone(cell: number, animate = true) {
     if(animate)this.onSound('stone',cell);
     this.surface.set(cell,'stone');
+    const leafy=this.game?.leafStones.has(cell)??false;
     const group=stoneCluster(cell);
+    if(leafy){this.leafSweeps.add(cell);for(let i=0;i<9;i++){const leaf=new THREE.Mesh(new THREE.OctahedronGeometry(.22,0),new THREE.MeshBasicMaterial({color:i%2?'#75b565':'#387b48'}));const a=i*2.399;leaf.scale.set(1,.18,.55);leaf.position.set(Math.cos(a)*.48,.36+(i%3)*.08,Math.sin(a)*.48);leaf.rotation.set(.3,a,.4);group.add(leaf);}}
     group.userData.cell=cell;
     this.stones.add(group);
     if(animate&&!this.reducedMotion.matches){group.scale.y=.05;this.arrivals.push({group,age:0});}
     this.renderer.shadowMap.needsUpdate = true;
-    if(animate && !this.reducedMotion.matches)this.effects.burst(cell,'stone');
+    if(animate && !this.reducedMotion.matches){if(leafy)this.effects.leaves(cell);else this.effects.burst(cell,'stone');}
     if(animate)this.render();
   }
 
   syncBoard(board: readonly (Tile | null)[], animate = true) {
     const before=[...this.surface.board];
     for (const group of [...this.stones.children]) disposeGroup(group as THREE.Group);
-    this.arrivals=[];this.departures.forEach(a=>disposeGroup(a.group));this.departures=[];
+    this.leafSweeps.clear();this.arrivals=[];this.departures.forEach(a=>disposeGroup(a.group));this.departures=[];
     this.effects.clear();
     board.forEach((tile, cell) => {
       this.surface.set(cell, tile);
@@ -177,17 +180,18 @@ export class World {
   }
 
   sandSweep(board: readonly (Tile | null)[], cells: readonly number[], origin: number, phase: 'stone'|'neighbors') {
-    if(cells.length)this.onSound(phase==='stone'?'sand':'steam',origin);
+    const leafy=this.leafSweeps.has(origin);
+    if(cells.length)this.onSound(leafy?'bush':phase==='stone'?'sand':'steam',origin);
     for(const cell of cells){
       const previous=this.surface.board[cell];
       this.surface.set(cell,null);
       for(const group of [...this.stones.children]){
         if(group.userData.cell===cell){this.arrivals=this.arrivals.filter(a=>a.group!==group);if(this.reducedMotion.matches)disposeGroup(group as THREE.Group);else{this.scene.attach(group);this.departures.push({group:group as THREE.Group,age:0});}}
       }
-      if(!this.reducedMotion.matches){if(previous==='water'||previous==='lava')this.effects.evaporate(cell,previous);else this.effects.sand(cell);}
+      if(!this.reducedMotion.matches){if(previous==='water'||previous==='lava')this.effects.evaporate(cell,previous);else if(leafy)this.effects.leaves(cell);else this.effects.sand(cell);}
     }
-    if(phase==='neighbors')this.surface.finishBurial(origin);
-    if(phase==='stone'&&!this.reducedMotion.matches)this.effects.sandWave(origin);
+    if(phase==='neighbors'){this.surface.finishBurial(origin);if(leafy){this.leafSweeps.delete(origin);if(!this.reducedMotion.matches)for(const c of [origin,...cells])this.effects.leaves(c);}}
+    if(phase==='stone'&&!this.reducedMotion.matches){if(leafy)this.effects.leaves(origin,true);else this.effects.sandWave(origin);}
     this.renderer.shadowMap.needsUpdate=true;
     this.render();
   }

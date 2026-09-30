@@ -215,6 +215,12 @@ const reactions = new StoneReactions(game, (cell,owner) => {
   refreshPreview();
 },settled);
 
+game.onLeafStone=(cell,run)=>{
+  const owner=new Aftermath(settled,run);world.addStone(cell);
+  if(game.combo>=2&&game.combo>shownCombo){shownCombo=game.combo;combo.show(game.combo,cell);sound.play('combo',game.combo);}
+  sweeps.schedule(owner);reactions.schedule(1,owner);owner.release();
+};
+
 // Attribute each pet's reactions immediately, before another pet can land this frame.
 game.onPetPlacement=run=>{
   const owner=new Aftermath(settled,run);reactions.schedule(1,owner);owner.release();
@@ -315,7 +321,7 @@ function place() {
   world.addPiece(target, piece);
   if(game.over){selected=null;clearPreview();renderTray();return true;}
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
-  if(piece.tile!=='pet')game.queuePetActions();
+  if(piece.tile!=='pet')game.queuePetActions(()=>{aftermath.retain();return()=>aftermath.release();});
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;

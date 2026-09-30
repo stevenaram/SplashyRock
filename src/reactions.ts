@@ -55,6 +55,7 @@ export class SandSweeps {
     const own=!owner;let added=false;if(!owner)owner=new Aftermath(this.onSettled,this.game.comboRun);
     this.game.board.forEach((tile,cell)=>{
       if(tile!=='stone')return;
+      const leafy=this.game.leafStones.has(cell);
       const depth=this.game.stoneDepth[cell]||1;
       const comboRun=this.game.stoneComboRuns[cell];
       const version=this.game.versions[cell],key=`${cell}:${version}`;
@@ -66,7 +67,7 @@ export class SandSweeps {
         // Reserve phase two before reporting completion: game-over must not
         // fire in the short visual pause between the two stages.
         this.later(NEIGHBOR_SWEEP_MS,()=>{
-          const cleared=this.game.clearCells(this.game.neighbors(cell),comboRun,true);
+          const cleared=this.game.clearCells(this.game.neighbors(cell).filter(c=>!leafy||['water','lava','obsidian'].includes(this.game.board[c]??'')),comboRun,true);
           this.scheduled.delete(key);this.owners.delete(key);this.onSweep(cleared,cell,'neighbors',depth,owner);this.onSettled();owner?.release();
         });
         this.onSettled();

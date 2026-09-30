@@ -13,7 +13,7 @@ export class PetMotion {
   hatchRemaining=0;
   startHatch(){this.hatchRemaining=1.8;this.revision++;}
   abilitiesUsed=0;
-  private snacks:({cell:number;eat:()=>void;cancel:()=>void}|undefined)[]=[];
+  private snacks:({cell:number;eat:()=>boolean;cancel:()=>void;blast?:(cell:number)=>boolean;stage?:boolean}|undefined)[]=[];
   snacksEaten=0;
   feeding=0;
   private abilityRuns:number[]=[];
@@ -34,8 +34,8 @@ export class PetMotion {
   constructor(public cell:number,readonly element:Element,private readonly board:readonly (Tile|null)[],private readonly arrive:(cell:number,comboRun?:number)=>boolean|void,private readonly random:()=>number=Math.random,private readonly boardVersion?:()=>number,private readonly peers?:()=>readonly PetMotion[],private readonly attack?:()=>{cells:number[];hit:()=>void}|null,private readonly preferred?:()=>readonly number[],private readonly reserved?:()=>ReadonlySet<number>){this.x=cell%8;this.y=Math.floor(cell/8);}
   get onOwnLiquid(){return this.board[Math.round(this.y)*8+Math.round(this.x)]===this.element;}
   queueAbility(comboRun=0){this.snacks.push(undefined);this.abilityRuns.push(comboRun);this.queued++;this.revision++;}
-  queueSnack(run:number,cell:number,eat:()=>void,cancel:()=>void){this.queueAbility(run);this.snacks[this.snacks.length-1]={cell,eat,cancel};}
-  cancelAbilities(){this.snacks.forEach(s=>s?.cancel());this.snacks.length=0;this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.attacking=false;this.revision++;}
+  queueSnack(run:number,cell:number,eat:()=>boolean,cancel:()=>void,blast?:(cell:number)=>boolean){this.queueAbility(run);this.snacks[this.snacks.length-1]={cell,eat,cancel,blast};}
+  cancelAbilities(){this.snacks.forEach(s=>s?.cancel());this.snacks.length=0;this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.feeding=0;this.attacking=false;this.revision++;}
   private leapTarget(){
     let distance=Infinity;const choices:number[]=[];
     const reserved=this.reserved?.();
@@ -52,7 +52,7 @@ export class PetMotion {
     const snack=this.snacks[0];
     const attack=snack?null:this.attack?.();
     const targets=attack?.cells.filter(c=>this.available(c))??[];
-    const target=snack?snack.cell:attack?(targets[0]??null):this.leapTarget();if(target===null)return false;
+    const target=snack?(snack.stage?this.berryTarget():snack.cell):attack?(targets[0]??null):this.leapTarget();if(target===null){if(snack?.stage){this.finishSnack();return true;}return false;}
     this.attacking=!!attack;
     const distance=Math.hypot(target%8-this.x,Math.floor(target/8)-this.y)*2;
     const duration=Math.max(PET_LEAP_MIN,Math.min(PET_LEAP_MAX,distance/PET_LEAP_SPEED))*(attack?2:1);
@@ -65,11 +65,20 @@ export class PetMotion {
     this.cell=flight.target;this.x=this.cell%8;this.y=Math.floor(this.cell/8);this.next=null;this.progress=0;
     this.flight=null;this.leaping=false;this.leapProgress=0;this.planting=.000001;this.revision++;
     if(flight.cancelled)return;
-    if(this.snacks[0]){this.snacks[0]!.eat();this.feeding=.48;this.snacksEaten++;this.queued--;this.abilityRuns.shift();this.snacks.shift();return;}
+    const snack=this.snacks[0];
+    if(snack){if(snack.stage){snack.blast?.(this.cell);this.finishSnack();}else if(snack.eat()){this.feeding=1;this.planting=0;this.snacksEaten++;snack.stage=true;}else this.finishSnack();return;}
     if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.snacks.shift();this.attacking=false;}
     else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.snacks.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
   }
+  private finishSnack(){const snack=this.snacks.shift();this.abilityRuns.shift();this.queued--;snack?.cancel();this.revision++;}
+  private berryTarget(){
+    const opposite=this.element==='lava'?'water':'lava';let distance=Infinity;const choices:number[]=[];
+    for(let c=0;c<64;c++){if(this.board[c]!==null||!this.cardinal(c).some(n=>this.board[n]===opposite))continue;
+      const d=Math.hypot(c%8-this.x,Math.floor(c/8)-this.y);if(d<distance-1e-9){distance=d;choices.length=0;choices.push(c);}else if(Math.abs(d-distance)<1e-9)choices.push(c);}
+    return choices.length?this.pick(choices):null;
+  }
+  private cardinal(c:number){return [c%8?c-1:-1,c%8<7?c+1:-1,c-8,c+8].filter(n=>n>=0&&n<64);}
   // Ability landings keep exclusive destinations; wandering uses soft occupancy.
   private available(cell:number){return !this.peers?.().some(p=>p!==this&&((p.next??p.cell)===cell));}
   private routingKey(){
@@ -77,7 +86,7 @@ export class PetMotion {
   }
   private pick<T>(items:readonly T[]):T{return items[Math.min(items.length-1,Math.floor(this.random()*items.length))];}
   private allowed(cell:number){
-    if(this.board[cell]===this.element)return true;
+    if(this.board[cell]===this.element||this.board[cell]==='bush')return true;
     if(this.board[cell]!==null)return false;
     const opposite=this.element==='water'?'lava':'water',x=cell%8,y=Math.floor(cell/8);
     return ![x>0?cell-1:-1,x<7?cell+1:-1,y>0?cell-8:-1,y<7?cell+8:-1].some(n=>n>=0&&this.board[n]===opposite);
