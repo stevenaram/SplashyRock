@@ -31,6 +31,7 @@ export class Game {
   readonly board: (Tile | null)[] = Array(SIZE * SIZE).fill(null);
   inventory: (Piece | null)[];
   private handsDealt=0;
+  private bushHandsDealt=0;
   boardRevision = 0;
   score = 0;
   private runOver = false;
@@ -177,7 +178,7 @@ export class Game {
   readonly stoneDepth: number[] = Array(64).fill(0);
   readonly versions: number[] = Array(64).fill(0);
   constructor(private readonly random: () => number = Math.random, private readonly tutorialCompleted:()=>boolean=()=>false) {
-    this.handsDealt=this.tutorialCompleted()?2:0;
+    this.bushHandsDealt=0;this.handsDealt=this.tutorialCompleted()?2:0;
     this.inventory = this.deal();
   }
   private write(cell: number, tile: Tile | null) {
@@ -266,7 +267,7 @@ export class Game {
     this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
-    this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;this.stoneDepth.fill(0);this.inventory=this.deal();
+    this.bushHandsDealt=0;this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;this.stoneDepth.fill(0);this.inventory=this.deal();
   }
   reviveTargets():number[]{
     return [27,28,35,36];
@@ -291,13 +292,14 @@ export class Game {
     const active=this.bosses.filter(b=>!b.deathRemaining),elements=new Set(active.map(b=>b.element));
     const bossCounter:Element|null=elements.size===1?(active[0].element==='water'?'lava':'water'):null;
     const hand=this.handsDealt++;
+    const bushHand=this.bushesUnlocked&&this.bushHandsDealt++%2===0;
     const minoritySlot = Math.floor(this.random() * (hand===0?2:3));
     return Array.from({ length: 3 }, (_, slot) => ({
       shape: (()=>{
-        const pool=this.bushesUnlocked&&slot===2?SHAPES.filter(s=>s.cells.length<=3):hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
+        const pool=bushHand&&slot===2?SHAPES.filter(s=>s.cells.length<=3):hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
         return pool[Math.floor(this.random()*pool.length)];
       })(),
-      tile: this.bushesUnlocked&&slot===2?'bush':this.bushesUnlocked?(bossCounter??(slot===0?majority:(majority==='water'?'lava':'water'))):bossCounter ?? (slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority),
+      tile: bushHand&&slot===2?'bush':bushHand?(bossCounter??(slot===0?majority:(majority==='water'?'lava':'water'))):bossCounter ?? (slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority),
     }));
   }
   claimEggRewards(): number {

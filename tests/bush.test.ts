@@ -32,9 +32,10 @@ test('each berry reserves one pet; eating consumes it instead of planting; cance
  assert.equal(g.pets.reduce((n,p)=>n+p.snacksEaten,0),4);assert.equal(g.bushes.get(27)!.berries,0);assert.equal(g.bushes.get(27)!.reserved,0);assert.equal(g.pets.reduce((n,p)=>n+p.abilitiesUsed,0),2);
  g.bushes.get(27)!.berries=4;g.queuePetActions();g.pets.forEach(p=>p.cancelAbilities());assert.equal(g.bushes.get(27)!.reserved,0);
 });
-test('bush unlock requires four hatched pets; every new hand includes bush and both elements',()=>{
+test('bushes unlock at four hatched pets and alternate with original boss inventories',()=>{
  const g=new Game(()=>.3);pets(g,3);g.dealInventory();assert.ok(g.inventory.every(p=>p?.tile!=='bush'));pets(g,1);g.dealInventory();assert.deepEqual(new Set(g.inventory.map(p=>p?.tile)),new Set(['water','lava','bush']));
- for(const c of [0,1,2,8,9,10,16,17,18])g.board[c]='water';g.trySpawnBoss();assert.ok(g.bosses.length);g.dealInventory();assert.deepEqual(g.inventory.map(p=>p?.tile),['lava','lava','bush']);
+ for(const c of [0,1,2,8,9,10,16,17,18])g.board[c]='water';g.trySpawnBoss();assert.ok(g.bosses.length);g.dealInventory();assert.deepEqual(g.inventory.map(p=>p?.tile),['lava','lava','lava']);
+ g.dealInventory();assert.deepEqual(g.inventory.map(p=>p?.tile),['lava','lava','bush']);
 });
 test('game over treats every bush phase as occupied, including burning bushes awaiting another placement',()=>{
  for(const phase of ['healthy','ablaze'] as const){
@@ -51,7 +52,7 @@ test('a fitting bush shape keeps the run alive when neither liquid shape fits',(
 });
 
 test('bush shapes always have at most three squares',()=>{
- const g=new Game();pets(g,4);for(let i=0;i<200;i++){g.dealInventory();const p=g.inventory.find(p=>p?.tile==='bush')!;assert.ok(p.shape.cells.length<=3);}
+ const g=new Game();pets(g,4);for(let i=0;i<200;i++){g.dealInventory();const p=g.inventory.find(p=>p?.tile==='bush');assert.equal(!!p,i%2===0);if(p)assert.ok(p.shape.cells.length<=3);}
 });
 for(const element of ['lava','water'] as const)test(`${element} pet eats for one second then creates a leaf stone on opposite neighbor sand`,()=>{
  const g=new Game(()=>0);g.inventory=[{tile:'pet',petElement:element,shape:single}];g.place(0,48);const p=g.pet!;p.hatchRemaining=0;
@@ -68,4 +69,12 @@ test('missing berry or missing landing space completes the distraction without l
 });
 test('pets can walk through bushes, including bushes beside the opposite element',()=>{
  const g=new Game(()=>0);pets(g,1);for(let c=0;c<64;c++)bush(g,c);g.board[0]='water';const p=g.pet!;p.update(10);assert.ok(p.completed>2);
+});
+
+test('non-bush hands retain board-majority element rules and alternating hands reset each run',()=>{
+ const g=new Game(()=>.3);pets(g,4);g.board[0]='water';
+ g.dealInventory();assert.deepEqual(g.inventory.map(p=>p?.tile),['lava','water','bush']);
+ g.dealInventory();assert.equal(g.inventory.filter(p=>p?.tile==='lava').length,2);assert.equal(g.inventory.filter(p=>p?.tile==='water').length,1);
+ g.dealInventory();assert.ok(g.inventory.some(p=>p?.tile==='bush'));
+ g.restart();pets(g,4);g.dealInventory();assert.ok(g.inventory.some(p=>p?.tile==='bush'));
 });
