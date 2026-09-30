@@ -1,4 +1,4 @@
-import {neighborSource,besideForge} from './neighbor-rules';
+import {neighborSource,besideForge,emptyForgeBasin} from './neighbor-rules';
 import type {Element, Tile} from './game';
 
 export const PET_LEAP_MIN=.5;
@@ -38,6 +38,10 @@ export class PetMotion {
   queueSnack(run:number,cell:number,eat:()=>boolean,cancel:()=>void,blast?:(cell:number)=>boolean){this.queueAbility(run);this.snacks[this.snacks.length-1]={cell,eat,cancel,blast};}
   cancelAbilities(){this.snacks.forEach(s=>s?.cancel());this.snacks.length=0;this.abilityRuns.length=0;this.queued=0;if(this.flight){this.flight.cancelled=true;this.flight.hit=undefined;}this.feeding=0;this.attacking=false;this.revision++;}
   private leapTarget(){
+    // Fuel every available forge before considering ordinary placement preferences.
+    // next is reserved immediately on launch, so later pets choose another basin.
+    const fuel=this.board.flatMap((_,c)=>emptyForgeBasin(this.board,c,this.element)&&this.available(c)?[c]:[]);
+    if(fuel.length){const distance=(c:number)=>Math.hypot(c%8-this.x,Math.floor(c/8)-this.y),nearest=Math.min(...fuel.map(distance));return this.pick(fuel.filter(c=>Math.abs(distance(c)-nearest)<1e-9));}
     let distance=Infinity;const choices:number[]=[];
     const reserved=new Set(this.reserved?.());for(let c=0;c<64;c++)if(this.placementAllowed&&!this.placementAllowed(c))reserved.add(c);
     const awayFromBush=(c:number)=>!this.cardinal(c).some(n=>this.board[n]==='bush');
@@ -71,7 +75,7 @@ export class PetMotion {
     const snack=this.snacks[0];
     if(snack){if(snack.stage){snack.blast?.(this.cell);this.finishSnack();}else if(snack.eat()){this.feeding=1;this.planting=0;this.snacksEaten++;snack.stage=true;}else this.finishSnack();return;}
     if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.snacks.shift();this.attacking=false;}
-    else if(this.allowed(this.cell)&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.snacks.shift();this.abilitiesUsed++;}
+    else if((this.allowed(this.cell)||emptyForgeBasin(this.board,this.cell,this.element))&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.snacks.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
   }
   private finishSnack(){const snack=this.snacks.shift();this.abilityRuns.shift();this.queued--;snack?.cancel();this.revision++;}

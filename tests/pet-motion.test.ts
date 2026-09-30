@@ -278,3 +278,16 @@ test('a forge liquid alone cannot provide a berry-blast landing',()=>{
  const p=new PetMotion(35,'lava',b,()=>{},()=>0);p.queueSnack(1,35,()=>true,()=>{},()=>true);p.update(1.51);
  assert.equal(p.queued,0);assert.equal(p.leaping,false);
 });
+for(const element of ['water','lava'] as const)test(`${element} standard abilities fuel multiple forges first without duplicating destinations`,()=>{
+ const b=Array<Tile|null>(64).fill(null);b[27]=b[43]='forge';
+ const targets=element==='lava'?[26,42]:[28,44];
+ // External opposite neighbors, bush avoidance, boss reservations and preferred
+ // targets must not prevent correctly fueling these contained basins.
+ b[targets[0]-8]=b[targets[1]+8]=element==='lava'?'water':'lava';b[targets[0]+8]='bush';
+ const peers:PetMotion[]=[];
+ for(let i=0;i<3;i++)peers.push(new PetMotion(i,element,b,c=>{b[c]=element;return true;},()=>0,undefined,()=>peers,undefined,()=>[7],()=>new Set(targets)));
+ peers.forEach(p=>p.queueAbility());peers.forEach(p=>p.update(.01));
+ assert.ok(targets.includes(peers[0].next!));assert.ok(targets.includes(peers[1].next!));assert.notEqual(peers[0].next,peers[1].next);
+ assert.ok(!targets.includes(peers[2].next!));
+ peers.forEach(p=>p.update(1));for(const c of targets)assert.equal(b[c],element);
+});

@@ -11,3 +11,6 @@ export function besideForge(board:Board,cell:number){
  const footprint=(c:number)=>board[c]==='forge'||forgeBasin(board,c);
  return footprint(cell)||[cell%8?cell-1:-1,cell%8<7?cell+1:-1,cell-8,cell+8].some(c=>c>=0&&c<64&&footprint(c));
 }
+export function emptyForgeBasin(board:Board,cell:number,element:Element){
+ return board[cell]===null&&(element==='lava'?(cell%8<7&&board[cell+1]==='forge'):(cell%8>0&&board[cell-1]==='forge'));
+}
