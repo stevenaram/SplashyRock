@@ -302,6 +302,7 @@ function place() {
   if (selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
   if(!piece||(game.over&&(game.won||piece.tile!=='pet')))return false;
+  const pets=[...game.pets];
   const petPlan=planPetLandings(game,piece,target);
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
@@ -312,7 +313,7 @@ function place() {
   world.addPiece(target, piece);
   if(game.over){selected=null;clearPreview();renderTray();return true;}
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
-  if(piece.tile!=='pet')for(const landing of petPlan)landing.pet.queueAbility(game.comboRun,landing.cell);
+  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility(game.comboRun,petPlan.find(p=>p.pet===pet)?.cell);
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;

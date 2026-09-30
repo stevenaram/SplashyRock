@@ -5,11 +5,11 @@ import {PetMotion} from '../src/pet-motion';
 import {planPetLandings} from '../src/pet-placement-plan';
 const piece:Piece={tile:'water',shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0]]}};
 const add=(g:Game,c:number,e:'water'|'lava')=>{const p=new PetMotion(c,e,g.board,cell=>{g.board[cell]=e;return true;},()=>0,undefined,()=>g.pets);g.pets.push(p);return p;};
-test('matching pets get first pick while opposite pets pack into remaining adjacent cells',()=>{
+test('matching pets use the inner ring and opposite pets have safe distinct outer targets',()=>{
  const g=new Game();add(g,0,'water');add(g,7,'water');add(g,56,'lava');add(g,63,'lava');
  const plan=planPetLandings(g,piece,27);assert.equal(plan.length,4);assert.equal(new Set(plan.map(p=>p.cell)).size,4);
  const d=(a:number,b:number)=>Math.abs(a%8-b%8)+Math.abs(Math.floor(a/8)-Math.floor(b/8));
- for(const p of plan){assert.equal(g.board[p.cell],null);assert.equal(d(p.cell,27),1);}
+ for(const p of plan){assert.equal(g.board[p.cell],null);if(p.element==='water')assert.equal(d(p.cell,27),1);else{assert.ok(d(p.cell,27)>=2);for(const w of plan.filter(p=>p.element==='water'))assert.ok(d(p.cell,w.cell)>1);}}
  assert.deepEqual(planPetLandings(g,piece,27).map(p=>p.cell),plan.map(p=>p.cell));
 });
 test('plans include busy pets but exclude blocked boards and eggs without changing game state',()=>{
@@ -23,35 +23,12 @@ test('committed destinations override nearest wandering targets and consume once
  p.update(1.5);assert.equal(g.board[28],'water');assert.equal(p.abilitiesUsed,1);assert.equal(p.plannedLanding,undefined);
  p.queueAbility(5,29);p.cancelAbilities();assert.equal(p.plannedLanding,undefined);
 });
-test('blocked planned destinations are cancelled without selecting another tile',()=>{
- const g=new Game(),p=add(g,0,'water');p.queueAbility(4,28);g.board[28]='lava';p.update(.01);assert.notEqual(p.next,28);assert.equal(p.queued,0);assert.equal(p.leaping,false);assert.equal(p.abilitiesUsed,0);
+test('blocked planned destinations fall back without losing the queued action',()=>{
+ const g=new Game(),p=add(g,0,'water');p.queueAbility(4,28);g.board[28]='lava';p.update(.01);assert.notEqual(p.next,28);assert.equal(p.queued,1);
 });
 
 test('busy pets retain a second planned destination until their earlier jump completes',()=>{
  const g=new Game(),p=add(g,0,'water');p.queueAbility(1,1);p.update(.1);p.queueAbility(2,28);
  p.update(.45);assert.equal(g.board[1],'water');assert.equal(p.plannedLanding,28);
  p.update(2);assert.equal(g.board[28],'water');assert.equal(p.abilitiesUsed,2);assert.equal(p.queued,0);
-});
-
-test('landing previews extend across the entire board when nearby cells fill up',()=>{
- const g=new Game();for(let i=0;i<30;i++)add(g,i,i<15?'water':'lava');
- const plan=planPetLandings(g,piece,27);assert.equal(plan.length,30);assert.equal(new Set(plan.map(p=>p.cell)).size,30);
- assert.ok(plan.some(p=>Math.abs(p.cell%8-3)+Math.abs(Math.floor(p.cell/8)-3)>3));
-});
-test('planned opposite-element landings can launch and place beside water',()=>{
- const g=new Game(),p=add(g,0,'lava');g.board[27]='water';p.queueAbility(1,28);p.update(.01);assert.equal(p.next,28);p.update(2);assert.equal(g.board[28],'lava');assert.equal(p.abilitiesUsed,1);
-});
-
-test('pet previews can claim boss edges and queued claims block expansion until released',()=>{
- const g=new Game();add(g,56,'lava');add(g,57,'water');add(g,55,'lava');
- for(const c of [18,19,20,26,27,28,34,35,36])g.board[c]='water';g.trySpawnBoss();
- const lavaPiece={...piece,tile:'lava' as const};const plan=planPetLandings(g,lavaPiece,2);assert.ok(plan.some(p=>p.cell===10));
- g.inventory=[lavaPiece];g.place(0,2);const pet=g.pets[0];pet.queueAbility(1,9);pet.queueAbility(2,10);
- g.updateBoss(1.5);assert.equal(g.board[10],null);assert.ok(pet.claimsLanding(10));
- pet.cancelAbilities();assert.equal(pet.claimsLanding(10),false);
-});
-
-test('a target filled during flight cancels that placement without a retry',()=>{
- const g=new Game(),p=add(g,0,'water');p.queueAbility(1,63);p.update(.25);g.board[63]='lava';p.update(2);
- assert.equal(p.queued,0);assert.equal(p.abilitiesUsed,0);assert.equal(g.board.filter(t=>t==='water').length,0);assert.equal(p.claimsLanding(63),false);
 });

@@ -127,8 +127,8 @@ test('crowded wandering keeps moving with at most two pets assigned to each tile
  assert.ok(pets.every(p=>p.completed>0));
 });
 
-test('leap duration is the same half second at every distance',()=>{
- for(const [target,duration] of [[0,.5],[5,.5],[63,.5]]){
+test('leap duration uses a consistent travel speed bounded by stone appearance and clearing',()=>{
+ for(const [target,duration] of [[0,.5],[5,10/15],[63,1.28]]){
   const b=Array<Tile|null>(64).fill('lava');b[target]=null;let placed=0;
   const p=new PetMotion(0,'lava',b,()=>{placed++;},()=>0);p.queueAbility();
   p.update(duration-.001);assert.equal(placed,0);assert.equal(p.leaping,true);
