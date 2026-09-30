@@ -39,3 +39,12 @@ export const SHAPES: readonly Shape[] = [
   shape('cross-wide', 'wide eight-square cross', ['0110','1111','0110']),
   shape('cup-up', 'up-opening cup', ['101', '111']),
 ];
+
+// Fill the missing sizes for berry-driven bush progression without changing
+// the established water/lava shape pool.
+export const BUSH_SHAPES:readonly Shape[]=[...SHAPES,
+ shape('bush-square-four','four-square bush',['11','11']),
+ shape('bush-rectangle-wide','six-square bush rectangle',['111','111']),
+ shape('bush-rectangle-tall','tall six-square bush rectangle',['11','11','11']),
+];
+export const MAX_BUSH_SIZE=Math.max(...BUSH_SHAPES.map(s=>s.cells.length));

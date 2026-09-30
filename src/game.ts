@@ -3,7 +3,7 @@ import {bushTurn,watered,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
-import { SHAPES, type Shape, type Offset } from './shapes';
+import { BUSH_SHAPES, MAX_BUSH_SIZE, SHAPES, type Shape, type Offset } from './shapes';
 export type Element = 'water' | 'lava';
 export type Tile = Element | 'stone' | 'bush' | 'obsidian';
 export interface Piece { tile: Element | 'bush' | 'pet'; shape: Shape; petElement?: Element; eggCount?: number }
@@ -17,6 +17,9 @@ export function footprint(piece: Piece, anchor: number): Offset[] {
   return piece.shape.cells.map(([dx, dy]) => [x + dx, y + dy]);
 }
 export class Game {
+  berriesGrown=0;
+  get bushShapeLimit(){return Math.min(MAX_BUSH_SIZE,3+Math.floor(this.berriesGrown/1000));}
+
   featureAchievementEvents:Partial<Record<FeatureMetric,number>>={};
   private recordFeature(kind:FeatureMetric,count=1){if(!this.reviving&&count>0)this.featureAchievementEvents[kind]=(this.featureAchievementEvents[kind]??0)+count;}
 
@@ -234,7 +237,7 @@ export class Game {
   private replenishBush(cell:number){
     const b=this.bushes.get(cell);
     if(!b||b.phase!=='healthy'||!watered(this.board,cell)||b.berryTurn===this.shapeMoves)return;
-    this.recordFeature('berries-grown',4-b.berries);b.berries=4;b.berryTurn=this.shapeMoves;
+    if(!this.reviving)this.berriesGrown+=4-b.berries;this.recordFeature('berries-grown',4-b.berries);b.berries=4;b.berryTurn=this.shapeMoves;
   }
   private advanceBushes(){
     const wetBlocked=new Set([...this.bushes].filter(([c,b])=>watered(this.board,c)&&b.phase==='ablaze').map(([c])=>c));
@@ -298,6 +301,7 @@ export class Game {
     return this.over;
   }
   restart() {
+    this.berriesGrown=0;
     this.featureAchievementEvents={};
     this.pets.forEach(p=>p.cancelAbilities());this.bushes.clear();this.leafStones.clear();this.bushBurnouts.forEach(job=>job.done());this.bushBurnouts.clear();this.fireStones.clear();this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
@@ -333,7 +337,7 @@ export class Game {
     const minoritySlot = Math.floor(this.random() * (hand===0?2:3));
     return Array.from({ length: 3 }, (_, slot) => ({
       shape: (()=>{
-        const pool=bushHand&&slot===2?SHAPES.filter(s=>s.cells.length<=3):hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
+        const pool=bushHand&&slot===2?BUSH_SHAPES.filter(s=>s.cells.length<=this.bushShapeLimit):hand===0?SHAPES.filter(s=>s.cells.length===(slot<2?1:3)):hand===1?SHAPES.filter(s=>slot<2?s.cells.length===3:s.cells.length>3):SHAPES;
         return pool[Math.floor(this.random()*pool.length)];
       })(),
       tile: bushHand&&slot===2?'bush':bushHand?(bossCounter??(slot===0?majority:(majority==='water'?'lava':'water'))):bossCounter ?? (slot === minoritySlot ? (majority === 'water' ? 'lava' : 'water') : majority),
