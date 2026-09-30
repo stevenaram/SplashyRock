@@ -399,6 +399,6 @@ const disposeScoreTest=sandboxMode?scoreTestControls(amount=>{
 },()=>game.score,()=>EGG_GOALS[game.earnedEggs],restartRun,amount=>{
   if(!progression.addTestGems(amount))return false;
   progressUI.render();refreshRevive();return true;
-},()=>progression.gems):()=>{};
+},()=>progression.gems,()=>game.berriesGrown,value=>{game.berriesGrown=value;},()=>game.bushShapeLimit):()=>{};
 tutorial.start();updateScore();renderTray();
 if (import.meta.hot) import.meta.hot.dispose(() => { aftermaths.forEach(a=>a.cancel());aftermaths.clear();events.abort();disposeBossTest();disposeBushTest();disposeScoreTest();sound.dispose();tutorial.dispose();progressUI.dispose();disposeNotices();noSpace.dispose(); reactions.dispose(); sweeps.dispose(); clearTimeout(endTimer);clearTimeout(unlockTimer);clearTimeout(gainTimer); combo.dispose();bossReward.reset(); world.dispose(); });
