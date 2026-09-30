@@ -11,11 +11,12 @@ test('fire propagates one edge per placement and burning bushes clear themselves
  put(g,'water',63);assert.equal(g.board[9],null);assert.equal(g.bushes.get(10)!.phase,'ablaze');assert.equal(g.bushes.get(11)!.phase,'healthy');assert.equal(g.bushes.get(18)!.phase,'healthy');
  put(g,'water',62);assert.equal(g.board[10],null);assert.equal(g.board[8],'lava');assert.equal(g.bushes.get(11)!.phase,'ablaze');
 });
-test('water and lava together extinguish fire and suppress berries',()=>{
+test('water extinguishes fire, then replenishes berries despite adjacent lava',()=>{
  const g=new Game();[9,10].forEach(c=>bush(g,c));g.board[8]='lava';g.reconcileBushes();put(g,'water',1);
  assert.equal(g.bushes.get(9)!.phase,'healthy');assert.equal(g.bushes.get(9)!.berries,0);assert.equal(g.bushes.get(10)!.phase,'healthy');
- put(g,'water',62);assert.equal(g.bushes.get(9)!.berries,0);
- g.board[8]=null;put(g,'water',63);assert.equal(g.bushes.get(9)!.berries,1);
+ put(g,'water',62);assert.equal(g.bushes.get(9)!.berries,1);
+ g.reconcileBushes();assert.equal(g.bushes.get(9)!.berries,1);
+ put(g,'water',63);assert.equal(g.bushes.get(9)!.berries,2);assert.equal(g.board[8],'lava');
 });
 test('water refills exactly one berry per normal placement, capped at four; dry berries persist',()=>{
  const g=new Game();bush(g,9);g.board[8]='water';put(g,'lava',63);assert.equal(g.bushes.get(9)!.berries,1);

@@ -1,4 +1,4 @@
-import {bushTurn,watered,heated,type BushState} from './bush';
+import {bushTurn,watered,type BushState} from './bush';
 import {BOSS_SLAM_DELAY,BOSS_WAVE_SPEED,BOSS_SURGE_DURATION,type BossSurge,bossRewardScore,type BossReward,BOSS_DEATH_SECONDS,elementalPools,poolBlocks,poolSquares,type Boss} from './boss';
 import {EGG_GOALS,MAX_PETS,earnedEggs} from './egg-goals';
 import {PetMotion} from './pet-motion';
@@ -195,16 +195,16 @@ export class Game {
       if(this.board[c]!=='bush'){this.bushes.delete(c);continue;}
       // Only lava ignites between turns; bush-to-bush spread is turn based.
       if(!watered(this.board,c)&&this.neighbors(c).some(n=>this.board[n]==='lava'))b.phase='ablaze';
-      if(b.phase==='ablaze'||(watered(this.board,c)&&heated(this.board,this.bushes,c)))b.berries=0;
+      if(b.phase==='ablaze')b.berries=0;
     }
   }
   private advanceBushes(){
-    const wetBlocked=new Set([...this.bushes].filter(([c,b])=>watered(this.board,c)&&(b.phase==='ablaze'||heated(this.board,this.bushes,c))).map(([c])=>c));
+    const wetBlocked=new Set([...this.bushes].filter(([c,b])=>watered(this.board,c)&&b.phase==='ablaze').map(([c])=>c));
     const turn=bushTurn(this.board,this.bushes);
     for(const c of turn.burnout){this.write(c,null);this.bushBurnouts.push(c);}
     for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;}}
     this.reconcileBushes();
-    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&!wetBlocked.has(c)&&watered(this.board,c)&&!heated(this.board,this.bushes,c))b.berries=Math.min(4,b.berries+1);
+    for(const [c,b] of this.bushes)if(b.phase==='healthy'&&!wetBlocked.has(c)&&watered(this.board,c))b.berries=Math.min(4,b.berries+1);
   }
   queuePetActions(pending?:()=>()=>void){
     const pets=[...this.pets];
