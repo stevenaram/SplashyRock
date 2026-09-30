@@ -392,8 +392,17 @@ export class Game {
     if(piece.tile==='pet'&&this.pets.length>=MAX_PETS)return false;
     if(piece.tile==='forge'&&this.forges.size>=MAX_FORGES)return false;
     if (!Number.isInteger(anchor) || anchor < 0 || anchor >= SIZE * SIZE) return false;
-    return footprint(piece, anchor).every(([x, y]) =>
-      x >= 0 && x < SIZE && y >= 0 && y < SIZE && this.board[y * SIZE + x] === null&&(!this.basinElement(y*SIZE+x)||this.basinElement(y*SIZE+x)===piece.tile));
+    return footprint(piece, anchor).every(([x, y]) => {
+      if(x < 0 || x >= SIZE || y < 0 || y >= SIZE)return false;
+      const cell=y*SIZE+x,tile=this.board[cell],basin=this.basinElement(cell);
+      if(piece.tile==='forge'){
+        // Existing matching fuel can become a basin, but a forge can never
+        // share another forge's footprint or cover an occupied center.
+        const fuel=cell===anchor-1?'lava':cell===anchor+1?'water':null;
+        return !basin&&(tile===null||(fuel!==null&&tile===fuel));
+      }
+      return tile===null&&(!basin||basin===piece.tile);
+    });
   }
   canFormStone(cell: number): boolean {
     if (!Number.isInteger(cell) || cell < 0 || cell >= SIZE * SIZE || this.board[cell] !== null) return false;

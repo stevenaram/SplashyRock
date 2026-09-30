@@ -83,3 +83,26 @@ test('forge liquids cannot supply stone or berry blast neighbors, but external l
  g.board[10]='lava';g.board[19]='water';assert.equal(g.canFormStone(18),true);
  g.board[44]='water';assert.equal(g.formLeafStone(36,'lava'),true);
 });
+
+test('forges accept existing matching fuel in either or both basins and preserve it',()=>{
+ for(const [left,right] of [[null,null],['lava',null],[null,'water'],['lava','water']] as const){
+  const g=new Game();g.board[26]=left;g.board[28]=right;
+  assert.ok(g.canPlace(forge,27));assert.ok(g.pieceFits(forge));assert.ok(place(g,forge,27));
+  assert.equal(g.board[26],left);assert.equal(g.board[28],right);assert.equal(g.board[27],'forge');
+  assert.equal(g.forges.get(27)!.bricks,0);assert.equal(g.shapeMoves,0);
+  assert.ok(place(g,single('water'),0));assert.equal(g.forges.get(27)!.bricks,left&&right?2:0);
+ }
+});
+test('forge placement rejects wrong basin elements and occupied centers, including other forge basins',()=>{
+ for(const cell of [26,27,28])for(const tile of ['water','lava','bush','stone','obsidian','forge'] as const){
+  if((cell===26&&tile==='lava')||(cell===28&&tile==='water'))continue;
+  const g=new Game();g.board[cell]=tile;const before=[...g.board];assert.equal(g.canPlace(forge,27),false);assert.equal(place(g,forge,27),false);assert.deepEqual(g.board,before);
+ }
+ const g=new Game();assert.ok(place(g,forge,27));g.board[28]='water';assert.equal(g.canPlace(forge,29),false);
+ g.board[26]='lava';assert.equal(g.canPlace(forge,25),false);
+});
+test('a buildable neighbor center accepts the forge and stops the would-be stone reaction',()=>{
+ const g=new Game();g.board[26]='lava';g.board[28]='water';assert.ok(g.canFormStone(27));
+ assert.ok(place(g,forge,27));assert.equal(g.formStone(27),false);assert.deepEqual(g.board.slice(26,29),['lava','forge','water']);
+ const edge=new Game();edge.board[0]='water';assert.equal(edge.canPlace(forge,0),false);assert.equal(edge.canPlace(forge,7),false);
+});
