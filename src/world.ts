@@ -1,3 +1,4 @@
+import {petPortrait} from './pet-portrait';
 import type {PetLanding} from './pet-placement-plan';
 import {BossView} from './boss-view';
 import type {SoundCue} from './sound';
@@ -201,18 +202,28 @@ export class World {
   }
 
   showPreview(cell: number | null, piece: Piece | null, valid = true,landings:readonly PetLanding[] = []) {
-    const key = cell === null || !piece ? '' : `${cell}-${piece.tile}-${piece.shape.id}-${valid}-${landings.map(p=>`${p.cell}:${p.element}`).join(",")}`;
+    const queued:PetLanding[]=valid&&piece&&piece.tile!=='pet'?(this.game?.pets.flatMap(pet=>pet.plannedLandings.map(cell=>({cell,element:pet.element,pet})))??[]):[];
+    const visibleLandings=[...queued,...landings];
+    const key = cell === null || !piece ? '' : `${cell}-${piece.tile}-${piece.shape.id}-${valid}-${visibleLandings.map(p=>`${p.cell}:${p.element}`).join(",")}`;
     if (key === this.previewKey) return;
     if (this.preview) disposeGroup(this.preview);
     this.preview = null;
     this.previewKey = key;
     if (cell !== null && piece) {
       this.preview = this.pieceMesh(cell, piece, true, valid);
-      for(const landing of landings){
-        const tile=createTile(landing.element,true,true);
-        tile.position.set(gridWorld(landing.cell%8),.04,gridWorld(Math.floor(landing.cell/8)));
-        tile.traverse(o=>{if(o instanceof THREE.Mesh){const m=o.material as THREE.MeshBasicMaterial;m.opacity=m.opacity<1?.36:.72;m.color.set(landing.element==='water'?'#75dcea':'#ffad6d');}});
+      const groups=new Map<number,PetLanding[]>();
+      for(const landing of visibleLandings){const stack=groups.get(landing.cell)??[];stack.push(landing);groups.set(landing.cell,stack);}
+      for(const [destination,stack] of groups){
+        const tile=createTile(stack[0].element,true,true);
+        tile.position.set(gridWorld(destination%8),.04,gridWorld(Math.floor(destination/8)));
+        tile.traverse(o=>{if(o instanceof THREE.Mesh){const m=o.material as THREE.MeshBasicMaterial;m.opacity=m.opacity<1?.36:.72;m.color.set(stack[0].element==='water'?'#75dcea':'#ffad6d');}});
         this.preview.add(tile);
+        const cols=Math.ceil(Math.sqrt(stack.length)),rows=Math.ceil(stack.length/cols),size=Math.min(1.25,1.7/cols);
+        stack.forEach((landing,i)=>{
+          const portrait=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshBasicMaterial({map:petPortrait(landing.element),transparent:true,depthTest:false,depthWrite:false}));
+          portrait.position.set(gridWorld(destination%8)+(i%cols-(Math.min(cols,stack.length-Math.floor(i/cols)*cols)-1)/2)*size,.12,gridWorld(Math.floor(destination/8))+(Math.floor(i/cols)-(rows-1)/2)*size);
+          portrait.quaternion.copy(this.camera.quaternion);portrait.renderOrder=12;this.preview!.add(portrait);
+        });
       }
       this.scene.add(this.preview);
     }

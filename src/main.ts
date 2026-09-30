@@ -197,7 +197,7 @@ let trayMarkup="";
 let trayPieces:(Piece|null)[]=[];
 const refreshPreview = () => {
   const piece = selected === null ? null : game.inventory[selected];
-  if (piece && target !== null) world.showPreview(target, piece, (game.canPlace(piece, target)&&tutorial.permits(piece,target)));
+  if (piece && target !== null) world.showPreview(target,piece,game.canPlace(piece,target)&&tutorial.permits(piece,target),planPetLandings(game,piece,target));
 };
 const sweeps = new SandSweeps(game, (cells, origin, phase, depth, owner) => {
   world.sandSweep(game.board,cells,origin,phase);
@@ -302,7 +302,6 @@ function place() {
   if (selected === null || target === null) return false;
   const piece = game.inventory[selected] as Piece;
   if(!piece||(game.over&&(game.won||piece.tile!=='pet')))return false;
-  const pets=[...game.pets];
   const petPlan=planPetLandings(game,piece,target);
   if(!tutorial.permits(piece,target)){sound.play('reject');return false;}
   const oldMultiplier=game.combo,scoreBeforePlacement=game.score;
@@ -313,7 +312,7 @@ function place() {
   world.addPiece(target, piece);
   if(game.over){selected=null;clearPreview();renderTray();return true;}
   const aftermath=new Aftermath(()=>{aftermaths.delete(aftermath);settled();},game.comboRun);
-  if(piece.tile!=='pet')for(const pet of pets)pet.queueAbility(game.comboRun,petPlan.find(p=>p.pet===pet)?.cell);
+  if(piece.tile!=='pet')for(const landing of petPlan)landing.pet.queueAbility(game.comboRun,landing.cell);
   aftermaths.add(aftermath);
   reactions.schedule(1,aftermath);aftermath.release();
   status.textContent = `${piece.tile} ${piece.shape.name} placed. ${game.inventory.filter(Boolean).length} tiles available.`;

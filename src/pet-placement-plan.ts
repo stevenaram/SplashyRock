@@ -1,27 +1,23 @@
 import {footprint,type Game,type Piece,type Element} from './game';
 import type {PetMotion} from './pet-motion';
+import {isPureSand} from './pet-sand';
 export interface PetLanding {cell:number;element:Element;pet:PetMotion}
-const neighbors=(c:number)=>[c%8>0?c-1:-1,c%8<7?c+1:-1,c-8,c+8].filter(n=>n>=0&&n<64);
-// Stable tile ordering while hovering; nearest available pets are assigned only
-// when the plan is committed. Future liquids are included in safety checks.
 export function planPetLandings(game:Game,piece:Piece,anchor:number):PetLanding[]{
  if(piece.tile==='pet'||game.over||!game.canPlace(piece,anchor))return [];
- const board=[...game.board],shape=new Set(footprint(piece,anchor).map(([x,y])=>y*8+x));
+ const board=[...game.board],shape=footprint(piece,anchor).map(([x,y])=>y*8+x);
  for(const c of shape)board[c]=piece.tile;
- const blocked=new Set(game.bossReservedCells);
- for(const boss of game.bosses)if(!boss.deathRemaining)for(const c of boss.remaining)for(const n of neighbors(c))if(board[n]===null)blocked.add(n);
- for(const pet of game.pets){if(pet.leaping&&pet.next!==null)blocked.add(pet.next);if(pet.plannedLanding!==undefined)blocked.add(pet.plannedLanding);}
- const distance=(c:number)=>Math.min(...[...shape].map(s=>Math.abs(s%8-c%8)+Math.abs(Math.floor(s/8)-Math.floor(c/8))));
- const plan:PetLanding[]=[];
- for(const element of [piece.tile,piece.tile==='water'?'lava':'water'] as Element[]){
-  const pets=game.pets.filter(p=>p.element===element);
-  const opposite=element==='water'?'lava':'water';
-  const candidates=Array.from({length:64},(_,c)=>c).filter(c=>board[c]===null&&!blocked.has(c)&&distance(c)>=(element===piece.tile?1:2)&&distance(c)<=(element===piece.tile?1:3)&&!neighbors(c).some(n=>board[n]===opposite)&&!game.pets.some(p=>p.element!==element&&(p.next??p.cell)===c)).sort((a,b)=>distance(a)-distance(b)||a-b);
-  for(const cell of candidates){
-   if(!pets.length)break;
-   const pet=pets.reduce((a,b)=>Math.hypot(a.x-cell%8,a.y-Math.floor(cell/8))<=Math.hypot(b.x-cell%8,b.y-Math.floor(cell/8))?a:b);
-   pets.splice(pets.indexOf(pet),1);plan.push({cell,element,pet});board[cell]=element;blocked.add(cell);
-  }
+ const distance=(c:number)=>Math.min(...shape.map(s=>Math.abs(s%8-c%8)+Math.abs(Math.floor(s/8)-Math.floor(c/8))));
+ // Tile selection depends only on the board, anchor and pet counts, never on
+ // wandering positions. Assign the nearest pet after selecting each destination.
+ const candidates=Array.from({length:64},(_,c)=>c).filter(c=>isPureSand(board,c)).sort((a,b)=>distance(a)-distance(b)||a-b);
+ if(!candidates.length)return [];
+ const pools={water:game.pets.filter(p=>p.element==='water'),lava:game.pets.filter(p=>p.element==='lava')};
+ const plan:PetLanding[]=[];let element:Element=piece.tile;
+ while(pools.water.length||pools.lava.length){
+  if(!pools[element].length)element=element==='water'?'lava':'water';
+  const cell=candidates[plan.length%candidates.length],pets=pools[element];
+  const pet=pets.reduce((a,b)=>Math.hypot(a.x-cell%8,a.y-Math.floor(cell/8))<=Math.hypot(b.x-cell%8,b.y-Math.floor(cell/8))?a:b);
+  pets.splice(pets.indexOf(pet),1);plan.push({cell,element,pet});element=element==='water'?'lava':'water';
  }
  return plan;
 }
