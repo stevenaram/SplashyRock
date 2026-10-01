@@ -26,7 +26,7 @@ export class Game {
   readonly forges=new Map<number,{bricks:number;cycles:number}>();
   basinElement(cell:number):Element|null {for(const c of this.forges.keys()){if(cell===c-1)return 'lava';if(cell===c+1)return 'water';}return null;}
   canPlantElementAt(cell:number,element:Element){return this.board[cell]===null&&(!this.basinElement(cell)||this.basinElement(cell)===element);}
-  private produceBricks(){for(const [c,f] of this.forges)if(this.board[c-1]==='lava'&&this.board[c+1]==='water'&&f.bricks<10){f.bricks=Math.min(10,f.bricks+2);f.cycles++;}}
+  private produceBricks(){for(const [c,f] of this.forges)if(this.board[c-1]==='lava'&&this.board[c+1]==='water'&&f.bricks<10){f.bricks=Math.min(10,f.bricks+2);f.cycles++;this.onFeatureTip('bricks-produced');}}
   berriesGrown=0;
   get bushShapeLimit(){return BUSH_SIZE_TIERS[Math.min(BUSH_SIZE_TIERS.length-1,Math.floor(this.berriesGrown/300))];}
 
@@ -287,7 +287,7 @@ export class Game {
     this.brickReservations.set(cell,(this.brickReservations.get(cell)??0)+1);
     let reserved=true,taken=false,delivered=false,closed=false;
     const release=()=>{if(reserved){this.brickReservations.set(cell,Math.max(0,(this.brickReservations.get(cell)??1)-1));reserved=false;}};
-    pet.queueBuild(run,cell,()=>{release();if(this.forges.get(cell)!==forge||forge.bricks<1)return false;forge.bricks--;taken=true;return true;},()=>{
+    pet.queueBuild(run,cell,()=>{release();if(this.forges.get(cell)!==forge||forge.bricks<1)return false;forge.bricks--;taken=true;this.onFeatureTip('bricks-collected');return true;},()=>{
       if(closed)return;closed=true;release();this.boat.release(id);
       if(taken&&!delivered&&this.forges.get(cell)===forge)forge.bricks=Math.min(10,forge.bricks+1);
       done();

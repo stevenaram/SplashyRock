@@ -6,6 +6,8 @@ export const FEATURE_TIPS={
  'bush-fire':'This bush is burning. It will burn away in a fiery blast when you place your next shape.',
  'bush-extinguished':'Water beside a burning bush puts the fire out.',
  'pet-forge-fuel':'Pets bring lava or water to the forge as needed, unless they’re busy eating berries.',
+ 'bricks-produced':'Your forge creates bricks each time you place a shape, as long as it has both lava and water.',
+ 'bricks-collected':'When bricks are ready, pets will use them to build.',
  'obsidian-blast':"Placing bricks triggers a Pet's Obsidian Blast ability.",
  'forge-both':'Add lava to the left basin and water to the right to light the forge.',
  'forge-lava':'This forge needs lava in its left basin.',
