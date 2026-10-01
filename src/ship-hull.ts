@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {BOAT_CURVE,BOAT_FRAME_UPPER_RADIUS,BOAT_FRAME_LOWER_RADIUS,BOAT_FRAME_LOWER_HEIGHT,BOAT_FRAME_LOWER_Y,BOAT_FRAME_UPPER_HEIGHT} from './boat';
+import {BOAT_CURVE,BOAT_FRAME_UPPER_RADIUS,BOAT_FRAME_LOWER_RADIUS,BOAT_FRAME_LOWER_HEIGHT,BOAT_FRAME_LOWER_Y,BOAT_FRAME_UPPER_HEIGHT,BOAT_FRAME_UPPER_Y} from './boat';
 import {obsidianMaterial} from './obsidian-material';
 /** Watertight ribbon follows the same fair curve as construction targets. */
 export function createShipHull(){
@@ -15,7 +15,7 @@ export function createShipHull(){
 }
 /** Continuous rolled-steel gunwales bind the curved armor into one silhouette. */
 export function createHullTrim(){
- return [1.35,BOAT_FRAME_LOWER_Y].map((height,index)=>{
+ return [BOAT_FRAME_UPPER_Y,BOAT_FRAME_LOWER_Y].map((height,index)=>{
   const points=Array.from({length:256},(_,i)=>{const p=BOAT_CURVE.getPointAt(i/256),n=BOAT_CURVE.getTangentAt(i/256),out=index?.34:.59;return new T.Vector3(p.x+n.z*out,height,p.z-n.x*out);});
   const path=new T.CatmullRomCurve3(points,true),geometry=new T.TubeGeometry(path,256,index?BOAT_FRAME_LOWER_RADIUS:BOAT_FRAME_UPPER_RADIUS,5,true);
   // Taller elliptical beams retain the narrow horizontal footprint of the frame.
