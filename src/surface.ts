@@ -92,7 +92,9 @@ export class ConnectedSurface {
               }
             }
             if(pool>.028&&coalHalo>.025)discard;
-            vec3 c=vec3(185.,197.,170.)/255.;
+            // Deck pools sit in charcoal recesses rather than sandy rims.
+            vec3 c=mix(vec3(185.,197.,170.),vec3(68.,63.,79.),onDeck)/255.;
+            if(onDeck>.5&&pool<.008)c=vec3(43.,40.,53.)/255.;
             if(pool<-.015)c=vec3(141.,189.,184.)/255.;
             if(pool<-.095)c=vec3(110.,172.,178.)/255.;
             // A single soft reflection on one side leaves the pool readable
