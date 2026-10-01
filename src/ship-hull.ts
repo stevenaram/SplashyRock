@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {BOAT_CURVE,BOAT_FRAME_UPPER_RADIUS,BOAT_FRAME_LOWER_RADIUS,BOAT_FRAME_LOWER_HEIGHT,BOAT_FRAME_LOWER_Y,BOAT_FRAME_UPPER_HEIGHT,BOAT_FRAME_UPPER_Y} from './boat';
+import {BOAT_CURVE,BOAT_FRAME_UPPER_RADIUS,BOAT_FRAME_LOWER_RADIUS,BOAT_FRAME_LOWER_HEIGHT,BOAT_FRAME_LOWER_Y,BOAT_FRAME_UPPER_HEIGHT,BOAT_FRAME_UPPER_Y,BOAT_FRAME_COUNTS} from './boat';
 import {obsidianMaterial} from './obsidian-material';
 /** Watertight ribbon follows the same fair curve as construction targets. */
 export function createShipHull(){
@@ -13,14 +13,23 @@ export function createShipHull(){
  }
  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();const material=obsidianMaterial();material.vertexColors=true;material.side=T.DoubleSide;const mesh=new T.Mesh(geometry,material);mesh.frustumCulled=false;return mesh;
 }
-/** Continuous rolled-steel gunwales bind the curved armor into one silhouette. */
+/** Closed, bevelled beams: every delivery has solid end caps as well as an
+ * underside. Shared endpoints keep the finished frame watertight. */
+export const FRAME_SECTION_VERTICES=84;
 export function createHullTrim(){
  return [BOAT_FRAME_UPPER_Y,BOAT_FRAME_LOWER_Y].map((height,index)=>{
-  const points=Array.from({length:256},(_,i)=>{const p=BOAT_CURVE.getPointAt(i/256),n=BOAT_CURVE.getTangentAt(i/256),out=index?.34:.59;return new T.Vector3(p.x+n.z*out,height,p.z-n.x*out);});
-  const path=new T.CatmullRomCurve3(points,true),geometry=new T.TubeGeometry(path,256,index?BOAT_FRAME_LOWER_RADIUS:BOAT_FRAME_UPPER_RADIUS,5,true);
-  // Taller elliptical beams retain the narrow horizontal footprint of the frame.
-  const radius=index?BOAT_FRAME_LOWER_RADIUS:BOAT_FRAME_UPPER_RADIUS,beamHeight=index?BOAT_FRAME_LOWER_HEIGHT:BOAT_FRAME_UPPER_HEIGHT;
-  geometry.translate(0,-height,0);geometry.scale(1,beamHeight/(radius*2),1);geometry.translate(0,height,0);
-  return new T.Mesh(geometry,new T.MeshBasicMaterial({color:index?'#493c60':'#8c859d'}));
+  const radius=index?BOAT_FRAME_LOWER_RADIUS:BOAT_FRAME_UPPER_RADIUS,h=(index?BOAT_FRAME_LOWER_HEIGHT:BOAT_FRAME_UPPER_HEIGHT)/2,bevel=.07;
+  const profile=[[-radius+bevel,-h],[radius-bevel,-h],[radius,-h+bevel],[radius,h-bevel],[radius-bevel,h],[-radius+bevel,h],[-radius,h-bevel],[-radius,-h+bevel]];
+  const positions:number[]=[],colors:number[]=[],uv:number[]=[],out=index?.34:.59,count=index?BOAT_FRAME_COUNTS.lower:BOAT_FRAME_COUNTS.upper;
+  const palette=['#29243b','#40354e','#51435f','#93839e','#766384','#4d405d','#352d44','#29243b'].map(c=>new T.Color(c));
+  const at=(section:number)=>{const p=BOAT_CURVE.getPointAt((section%count)/count),n=BOAT_CURVE.getTangentAt((section%count)/count);return profile.map(([x,y])=>[p.x+n.z*(out+x),height+y,p.z-n.x*(out+x)]);};
+  const triangle=(a:number[],b:number[],c:number[],shade:T.Color)=>{for(const v of [a,b,c]){positions.push(...v);colors.push(shade.r,shade.g,shade.b);uv.push((v[0]+v[2])*.5,v[1]);}};
+  for(let i=0;i<count;i++){const a=at(i),b=at(i+1);
+   for(let k=0;k<8;k++){const j=(k+1)%8;triangle(a[k],b[k],b[j],palette[k]);triangle(a[k],b[j],a[j],palette[k]);}
+   for(let k=1;k<7;k++){triangle(a[0],a[k+1],a[k],palette[2]);triangle(b[0],b[k],b[k+1],palette[2]);}
+  }
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
+  const material=new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide});
+  const mesh=new T.Mesh(geometry,material);mesh.frustumCulled=false;return mesh;
  });
 }

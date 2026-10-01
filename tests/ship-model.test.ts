@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {BOAT_BLUEPRINT,BOAT_WALL_BRICKS,BOAT_TOTAL_BRICKS,BOAT_HULL_BRICKS,BOAT_FRAME_BRICKS,APRON_TRIANGLES,BOAT_CURVE,boatDeliveryTarget,hullDeliverySections} from '../src/boat';
-import {createShipHull} from '../src/ship-hull';
+import {BOAT_BLUEPRINT,BOAT_WALL_BRICKS,BOAT_TOTAL_BRICKS,BOAT_HULL_BRICKS,BOAT_FRAME_BRICKS,BOAT_FRAME_COUNTS,APRON_TRIANGLES,BOAT_CURVE,boatDeliveryTarget,hullDeliverySections} from '../src/boat';
+import {createShipHull,createHullTrim,FRAME_SECTION_VERTICES} from '../src/ship-hull';
 import {SHIP_PARTS} from '../src/ship-details';
 import {Game} from '../src/game';
 import {PetMotion} from '../src/pet-motion';
@@ -58,7 +58,7 @@ test('brick deliveries actually reach their world-space target before constructi
 test('construction frames the perimeter before plating, with no large milestone reveal',()=>{
  assert.ok(BOAT_BLUEPRINT.slice(0,BOAT_FRAME_BRICKS).every(b=>b.frame));
  assert.ok(BOAT_BLUEPRINT.slice(BOAT_FRAME_BRICKS,BOAT_HULL_BRICKS).every(b=>!b.frame&&b.apron===undefined&&b.detail===undefined));
- const parts=BOAT_BLUEPRINT.filter(b=>b.part);
+ const parts=BOAT_BLUEPRINT.flatMap(b=>b.pieces??[]).map(p=>({...p.part,part:p.part,detail:p.detail}));
  // Every job has unique physical geometry, not multiple bricks funding the same part.
  assert.equal(new Set(parts.map(b=>JSON.stringify(b.part))).size,parts.length);
  for(const b of parts){const d=[b.width,b.height,b.depth].sort((a,b)=>b-a);assert.ok(Math.min(...d)>.005);assert.ok(d[0]*d[1]<1.1);}
@@ -69,4 +69,21 @@ test('construction frames the perimeter before plating, with no large milestone 
  assert.equal(BOAT_BLUEPRINT.filter(b=>b.apron!==undefined).length,APRON_TRIANGLES.length);
  const area=APRON_TRIANGLES.map(t=>t[1].clone().sub(t[0]).cross(t[2].clone().sub(t[0])).length()/2);
  assert.ok(Math.max(...area)<2);assert.ok(area.every(a=>a>0));
+});
+
+test('each frame delivery is a capped solid with multiple painted tones',()=>{
+ for(const [index,mesh] of createHullTrim().entries()){
+  const count=index?BOAT_FRAME_COUNTS.lower:BOAT_FRAME_COUNTS.upper;
+  const p=mesh.geometry.attributes.position,c=mesh.geometry.attributes.color;
+  assert.equal(p.count,count*FRAME_SECTION_VERTICES);
+  const tones=new Set(Array.from({length:c.count},(_,i)=>`${c.getX(i)},${c.getY(i)},${c.getZ(i)}`));assert.ok(tones.size>=3);
+  // Each individual delivered section is closed, even before its neighbors arrive.
+  for(let section=0;section<count;section++){
+   const edges=new Map<string,number>(),key=(i:number)=>[p.getX(i),p.getY(i),p.getZ(i)].map(x=>x.toFixed(5)).join(',');
+   for(let v=section*FRAME_SECTION_VERTICES;v<(section+1)*FRAME_SECTION_VERTICES;v+=3)for(let k=0;k<3;k++){const edge=[key(v+k),key(v+(k+1)%3)].sort().join('|');edges.set(edge,(edges.get(edge)??0)+1);}
+   assert.ok([...edges.values()].every(n=>n===2));
+  }
+  mesh.geometry.dispose();mesh.material.dispose();
+ }
+ assert.ok(BOAT_BLUEPRINT.some(b=>(b.pieces?.length??0)>1));
 });
