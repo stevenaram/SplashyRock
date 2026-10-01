@@ -136,8 +136,8 @@ export class ConnectedSurface {
             if(abs(n-.48)<.04)c=vec3(1.,.69,.24);
             if(abs(n-.48)<.012)c=vec3(1.,.86,.48);
             float furnace=texture2D(board,(cell+.5)/8.).g;
-            c=mix(c,vec3(1.,.56,.16),furnace*.38);
-            if(furnace>.01&&abs(n-.48)<.04)c=mix(c,vec3(1.,.95,.70),furnace*.8);
+            c=mix(c,vec3(.95,.13,.035),furnace*.65);
+            if(furnace>.01&&abs(n-.48)<.04)c=mix(c,vec3(1.,.25,.06),furnace*.9);
             if(edge<.125)c=vec3(.95,.39,.12);
             if(edge<.0625)c=vec3(1.,.70,.29);
           }else if(k>3.5){

@@ -70,7 +70,7 @@ export class PetWalker {
  private readonly cargo=carriedBrick();
  private readonly shadow:T.Mesh;
  private readonly landing:T.Mesh<T.RingGeometry,T.MeshBasicMaterial>;
- constructor(readonly motion:PetMotion){this.age=motion.cell*.371;this.gait=(motion.cell*.618)%1;this.swimPhase=motion.cell*1.37;this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root,this.egg.group);this.model.root.visible=false;this.model.body.add(this.cargo);this.cargo.position.set(0,.86,.08);this.cargo.visible=false;
+ constructor(readonly motion:PetMotion){this.age=motion.cell*.371;this.gait=(motion.cell*.618)%1;this.swimPhase=motion.cell*1.37;this.model=createPetModel(motion.element);this.group.position.set(gridWorld(motion.x),.08,gridWorld(motion.y));this.group.add(this.model.root,this.egg.group);this.model.root.visible=false;this.model.body.add(this.cargo);this.cargo.position.set(0,.86,.08);this.cargo.scale.set(1.5,1.875,1.5);this.cargo.visible=false;
   // A small contact shadow follows the pet without re-rendering the island shadow map.
   const shadow=this.shadow=new T.Mesh(new T.CircleGeometry(.48,12),new T.MeshBasicMaterial({color:'#705536',transparent:true,opacity:.24,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.8,1);shadow.position.y=.005;this.group.add(shadow);
@@ -176,7 +176,8 @@ export class PetWalker {
     this.model.body.scale.set(1+squash*.28,1-squash*.4,1+squash*.28);
     this.model.body.position.y=-squash*.07;this.model.head.rotation.x=squash*.12;
   }
-  if(this.motion.feeding>0&&!reduced){const nibble=Math.sin((1-this.motion.feeding)*32);this.model.body.position.y=-.06;this.model.head.rotation.x=.24+nibble*.1;this.model.head.position.y=.27+nibble*.025;this.model.tail.rotation.y=Math.sin(this.age*12)*.2;}
+  if(this.motion.feeding>0&&!this.motion.building&&!reduced){const nibble=Math.sin((1-this.motion.feeding)*32);this.model.body.position.y=-.06;this.model.head.rotation.x=.24+nibble*.1;this.model.head.position.y=.27+nibble*.025;this.model.tail.rotation.y=Math.sin(this.age*12)*.2;}
+  if(this.motion.building)this.model.body.scale.setScalar(1);
   const blink=this.age%5.3;this.model.eyes.forEach(eye=>eye.scale.y=blink>4.95&&blink<5.08?.12:1);
  }
  dispose(){const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();this.group.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m));}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());this.model.textures.forEach(t=>t.dispose());this.egg.texture.dispose();this.group.removeFromParent();}

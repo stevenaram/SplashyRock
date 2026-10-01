@@ -67,6 +67,10 @@ export class PetMotion {
       const b=snack.build;this.carryingBrick=true;
       this.launch(this.closestBoardCell(b.x,b.y),b.x,b.y,b.height);return true;
     }
+    if(snack?.build&&!snack.stage){
+      const peers=this.peers?.()??[this],index=Math.max(0,peers.indexOf(this)),angle=.2+(index%8)/7*(Math.PI-.4);
+      this.launch(snack.cell,snack.cell%8+Math.cos(angle)*.6,Math.floor(snack.cell/8)+Math.sin(angle)*.65,.12);return true;
+    }
     const attack=snack?null:this.attack?.();
     const targets=attack?.cells.filter(c=>this.available(c))??[];
     const target=snack?(snack.stage?this.berryTarget():snack.cell):attack?(targets[0]??null):this.leapTarget();if(target===null){if(snack?.stage){this.finishSnack();this.returnFromBoat();return true;}return false;}
@@ -96,7 +100,7 @@ export class PetMotion {
     if(flight.cancelled){this.returnFromBoat();return;}
     const snack=this.snacks[0];
     if(snack?.build&&snack.stage&&!snack.delivered){snack.build.place();snack.delivered=true;this.carryingBrick=false;return;}
-    if(snack){if(snack.stage){snack.blast?.(this.cell);this.finishSnack();}else if(snack.eat()){this.feeding=snack.build?.25:1;this.planting=0;if(!snack.build)this.snacksEaten++;else this.carryingBrick=true;snack.stage=true;}else this.finishSnack();return;}
+    if(snack){if(snack.stage){snack.blast?.(this.cell);this.finishSnack();}else if(snack.eat()){this.feeding=snack.build?.7:1;this.planting=0;if(!snack.build)this.snacksEaten++;else this.carryingBrick=true;snack.stage=true;}else this.finishSnack();return;}
     if(flight.hit){flight.hit();this.queued--;this.abilityRuns.shift();this.snacks.shift();this.attacking=false;}
     else if((this.allowed(this.cell)||emptyForgeBasin(this.board,this.cell,this.element))&&this.board[this.cell]===null&&this.arrive(this.cell,this.abilityRuns[0])!==false){this.queued--;this.abilityRuns.shift();this.snacks.shift();this.abilitiesUsed++;}
     // A changed landing tile never consumes the action: retry after recovery.
