@@ -1,7 +1,7 @@
-export interface ShipPart {x:number;y:number;z:number;width:number;height:number;depth:number;color?:string;rx?:number;ry?:number;rz?:number;round?:boolean}
+export interface ShipPart {x:number;y:number;z:number;width:number;height:number;depth:number;color?:string;rx?:number;ry?:number;rz?:number;round?:boolean;spinX?:number;spinZ?:number}
 export const SHIP_PARTS:ShipPart[]=[];
 const add=(x:number,y:number,z:number,width:number,height:number,depth:number,color?:string,extra:Partial<ShipPart>={})=>{SHIP_PARTS.push({x,y,z,width,height,depth,color,...extra});};
-const metal='#555c60',gold='#737786',light='#a4afbb',dark='#241a36',water='#248ab2',lava='#e5632c';
+const metal='#697580',gold='#737786',light='#a4afbb',dark='#241a36',water='#248ab2',lava='#e5632c';
 function bolt(x:number,y:number,z:number){add(x,y,z,.09,.055,.09,light,{round:true});}
 function beam(a:number[],b:number[],thick:number,color=gold){const dx=b[0]-a[0],dy=b[1]-a[1],dz=b[2]-a[2],length=Math.hypot(dx,dy,dz);add((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2,thick,length,thick,color,{rz:-Math.atan2(dx,dy),rx:Math.atan2(dz,Math.hypot(dx,dy))});}
 // Narrow service walkways sit outside the entire eight-by-eight playfield.
@@ -46,7 +46,7 @@ add(0,3.54,-10.3,6.25,.22,3.30);add(0,3.70,-10.3,6.48,.14,3.5,metal);
 for(let i=0;i<9;i++)add(-2.8+i*.70,3.80,-10.3,.10,.08,3.12,metal);
 for(const x of [-1.7,1.7]){
  add(x,3.86,-10.5,1.14,.18,1.14,dark);add(x,3.99,-10.5,.87,.12,.87,metal,{round:true});
- for(let k=0;k<8;k++){const a=k*Math.PI/4;add(x+Math.cos(a)*.25,4.06,-10.5+Math.sin(a)*.25,.31,.04,.07,dark,{ry:-a});}
+ for(let k=0;k<8;k++){const a=k*Math.PI/4;add(x+Math.cos(a)*.25,4.06,-10.5+Math.sin(a)*.25,.31,.04,.07,dark,{ry:-a,spinX:x,spinZ:-10.5});}
 }
 add(0,3.86,-9.6,.86,.12,.68,dark);add(2.8,4.34,-11.6,.09,1.24,.09,metal);add(2.8,4.62,-11.6,.65,.06,.08,metal);
 for(const side of [-1,1]){
@@ -86,4 +86,42 @@ for(const side of [-1,1])for(let z=-7.4;z<8;z+=1.2){
  add(side*8.94,1.37,z,.38,.10,1.12,metal);
  add(side*8.95,1.44,z,.12,.035,.86,light);
  add(side*8.78,.52,z,.10,.28,.58,side<0?lava:water);
+}
+// Recessed stern cargo apron: a quiet framed surface behind the inventory.
+add(0,.02,9.45,8.3,.14,2.40);
+for(const x of [-4.25,4.25]){add(x,.13,9.45,.12,.08,2.5,metal);for(const z of [8.35,10.5])bolt(x,.19,z);}
+for(const z of [8.25,10.65])add(0,.13,z,8.60,.08,.12,metal);
+for(let i=0;i<13;i++)add(-3.9+i*.65,.10,9.45,.025,.014,2.16,gold);
+// Reinforced bridge roof and equipment housings, with small inset panel edges.
+for(const z of [-8.58,-12.02]){add(0,3.78,z,6.65,.10,.13,dark);add(0,3.85,z,6.40,.025,.045,light);}
+for(const x of [-3.21,3.21])add(x,3.79,-10.3,.13,.12,3.5,dark);
+for(const side of [-1,1]){
+ const x=side*1.7;add(x,4.10,-10.5,1.0,.035,.08,light);add(x,4.10,-10.5,.08,.035,1.0,light);
+ for(const dx of [-.48,.48])for(const dz of [-.48,.48])bolt(x+dx,4.05,-10.5+dz);
+ // Angular front buttresses connect the tower into its engineering plinth.
+ beam([side*2.65,.25,-8.92],[side*2.95,1.8,-9.25],.16,gold);
+ for(const y of [.55,1.1,1.6])add(side*2.74,y,-8.94,.12,.09,.08,light);
+ // Wiper arms and a visor give the blue glass an unmistakable wheelhouse face.
+ beam([side*1.4,2.36,-8.91],[side*1.8,2.96,-8.91],.045,dark);
+ add(side*1.65,3.52,-8.88,2.7,.10,.42,dark);
+ // Deck winches, fairleads, coiled cable, and dark rubber fenders.
+ for(const z of [-8.5,8.65]){
+  add(side*6.4,.16,z,1.02,.20,.85,metal);
+  add(side*6.4,.38,z,.62,.28,.62,dark,{round:true});
+  for(let k=0;k<10;k++){const a=k*Math.PI/5;add(side*6.4+Math.cos(a)*.25,.55,z+Math.sin(a)*.25,.11,.07,.11,gold);}
+ }
+ for(const z of [-5,0,5]){
+  add(side*9.12,.48,z,.36,.76,.64,dark);
+  for(const dz of [-.2,0,.2])add(side*9.31,.50,z+dz,.055,.66,.065,metal);
+ }
+ // Side engine ports use each element's color, not golden lamps.
+ for(const z of [-6,-2,2,6]){
+  add(side*9.22,.64,z,.08,.42,.72,dark);
+  for(let j=0;j<3;j++)add(side*9.27,.64,z-.22+j*.22,.035,.27,.10,side<0?'#ef6c31':'#4cb7d0');
+ }
+}
+// Crane lattice and pivot bracing tie its previously spare boom together.
+for(let i=0;i<5;i++){
+ const t=i/5,x=-6.4-3.2*t,z=-10.3-1.2*t;
+ beam([x,3.1+1.1*t,z-.32],[x-.64,2.2+2.0*(t+.2),z+.32-.24],.07,gold);
 }

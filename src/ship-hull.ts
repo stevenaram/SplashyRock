@@ -13,3 +13,11 @@ export function createShipHull(){
  }
  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();const material=obsidianMaterial();material.vertexColors=true;material.side=T.DoubleSide;const mesh=new T.Mesh(geometry,material);mesh.frustumCulled=false;return mesh;
 }
+/** Continuous rolled-steel gunwales bind the curved armor into one silhouette. */
+export function createHullTrim(){
+ return [1.35,.18].map((height,index)=>{
+  const points=Array.from({length:256},(_,i)=>{const p=BOAT_CURVE.getPointAt(i/256),n=BOAT_CURVE.getTangentAt(i/256),out=index?.34:.59;return new T.Vector3(p.x+n.z*out,height,p.z-n.x*out);});
+  const path=new T.CatmullRomCurve3(points,true),geometry=new T.TubeGeometry(path,256,index?.065:.045,5,true);
+  return new T.Mesh(geometry,new T.MeshBasicMaterial({color:index?'#493c60':'#8c859d'}));
+ });
+}

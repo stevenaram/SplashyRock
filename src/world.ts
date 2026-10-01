@@ -101,7 +101,7 @@ export class World {
       if(this.game.boatDeliveries.length)this.onSound('forge');this.boat.update(this.game,dt,this.reducedMotion.matches);
       for(const object of (this.island.userData.shipScenery??[]) as THREE.Object3D[])object.visible=this.game.boat.count<BOAT_HULL_BRICKS;
       for(const object of (this.island.userData.shipShore??[]) as THREE.Object3D[])object.visible=this.launchAge<32;
-      let reframed=false;for(const key of ['x','minZ','maxZ','height'] as const){const delta=this.boat.bounds[key]-this.boatFrame[key];if(Math.abs(delta)>.001){this.boatFrame[key]=this.reducedMotion.matches||Math.abs(delta)<.005?this.boat.bounds[key]:this.boatFrame[key]+delta*(1-Math.exp(-dt*6));reframed=true;}}if(reframed)this.resize();
+      let reframed=false;for(const key of ['x','minZ','maxZ','height'] as const){const desired=key==='x'?Math.min(8.6,this.boat.bounds.x):key==='minZ'?-8:key==='maxZ'?8:0;const delta=desired-this.boatFrame[key];if(Math.abs(delta)>.001){this.boatFrame[key]=this.reducedMotion.matches||Math.abs(delta)<.005?desired:this.boatFrame[key]+delta*(1-Math.exp(-dt*6));reframed=true;}}if(reframed)this.resize();
       if(!this.forges.group.parent)this.scene.add(this.forges.group);this.forges.update(this.game,dt,this.reducedMotion.matches);
       if(this.game.updateBushBurnouts(dt))petsChanged=true;
       if(this.game.updateBoss(dt))petsChanged=true;
