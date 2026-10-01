@@ -1,10 +1,12 @@
 import type {Game,Piece} from './game';
 export const FEATURE_TIPS={
- 'berries-grown':'Water beside a bush grows berries. Watered bushes refill once per shape placement.',
+ 'berries-grown':'Water beside a bush grows berries.',
  'berries-eaten':'Pets eat berries instead of placing their usual tile.',
- 'berry-blast':'After eating, pets can jump to an opposite-element neighbor tile and trigger a berry blast. Bushes are spared.',
- 'bush-fire':'This bush is burning. Place another shape and it burns away in a fiery blast.',
+ 'berry-blast':"Eating berries triggers a Pet's Berry Blast ability.",
+ 'bush-fire':'This bush is burning. It will burn away in a fiery blast when you place your next shape.',
  'bush-extinguished':'Water beside a burning bush puts the fire out.',
+ 'pet-forge-fuel':'Pets bring lava or water to the forge as needed, unless they’re busy eating berries.',
+ 'obsidian-blast':"Placing bricks triggers a Pet's Obsidian Blast ability.",
  'forge-both':'Add lava to the left basin and water to the right to light the forge.',
  'forge-lava':'This forge needs lava in its left basin.',
  'forge-water':'This forge needs water in its right basin.',

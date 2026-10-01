@@ -435,7 +435,7 @@ export class Game {
   }
   plantPetTile(cell:number,element:Element,comboRun=this.comboRun):boolean {
     if(this.over||!this.canPlantElementAt(cell,element))return false;
-    this.write(cell,element);this.reconcileObsidian();this.petTileEvents.push(cell);this.reconcileBushes();
+    this.write(cell,element);if(this.basinElement(cell)===element)this.onFeatureTip('pet-forge-fuel');this.reconcileObsidian();this.petTileEvents.push(cell);this.reconcileBushes();
     this.onPetPlacement(comboRun);return true;
   }
   stoneCandidates(): number[] {
@@ -448,7 +448,7 @@ export class Game {
   formLeafStone(cell:number,element:Element,run=this.comboRun,shards=false){
     const opposite=element==='lava'?'water':'lava';
     if(this.board[cell]!==null||!this.neighbors(cell).some(n=>neighborSource(this.board,n,opposite)))return false;
-    this.createStone(cell,1,run,performance.now());if(!shards)this.recordFeature('berry-blast');this.leafStones.add(cell);if(shards)this.shardStones.add(cell);this.onLeafStone(cell,run);return true;
+    this.createStone(cell,1,run,performance.now());if(!shards)this.recordFeature('berry-blast');else this.onFeatureTip('obsidian-blast');this.leafStones.add(cell);if(shards)this.shardStones.add(cell);this.onLeafStone(cell,run);return true;
   }
   private createStone(cell:number,depth:number,comboRun:number,now:number){
     this.write(cell, 'stone');
