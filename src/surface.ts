@@ -16,6 +16,8 @@ export class ConnectedSurface {
   readonly texture = new T.DataTexture(this.data,8,8,T.RGBAFormat);
   private readonly burying=new Set<number>();
   private cooling=new Float32Array(64);
+  private readonly deckCells=new Float32Array(64);
+  setDeckCells(cells:readonly number[]){this.deckCells.fill(0);for(const cell of cells)this.deckCells[cell]=1;}
   private forgeHeat=new Float32Array(64);
   setForgeHeat(cell:number,heat:number){this.forgeHeat[cell]=Math.max(0,Math.min(1,heat));}
   private previousTime: number | null = null;
@@ -28,15 +30,15 @@ export class ConnectedSurface {
   constructor() {
     this.texture.magFilter=this.texture.minFilter=T.NearestFilter;
     this.material=new T.ShaderMaterial({
-      uniforms:{board:{value:this.texture},time:{value:0}},
+      uniforms:{board:{value:this.texture},time:{value:0},deck:{value:this.deckCells}},
       vertexShader:`varying vec2 world; void main(){vec4 p=modelMatrix*vec4(position,1.);world=p.xz;gl_Position=projectionMatrix*viewMatrix*p;}`,
       fragmentShader:`
-        precision highp float; varying vec2 world; uniform sampler2D board; uniform float time;
+        precision highp float; varying vec2 world; uniform sampler2D board; uniform float time;uniform float deck[64];
         float kind(vec2 cell){if(any(lessThan(cell,vec2(0.)))||any(greaterThanEqual(cell,vec2(8.))))return 0.;return floor(texture2D(board,(cell+.5)/8.).r*255.+.5);}
         float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
         float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1)),f.x),f.y);}
         void main(){
-          vec2 p=floor((world+8.)*32.)/32.;vec2 cell=floor(p/2.);vec2 f=mod(p,2.);float k=kind(cell);
+          vec2 p=floor((world+8.)*32.)/32.;vec2 cell=floor(p/2.);vec2 f=mod(p,2.);float k=kind(cell);float onDeck=deck[int(cell.y)*8+int(cell.x)];
           float left=kind(cell-vec2(1,0)),right=kind(cell+vec2(1,0)),up=kind(cell-vec2(0,1)),down=kind(cell+vec2(0,1));
           if(k<.5){
             // A calm, full-cell sand treatment: no partial shoreline masks.
@@ -61,7 +63,7 @@ export class ConnectedSurface {
                 d/=size*max(.001,arrival);
                 // A faceted main ember and two smaller chips form a compact,
                 // irregular cluster. Broad faces survive the pixel renderer.
-                coalHalo=min(coalHalo,length(d*vec2(.88,1.10))-.285);
+                coalHalo=min(coalHalo,length(d*vec2(.88,1.10))-mix(.285,.225,onDeck));
                 vec2 q=abs(d);
                 float mainEmber=max(q.x*.86+q.y*.5,q.y)-.14;
                 float chipA=length((d-vec2(.16,.085))*vec2(1.,1.3))-.067;
@@ -100,8 +102,8 @@ export class ConnectedSurface {
             if(hot&&coalHalo<.025){
               // A small ochre heat bed grounds the brighter, raised-looking
               // ember facets without outlining them in black.
-              c=vec3(210.,185.,130.)/255.;
-              if(coalHalo<-.035)c=vec3(217.,180.,125.)/255.;
+              c=mix(vec3(210.,185.,130.),vec3(68.,63.,79.),onDeck)/255.;
+              if(coalHalo<-.035)c=mix(vec3(217.,180.,125.),vec3(43.,40.,53.),onDeck)/255.;
               if(coal<0.)c=vec3(187.,72.,45.)/255.;
               if(coal<0.&&emberLocal.x+emberLocal.y*.6>-.025)c=vec3(248.,140.,54.)/255.;
               if(coal<-.035&&emberLocal.x+emberLocal.y*.6>.04)c=vec3(255.,185.,87.)/255.;

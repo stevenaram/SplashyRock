@@ -8,7 +8,8 @@ const palette=['#103447','#17465a','#205b70','#26758b','#248ab2','#2d9ac0','#4aa
 '#54333a','#893a32','#bb482d','#e5632c','#f88c36','#ffb957','#ffe097',
 '#b9c5aa','#8dbdb8','#6eacb2','#d9b47d','#e6a35f','#ffd28b',
 '#555c60','#788080','#a6aaa0','#d4d1b6',
-'#130e1f','#241a36','#3d2b54','#644a82','#8870a6'];
+'#130e1f','#241a36','#3d2b54','#644a82','#8870a6',
+'#33303d','#221f2b','#2b2835','#443f4f'];
 export class PixelRenderer {
   private readonly target=new T.WebGLRenderTarget(1,1,{minFilter:T.NearestFilter,magFilter:T.NearestFilter,depthBuffer:true});
   private readonly scene=new T.Scene();
@@ -19,7 +20,7 @@ export class PixelRenderer {
     fragmentShader:`varying vec2 vUv;uniform sampler2D image;uniform vec3 palette[${palette.length}];
     void main(){vec3 c=texture2D(image,vUv).rgb;float best=100.;vec3 chosen=c;for(int i=0;i<${palette.length};i++){vec3 d=c-palette[i];float distance=dot(d*d,vec3(.27,.53,.20));// Reserve the six subtle influence colors for their exact shader output;
     // nearby scenery shades must retain the original island palette.
-    if(i>=30&&i<36&&distance>.00002)continue;
+    if(((i>=30&&i<36)||i>=45)&&distance>.00002)continue;
     if(distance<best){best=distance;chosen=palette[i];}}gl_FragColor=vec4(chosen,1.);
     #include <colorspace_fragment>
     }`,

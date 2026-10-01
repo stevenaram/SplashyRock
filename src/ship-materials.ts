@@ -14,11 +14,11 @@ export function deckMaterial(){
  const size=96,data=new Uint8Array(size*size*4);
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
   const fx=Math.floor(x/16),fy=Math.floor(y/16),h=(fx*19+fy*13+fx*fy*11)%17;
-  let c=h<5?[45,35,62]:h<12?[50,39,68]:[58,45,77];
-  if(x%16===0||y%16===0)c=c.map(v=>v*.84);
-  if(y%16===15&&h>12)c=[69,55,89];
-  if((x*37+y*23)%163===0)c=[76,63,98];
-  if(x<2||y<2||x>93||y>93)c=[31,25,44];
+  let c=h<5?[34,31,43]:h<12?[51,48,61]:[51,48,61];
+  if(x%16===0||y%16===0)c=[43,40,53];
+  if(y%16===15&&h>12)c=[43,40,53];
+  if((x*37+y*23)%163===0)c=[68,63,79];
+  if(x<2||y<2||x>93||y>93)c=[34,31,43];
   if((x===4||x===91)&&(y===4||y===91))c=[136,139,157];
   data.set([...c.map(Math.round),255],(y*size+x)*4);
  }

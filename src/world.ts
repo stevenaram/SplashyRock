@@ -1,4 +1,4 @@
-import {BOAT_HULL_BRICKS} from './boat';
+import {BOAT_HULL_BRICKS,BOAT_BLUEPRINT} from './boat';
 import {BoatView} from './boat-view';
 import {ForgeField} from './forge';
 import {BushField} from './bush-view';
@@ -19,6 +19,7 @@ export class World {
   private readonly boat:BoatView;
   private boatFrame={x:8,minZ:-8,maxZ:8,height:0};
   private launchAge=0;
+  private deckRevision=-1;
 
   private readonly map=createMap();
   private shardSweeps=new Set<number>();
@@ -99,6 +100,7 @@ export class World {
 
     if(this.game){
       if(this.game.boatDeliveries.length)this.onSound('forge');this.boat.update(this.game,dt,this.reducedMotion.matches);
+      if(this.deckRevision!==this.game.boat.revision){this.deckRevision=this.game.boat.revision;this.surface.setDeckCells([...this.game.boat.built].flatMap(id=>BOAT_BLUEPRINT[id].cell===undefined?[]:[BOAT_BLUEPRINT[id].cell!]));}
       for(const object of (this.island.userData.shipScenery??[]) as THREE.Object3D[])object.visible=this.game.boat.count<BOAT_HULL_BRICKS;
       for(const object of (this.island.userData.shipShore??[]) as THREE.Object3D[])object.visible=this.launchAge<32;
       let reframed=false;for(const key of ['x','minZ','maxZ','height'] as const){const close=key==='x'?Math.min(8.6,this.boat.bounds.x):key==='minZ'?-8:key==='maxZ'?8:0;const desired=(close+this.boat.bounds[key])*.5;const delta=desired-this.boatFrame[key];if(Math.abs(delta)>.001){this.boatFrame[key]=this.reducedMotion.matches||Math.abs(delta)<.005?desired:this.boatFrame[key]+delta*(1-Math.exp(-dt*6));reframed=true;}}if(reframed)this.resize();
