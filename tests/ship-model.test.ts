@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {BOAT_BLUEPRINT,BOAT_WALL_BRICKS,BOAT_TOTAL_BRICKS,BOAT_HULL_BRICKS,BOAT_CURVE,boatDeliveryTarget,hullDeliverySections} from '../src/boat';
+import {BOAT_BLUEPRINT,BOAT_WALL_BRICKS,BOAT_TOTAL_BRICKS,BOAT_HULL_BRICKS,BOAT_FRAME_BRICKS,APRON_TRIANGLES,BOAT_CURVE,boatDeliveryTarget,hullDeliverySections} from '../src/boat';
 import {createShipHull} from '../src/ship-hull';
 import {SHIP_PARTS} from '../src/ship-details';
 import {Game} from '../src/game';
@@ -33,7 +33,7 @@ test('sailing keeps pet abilities, shape placement, and subsequent loss/revive f
 });
 test('every hull delivery targets the center of its own revealed perimeter section',()=>{
  const covered:number[]=[];
- for(let id=0;id<BOAT_HULL_BRICKS;id++){
+ for(let id=BOAT_FRAME_BRICKS;id<BOAT_HULL_BRICKS;id++){
   const {start,end}=hullDeliverySections(id);for(let i=start;i<end;i++)covered.push(i);
   const t=(start+end)/512,p=BOAT_CURVE.getPointAt(t),n=BOAT_CURVE.getTangentAt(t),target=boatDeliveryTarget(id);
   assert.ok(Math.abs((target.x-3.5)*2-(p.x+n.z*.28))<1e-8);
@@ -51,6 +51,22 @@ test('brick deliveries actually reach their world-space target before constructi
   g.boat.deliver=(job)=>{assert.equal(job,id);assert.equal(p.x,target.x);assert.equal(p.y,target.y);assert.equal(p.altitude,target.height);assert.equal(p.building,true);landed=true;return deliver(job);};
   g.queuePetActions();for(let t=0;t<15&&!landed;t+=.025)p.update(.025);assert.ok(landed);
  }
- const b=BOAT_BLUEPRINT[fitting],part=SHIP_PARTS[b.detail!];
+ const b=BOAT_BLUEPRINT[fitting],part=b.part!;
  assert.ok(Math.abs(boatDeliveryTarget(fitting).height-(part.y+part.depth/2))<1e-8);
+});
+
+test('construction frames the perimeter before plating, with no large milestone reveal',()=>{
+ assert.ok(BOAT_BLUEPRINT.slice(0,BOAT_FRAME_BRICKS).every(b=>b.frame));
+ assert.ok(BOAT_BLUEPRINT.slice(BOAT_FRAME_BRICKS,BOAT_HULL_BRICKS).every(b=>!b.frame&&b.apron===undefined&&b.detail===undefined));
+ const parts=BOAT_BLUEPRINT.filter(b=>b.part);
+ // Every job has unique physical geometry, not multiple bricks funding the same part.
+ assert.equal(new Set(parts.map(b=>JSON.stringify(b.part))).size,parts.length);
+ for(const b of parts){const d=[b.width,b.height,b.depth].sort((a,b)=>b-a);assert.ok(Math.min(...d)>.005);assert.ok(d[0]*d[1]<1.1);}
+ for(let detail=0;detail<SHIP_PARTS.length;detail++){
+  const p=SHIP_PARTS[detail],volume=parts.filter(b=>b.detail===detail).reduce((sum,b)=>sum+b.width*b.height*b.depth,0);
+  assert.ok(Math.abs(volume-p.width*p.height*p.depth)<1e-8,'split fittings preserve the finished model');
+ }
+ assert.equal(BOAT_BLUEPRINT.filter(b=>b.apron!==undefined).length,APRON_TRIANGLES.length);
+ const area=APRON_TRIANGLES.map(t=>t[1].clone().sub(t[0]).cross(t[2].clone().sub(t[0])).length()/2);
+ assert.ok(Math.max(...area)<2);assert.ok(area.every(a=>a>0));
 });

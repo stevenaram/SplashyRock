@@ -1,12 +1,11 @@
 import {createShipWake} from './ship-wake';
 import * as T from 'three';
-import {BOAT_BLUEPRINT,BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS,BOAT_HULL_BRICKS,hullDeliverySections} from './boat';
+import {BOAT_BLUEPRINT,BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS,BOAT_HULL_BRICKS,BOAT_FRAME_BRICKS,APRON_TRIANGLES,hullDeliverySections} from './boat';
 import type {Game} from './game';
 import {gridWorld} from './map';
 import {obsidianMaterial} from './obsidian-material';
 import {createShipHull,createHullTrim} from './ship-hull';
 import {deckMaterial,paintedGeometry,metalMaterial} from './ship-materials';
-import {SHIP_PARTS} from './ship-details';
 
 export function carriedBrick(){
  const root=new T.Group(),mesh=new T.Mesh(new T.BoxGeometry(1,1,1),obsidianMaterial());mesh.scale.set(.95,.22,.43);root.add(mesh);
@@ -20,8 +19,9 @@ export class BoatView {
 
  private readonly sparks=new T.InstancedMesh(new T.OctahedronGeometry(.10,0),new T.MeshBasicMaterial({color:'#bba5d2'}),96);
  private readonly soil=new T.InstancedMesh(new T.CylinderGeometry(.68,.73,.08,10),new T.MeshBasicMaterial({color:'#795b44'}),64);
- private readonly detailBatches=Array.from({length:4},(_,i)=>{const mesh=new T.InstancedMesh(paintedGeometry(Boolean(i%2)),i<2?Object.assign(obsidianMaterial(),{vertexColors:true}):metalMaterial(),SHIP_PARTS.length);mesh.count=0;mesh.frustumCulled=false;return mesh;});
- private readonly apron=(()=>{const shape=new T.Shape();shape.moveTo(-8.9,8.5);shape.lineTo(-8.9,-8);shape.lineTo(-5.7,-11.7);shape.lineTo(0,-14.2);shape.lineTo(5.7,-11.7);shape.lineTo(8.9,-8);shape.lineTo(8.9,8.5);shape.lineTo(5.6,10.7);shape.lineTo(0,11.4);shape.lineTo(-5.6,10.7);shape.closePath();const hole=new T.Path();hole.moveTo(-8,-8);hole.lineTo(-8,8);hole.lineTo(8,8);hole.lineTo(8,-8);hole.closePath();shape.holes.push(hole);const mesh=new T.Mesh(new T.ShapeGeometry(shape),deckMaterial());mesh.rotation.x=Math.PI/2;mesh.position.y=-.025;mesh.material.side=T.DoubleSide;return mesh;})();
+ private readonly detailBatches=Array.from({length:4},(_,i)=>{const mesh=new T.InstancedMesh(paintedGeometry(Boolean(i%2)),i<2?Object.assign(obsidianMaterial(),{vertexColors:true}):metalMaterial(),BOAT_TOTAL_BRICKS);mesh.count=0;mesh.frustumCulled=false;return mesh;});
+ private readonly apron=(()=>{const g=new T.BufferGeometry(),v=APRON_TRIANGLES.flatMap(t=>t.flatMap(p=>[p.x,p.y,p.z]));g.setAttribute('position',new T.Float32BufferAttribute(v,3));g.setAttribute('uv',new T.Float32BufferAttribute(APRON_TRIANGLES.flatMap(t=>t.flatMap(p=>[p.x/2,p.z/2])),2));const material=deckMaterial();material.side=T.DoubleSide;return new T.Mesh(g,material);})();
+ private readonly ribs=new T.InstancedMesh(paintedGeometry(false),metalMaterial(),48);
  private readonly hull=createShipHull();
  private readonly hullTrim=createHullTrim();
  private readonly trimIndices=this.hullTrim.map(m=>Array.from(m.geometry.index!.array));
@@ -38,7 +38,7 @@ export class BoatView {
  private deckCells=new Set<number>();
 
  constructor(host:HTMLElement){
-  this.group.visible=false;this.sparks.count=0;this.group.add(this.apron,this.hull,...this.hullTrim,this.deckGrid,this.wake,...this.detailBatches);this.wake.visible=false;this.deckGrid.frustumCulled=false;for(let i=0;i<BOAT_TOTAL_BRICKS;i++)this.deck.setMatrixAt(i,new T.Matrix4().makeScale(0,0,0));
+  this.group.visible=false;this.sparks.count=0;this.group.add(this.ribs,this.apron,this.hull,...this.hullTrim,this.deckGrid,this.wake,...this.detailBatches);this.wake.visible=false;this.deckGrid.frustumCulled=false;for(let i=0;i<BOAT_TOTAL_BRICKS;i++)this.deck.setMatrixAt(i,new T.Matrix4().makeScale(0,0,0));
   for(const mesh of [this.deck,this.soil,this.sparks]){mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);this.group.add(mesh);}
   this.label=document.createElement('div');this.label.id='boat-progress';this.label.hidden=true;
   this.label.innerHTML='<svg viewBox="0 0 28 22" aria-hidden="true"><path d="M3 12h22l-5 7H8zM14 2v10M12 3L5 10h7m4-6 6 6h-6"/></svg><div><span>Build your escape</span><strong></strong><i><b></b></i></div>';
@@ -57,15 +57,20 @@ export class BoatView {
   if(this.revision!==game.boat.revision){
    this.revision=game.boat.revision;
    // Reveal delivered jobs, not a contiguous count: pets can arrive out of order.
-   const hullIndices:number[]=[],trimIndices:number[]=[];
-   for(const id of game.boat.built)if(id<BOAT_HULL_BRICKS){const {start,end}=hullDeliverySections(id);for(let v=start*24;v<end*24;v++)hullIndices.push(v);for(let v=start*30;v<end*30;v++)trimIndices.push(v);}
+   const hullIndices:number[]=[],trimIndices:number[][]=[[],[]],apronIndices:number[]=[];
+   this.ribs.count=0;
+   for(const id of game.boat.built){const b=BOAT_BLUEPRINT[id];
+    if(b.frame==='rib'){const t=this.transform;t.position.set(b.x,b.y,b.z);t.rotation.set(0,b.angle,0);t.scale.set(b.width,b.height,b.depth);t.updateMatrix();this.ribs.setMatrixAt(this.ribs.count++,t.matrix);}
+    else if(id<BOAT_HULL_BRICKS){const {start,end}=hullDeliverySections(id);if(b.frame){const target=trimIndices[b.frame==='upper'?0:1];for(let v=start*30;v<end*30;v++)target.push(v);}else for(let v=start*24;v<end*24;v++)hullIndices.push(v);}
+    if(b.apron!==undefined)for(let v=b.apron*3;v<b.apron*3+3;v++)apronIndices.push(v);
+   }
+   this.ribs.instanceMatrix.needsUpdate=true;
    this.hull.geometry.setIndex(hullIndices);this.hull.geometry.setDrawRange(0,hullIndices.length);
-   this.hullTrim.forEach((rim,i)=>{rim.geometry.setIndex(trimIndices.map(v=>this.trimIndices[i][v]));rim.geometry.setDrawRange(0,trimIndices.length);});
-
-   const funded=new Set<number>();for(const id of game.boat.built){const b=BOAT_BLUEPRINT[id];if(b.detail!==undefined)funded.add(b.detail);}
+   this.hullTrim.forEach((rim,i)=>{rim.geometry.setIndex(trimIndices[i].map(v=>this.trimIndices[i][v]));rim.geometry.setDrawRange(0,trimIndices[i].length);});
+   this.apron.geometry.setIndex(apronIndices);this.apron.geometry.setDrawRange(0,apronIndices.length);
    this.detailBatches.forEach(m=>m.count=0);this.movingParts=[];
-   SHIP_PARTS.forEach((p,i)=>{if(!funded.has(i))return;const batch=this.detailBatches[(p.color?2:0)+(p.round?1:0)],t=this.transform;t.position.set(p.x,p.y,p.z);t.rotation.set(p.rx??0,p.ry??0,p.rz??0);t.scale.set(p.width,p.height,p.depth);t.updateMatrix();batch.setMatrixAt(batch.count,t.matrix);if(p.color)batch.setColorAt(batch.count,new T.Color(p.color));if(p.spinX!==undefined)this.movingParts.push({part:i,batch:(p.color?2:0)+(p.round?1:0),index:batch.count});batch.count++;});
-   this.detailBatches.forEach(m=>{m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;});this.apron.visible=funded.size>0;
+   for(const id of game.boat.built){const p=BOAT_BLUEPRINT[id].part;if(!p)continue;const batchIndex=(p.color?2:0)+(p.round?1:0),batch=this.detailBatches[batchIndex],t=this.transform;t.position.set(p.x,p.y,p.z);t.rotation.set(p.rx??0,p.ry??0,p.rz??0);t.scale.set(p.width,p.height,p.depth);t.updateMatrix();batch.setMatrixAt(batch.count,t.matrix);if(p.color)batch.setColorAt(batch.count,new T.Color(p.color));if(p.spinX!==undefined)this.movingParts.push({part:id,batch:batchIndex,index:batch.count});batch.count++;}
+   this.detailBatches.forEach(m=>{m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;});
 
    Object.assign(this.bounds,{x:8,minZ:-8,maxZ:8,height:0});
    for(const id of game.boat.built){const b=BOAT_BLUEPRINT[id],dx=Math.abs(Math.cos(b.angle))*b.width/2+Math.abs(Math.sin(b.angle))*b.depth/2,dz=Math.abs(Math.sin(b.angle))*b.width/2+Math.abs(Math.cos(b.angle))*b.depth/2;this.bounds.x=Math.max(this.bounds.x,Math.abs(b.x)+dx+.15);this.bounds.minZ=Math.min(this.bounds.minZ,b.z-dz-.15);this.bounds.maxZ=Math.max(this.bounds.maxZ,b.z+dz+.15);this.bounds.height=Math.max(this.bounds.height,b.y+b.height/2);}
@@ -78,7 +83,7 @@ export class BoatView {
    this.deck.instanceMatrix.needsUpdate=true;
   }
   if(!reduced)this.machineryAge+=dt;
-  for(const moving of this.movingParts){const p=SHIP_PARTS[moving.part],a=reduced?0:this.machineryAge*.8,dx=p.x-p.spinX!,dz=p.z-p.spinZ!,t=this.transform;t.position.set(p.spinX!+dx*Math.cos(a)+dz*Math.sin(a),p.y,p.spinZ!-dx*Math.sin(a)+dz*Math.cos(a));t.rotation.set(p.rx??0,(p.ry??0)+a,p.rz??0);t.scale.set(p.width,p.height,p.depth);t.updateMatrix();const batch=this.detailBatches[moving.batch];batch.setMatrixAt(moving.index,t.matrix);batch.instanceMatrix.needsUpdate=true;}
+  for(const moving of this.movingParts){const p=BOAT_BLUEPRINT[moving.part].part!,a=reduced?0:this.machineryAge*.8,dx=p.x-p.spinX!,dz=p.z-p.spinZ!,t=this.transform;t.position.set(p.spinX!+dx*Math.cos(a)+dz*Math.sin(a),p.y,p.spinZ!-dx*Math.sin(a)+dz*Math.cos(a));t.rotation.set(p.rx??0,(p.ry??0)+a,p.rz??0);t.scale.set(p.width,p.height,p.depth);t.updateMatrix();const batch=this.detailBatches[moving.batch];batch.setMatrixAt(moving.index,t.matrix);batch.instanceMatrix.needsUpdate=true;}
   this.sailingAge=game.won?this.sailingAge+dt:0;
   this.wake.visible=game.won&&!reduced;this.wake.material.uniforms.age.value=this.sailingAge;
   let sparkCount=0;
@@ -87,9 +92,9 @@ export class BoatView {
    if(t===1)this.fresh.delete(id);this.deck.instanceMatrix.needsUpdate=true;}
   this.sparks.count=sparkCount;this.sparks.instanceMatrix.needsUpdate=true;
   for(let c=0;c<64;c++){const t=this.transform;t.rotation.set(0,0,0);t.position.set(gridWorld(c%8),.06,gridWorld(Math.floor(c/8)));t.scale.setScalar(this.deckCells.has(c)&&game.board[c]==='bush'?1:0);t.updateMatrix();this.soil.setMatrixAt(c,t.matrix);}this.soil.instanceMatrix.needsUpdate=true;
-  if(this.lastCount!==game.boat.count){this.lastCount=game.boat.count;this.label.querySelector('strong')!.textContent=`${game.boat.count.toLocaleString()} / ${BOAT_TOTAL_BRICKS.toLocaleString()}`;this.label.querySelector('span')!.textContent=game.boat.complete?'Ready to sail':game.boat.count>=BOAT_WALL_BRICKS?'Laying the deck':'Build your escape';(this.label.querySelector('b') as HTMLElement).style.width=`${game.boat.count/BOAT_TOTAL_BRICKS*100}%`;this.label.classList.remove('delivered');if(arrivals.length){void this.label.offsetWidth;this.label.classList.add('delivered');}}
+  if(this.lastCount!==game.boat.count){this.lastCount=game.boat.count;this.label.querySelector('strong')!.textContent=`${game.boat.count.toLocaleString()} / ${BOAT_TOTAL_BRICKS.toLocaleString()}`;this.label.querySelector('span')!.textContent=game.boat.complete?'Ready to sail':game.boat.count>=BOAT_WALL_BRICKS?'Laying the deck':game.boat.count<BOAT_FRAME_BRICKS?'Framing the hull':game.boat.count<BOAT_HULL_BRICKS?'Plating the hull':'Outfitting the ship';(this.label.querySelector('b') as HTMLElement).style.width=`${game.boat.count/BOAT_TOTAL_BRICKS*100}%`;this.label.classList.remove('delivered');if(arrivals.length){void this.label.offsetWidth;this.label.classList.add('delivered');}}
   if(game.won)this.label.querySelector('span')!.textContent='Sailing — keep building your score';
 
  }
- dispose(){for(const mesh of [this.deck,this.soil,this.sparks,this.apron,this.hull,...this.hullTrim,this.deckGrid,this.wake,...this.detailBatches]){mesh.geometry.dispose();mesh.material.dispose();}this.group.removeFromParent();this.label.remove();}
+ dispose(){for(const mesh of [this.deck,this.soil,this.sparks,this.ribs,this.apron,this.hull,...this.hullTrim,this.deckGrid,this.wake,...this.detailBatches]){mesh.geometry.dispose();mesh.material.dispose();}this.group.removeFromParent();this.label.remove();}
 }
