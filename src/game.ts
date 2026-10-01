@@ -477,6 +477,7 @@ export class Game {
     else {
       this.finishChain();this.comboRun++;this.lastComboWave=-Infinity;
       this.shapeMoves++;
+      if((piece.tile==='lava'||piece.tile==='water')&&footprint(piece,anchor).some(([x,y])=>this.basinElement(y*SIZE+x)===piece.tile&&this.board[y*SIZE+x]===piece.tile))this.onFeatureTip(`${piece.tile}-basin-overlap`);
       for (const [x, y] of footprint(piece, anchor)) this.write(y * SIZE + x, piece.tile);
       if(piece.tile==='bush')this.recordFeature('bush-planted',piece.shape.cells.length);
       this.score += piece.shape.cells.length;
