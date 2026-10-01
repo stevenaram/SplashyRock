@@ -500,3 +500,15 @@ body:has(#game.ending) #notice-rail{visibility:hidden}
 
 #ghost.forge {opacity:1;filter:drop-shadow(0 5px 3px #15263d66) drop-shadow(0 0 9px #d9edff40)}
 #ghost.forge .forge-icon {display:block;width:clamp(150px,28vw,216px);max-width:none;height:auto;object-fit:contain;}
+
+/* The forge's visible width participates in layout instead of scaling over peers. */
+#tray:has(.slot.forge) {gap:clamp(10px,2.4vw,30px);padding-inline:max(12px,env(safe-area-inset-left));overflow:visible;}
+#tray:has(.slot.forge) .slot {flex:0 1 120px;min-width:0;width:auto;height:clamp(76px,18vw,120px);aspect-ratio:auto;padding:8px;}
+#tray:has(.slot.forge) .slot.forge {flex-basis:248px;}
+#tray:has(.slot.forge) .slot>.shape-icon {max-width:100%;max-height:100%;object-fit:contain;}
+#tray:has(.slot.forge) .slot.forge .forge-icon {transform:none;width:100%;height:auto;}
+#tray:has(.slot.forge).expanded {gap:clamp(8px,1.8vw,20px);}
+@media(max-height:500px){
+ #tray:has(.slot.forge) .slot {flex-basis:82px;height:76px;padding:6px;}
+ #tray:has(.slot.forge) .slot.forge {flex-basis:200px;}
+}
