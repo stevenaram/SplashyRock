@@ -10,6 +10,9 @@ export const BOAT_FRAME_BRICKS=144;
 export const BOAT_FRAME_UPPER_RADIUS=.15;
 export const BOAT_FRAME_LOWER_RADIUS=.20;
 export const BOAT_FRAME_POST_WIDTH=.30;
+export const BOAT_FRAME_LOWER_HEIGHT=.96;
+export const BOAT_FRAME_LOWER_Y=.40;
+export const BOAT_FRAME_UPPER_HEIGHT=.48;
 const SHELL_JOBS=154;
 export const BOAT_HULL_BRICKS=BOAT_FRAME_BRICKS+SHELL_JOBS;
 export const APRON_TRIANGLES=(()=>{
@@ -41,7 +44,7 @@ function blueprint(){
  const result:BoatBrick[]=[];
  for(const frame of ['lower','rib','upper'] as const)for(let i=0;i<48;i++){
   const start=Math.floor(i/48*256),end=Math.floor((i+1)/48*256),t=(start+end)/512,p=BOAT_CURVE.getPointAt(t),n=BOAT_CURVE.getTangentAt(t),out=frame==='upper'?.59:.34;
-  result.push({x:p.x+n.z*out,z:p.z-n.x*out,y:frame==='lower'?.18:frame==='upper'?1.35:.76,angle:-Math.atan2(n.z,n.x),width:frame==='rib'?BOAT_FRAME_POST_WIDTH:1.6,height:frame==='rib'?1.16:2*(frame==='upper'?BOAT_FRAME_UPPER_RADIUS:BOAT_FRAME_LOWER_RADIUS),depth:frame==='rib'?BOAT_FRAME_POST_WIDTH:2*(frame==='upper'?BOAT_FRAME_UPPER_RADIUS:BOAT_FRAME_LOWER_RADIUS),deck:false,frame,section:i});
+  result.push({x:p.x+n.z*out,z:p.z-n.x*out,y:frame==='lower'?BOAT_FRAME_LOWER_Y:frame==='upper'?1.35:.76,angle:-Math.atan2(n.z,n.x),width:frame==='rib'?BOAT_FRAME_POST_WIDTH:1.6,height:frame==='rib'?1.16:frame==='upper'?BOAT_FRAME_UPPER_HEIGHT:BOAT_FRAME_LOWER_HEIGHT,depth:frame==='rib'?BOAT_FRAME_POST_WIDTH:2*(frame==='upper'?BOAT_FRAME_UPPER_RADIUS:BOAT_FRAME_LOWER_RADIUS),deck:false,frame,section:i});
  }
  for(let i=0;i<SHELL_JOBS;i++){const start=Math.floor(i/SHELL_JOBS*256),end=Math.floor((i+1)/SHELL_JOBS*256),t=(start+end)/512,p=BOAT_CURVE.getPointAt(t),n=BOAT_CURVE.getTangentAt(t);result.push({x:p.x+n.z*.28,z:p.z-n.x*.28,y:1.17,angle:-Math.atan2(n.z,n.x),width:(end-start)*.30,depth:.64,height:.30,deck:false});}
  APRON_TRIANGLES.forEach((t,apron)=>{const p=t[0].clone().add(t[1]).add(t[2]).divideScalar(3);result.push({x:p.x,y:p.y,z:p.z,angle:0,width:0,depth:0,height:0,deck:false,apron});});
