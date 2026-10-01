@@ -92,7 +92,7 @@ export function createForge(){
   brick.visible=false;group.add(brick);bricks.push(brick);
  }
  const chimney=box(group,-.5,1.1,-.67,.25,.35,.25,iron);box(group,-.5,1.29,-.67,.32,.055,.32,metal);box(group,-.5,1.13,-.67,.29,.055,.29,bronze);box(group,-.5,1.325,-.67,.20,.018,.20,soot);
- const steam=Array.from({length:4},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.12,0),new T.MeshBasicMaterial({color:'#262329',transparent:true,opacity:0,depthWrite:false}));group.add(puff);return puff;});
+ const steam=Array.from({length:4},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.12,0),new T.MeshBasicMaterial({color:'#85898c',transparent:true,opacity:0,depthWrite:false}));group.add(puff);return puff;});
  const waterSteam=Array.from({length:5},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.20,1),new T.MeshBasicMaterial({color:'#e4f5ef',transparent:true,opacity:0,depthWrite:false}));puff.name='forge-water-steam';puff.visible=false;group.add(puff);return puff;});
  const makeParticles=(name:string,count:number,geometry:T.BufferGeometry,color:string)=>{
   const mesh=new T.InstancedMesh(geometry,new T.MeshBasicMaterial({color,transparent:true,opacity:.8,depthWrite:false}),count);mesh.name=name;mesh.frustumCulled=false;mesh.visible=false;group.add(mesh);return mesh;
@@ -147,7 +147,7 @@ export class ForgeField{
      const t=(v.age*(mesh===m.smoke?.55:1.65)+i*.618034)%1,a=i*2.39996;
      const radius=.15+(i%7)*.095,fade=Math.sin(t*Math.PI),p=this.particle;
      if(mesh===m.smoke){
-      const chimney=i<28;mesh.setColorAt(i,new T.Color(chimney?(i%2?'#29262c':'#39353d'):'#b9c5c6'));
+      const chimney=i<28;mesh.setColorAt(i,new T.Color(chimney?(i%2?'#85898c':'#96999b'):'#b9c5c6'));
       p.position.set((chimney?-.5:2)+Math.cos(a)*radius+t*.22, (chimney?1.38:.2)+t*(1.5+burst*.8), (chimney?-.67:0)+Math.sin(a)*radius+t*.12);
       p.scale.setScalar(fade*(.45+t*1.9)*(.5+burst));
      }else{
