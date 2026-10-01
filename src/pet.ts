@@ -182,7 +182,16 @@ export class PetWalker {
   const pickupSize=1-this.pickupBlend*.16;
   if(this.motion.building)this.model.body.scale.setScalar(pickupSize);
   this.cargo.scale.set(1.5/pickupSize,1.875/pickupSize,1.5/pickupSize);
-  if(this.motion.collectingBrick&&!leaping){this.model.head.rotation.x=-.10;this.model.head.position.y=.36;}
+  this.cargo.position.set(0,1.02,.08);this.cargo.rotation.set(0,0,0);
+  if(this.motion.collectingBrick&&!leaping&&this.motion.carryingBrick){
+    const t=reduced?1:Math.min(1,Math.max(0,1-this.motion.feeding/.7));
+    const lift=Math.min(1,Math.max(0,(t-.15)/.7)),ease=lift*lift*(3-2*lift),brace=Math.sin(Math.min(1,t/.35)*Math.PI);
+    this.cargo.position.set(0,.36+ease*.66,.36-ease*.28);this.cargo.rotation.z=Math.sin(lift*Math.PI)*.07;
+    this.model.body.position.y=-brace*.055;this.model.head.rotation.x=.14-ease*.30;this.model.head.position.y=.34+ease*.04;
+    this.model.legs.forEach((leg,i)=>{if(i<2){leg.position.y=.23+ease*.37;leg.rotation.x=-ease*1.65;leg.rotation.z=(i?1:-1)*ease*.16;}else leg.rotation.x=brace*.12;});
+  }else if(this.motion.carryingBrick){
+    this.model.legs.forEach((leg,i)=>{if(i<2){leg.position.y=.60;leg.rotation.x=-1.65;leg.rotation.z=(i?1:-1)*.16;}});
+  }
 
   const blink=this.age%5.3;this.model.eyes.forEach(eye=>eye.scale.y=blink>4.95&&blink<5.08?.12:1);
  }

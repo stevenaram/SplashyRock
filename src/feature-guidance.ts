@@ -17,7 +17,7 @@ export const FEATURE_TIPS={
 } as const;
 export type FeatureTip=keyof typeof FEATURE_TIPS;
 export function forgeSuggestion(game:Game,piece:Piece){
- const rank=(c:number)=>{const x=c%8,y=Math.floor(c/8),edge=Math.min(x,7-x,y,7-y);return Math.hypot(x-1,7-y)+edge*2;};
+ const rank=(c:number)=>{const x=c%8,y=Math.floor(c/8),edge=Math.min(x,7-x,y,7-y);return Math.hypot(x-1,5-y)+Math.max(0,edge-1)*.5;};
  return game.board.map((_,c)=>c).filter(c=>game.canPlace(piece,c)).sort((a,b)=>rank(a)-rank(b)||b-a)[0];
 }
 export function forgeNeeds(game:Game):FeatureTip[]{

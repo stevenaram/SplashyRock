@@ -238,7 +238,7 @@ export class World {
 
   forgeBlast(cell:number,cells:number[]){
     this.sandSweep(this.game!.board,cells,cell,'neighbors');this.onSound('stone',cell);
-    if(!this.reducedMotion.matches)for(const c of [cell-1,cell,cell+1]){this.effects.sandWave(c);this.effects.burst(c,'forge');this.effects.forgeDust(c);}
+    if(!this.reducedMotion.matches)for(const c of [cell-1,cell,cell+1]){this.effects.forgeSteam(c);this.effects.forgeDust(c);}
   }
 
   addPiece(cell: number, piece: Piece) {

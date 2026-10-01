@@ -10,6 +10,7 @@ export class PetMotion {
   carryingBrick=false;
   altitude=0;
   get collectingBrick(){const job=this.snacks[0];return Boolean(job?.build&&!job.delivered&&(!job.stage||this.feeding>0));}
+  awaitingForgePickup(cell:number,run:number){return this.snacks.some((job,i)=>job?.build&&!job.stage&&job.cell===cell&&this.abilityRuns[i]===run);}
   get building(){return Boolean(this.snacks[0]?.build);}
   get flightDestination(){return this.flight?{x:this.flight.tx??this.flight.target%8,y:this.flight.ty??Math.floor(this.flight.target/8)}:null;}
   visualOffsetX=0;visualOffsetY=0;

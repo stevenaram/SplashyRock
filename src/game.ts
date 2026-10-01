@@ -26,15 +26,16 @@ export class Game {
   readonly forges=new Map<number,{bricks:number;cycles:number}>();
   basinElement(cell:number):Element|null {for(const c of this.forges.keys()){if(cell===c-1)return 'lava';if(cell===c+1)return 'water';}return null;}
   canPlantElementAt(cell:number,element:Element){return this.board[cell]===null&&(!this.basinElement(cell)||this.basinElement(cell)===element);}
-  private produceBricks(){for(const [c,f] of this.forges)if(this.board[c-1]==='lava'&&this.board[c+1]==='water'&&f.bricks<10){f.bricks=Math.min(10,f.bricks+2);f.cycles++;this.queueForgeBlast(c,0);this.onFeatureTip('bricks-produced');}}
-  private forgeBlasts:{cell:number;remaining:number;run:number;done:()=>void}[]=[];
+  private produceBricks(){for(const [c,f] of this.forges)if(this.board[c-1]==='lava'&&this.board[c+1]==='water'&&f.bricks<10){f.bricks=Math.min(10,f.bricks+2);f.cycles++;this.queueForgeBlast(c,1.28,true);this.onFeatureTip('bricks-produced');}}
+  private forgeBlasts:{cell:number;remaining:number;run:number;pickup?:boolean;done:()=>void}[]=[];
   onForgeBlastPending:(run:number)=>()=>void=()=>()=>{};
   onForgeBlast:(cell:number,cleared:number[],run:number)=>void=()=>{};
   get forgesBusy(){return this.forgeBlasts.length>0;}
-  private queueForgeBlast(cell:number,delay:number){this.forgeBlasts.push({cell,remaining:delay,run:this.comboRun,done:this.onForgeBlastPending(this.comboRun)});}
+  private queueForgeBlast(cell:number,delay:number,pickup=false){this.forgeBlasts.push({cell,remaining:delay,pickup,run:this.comboRun,done:this.onForgeBlastPending(this.comboRun)});}
   updateForgeBlasts(dt:number){
     let changed=false;
     for(const job of [...this.forgeBlasts]){
+      if(job.pickup&&this.pets.some(p=>p.awaitingForgePickup(job.cell,job.run)))continue;
       job.remaining-=dt;if(job.remaining>0)continue;
       this.forgeBlasts.splice(this.forgeBlasts.indexOf(job),1);
       if(this.forges.has(job.cell)){
@@ -307,7 +308,7 @@ export class Game {
     this.brickReservations.set(cell,(this.brickReservations.get(cell)??0)+1);
     let reserved=true,taken=false,delivered=false,closed=false;
     const release=()=>{if(reserved){this.brickReservations.set(cell,Math.max(0,(this.brickReservations.get(cell)??1)-1));reserved=false;}};
-    pet.queueBuild(run,cell,()=>{release();if(this.forges.get(cell)!==forge||forge.bricks<1)return false;forge.bricks--;taken=true;this.onFeatureTip('bricks-collected');return true;},()=>{
+    pet.queueBuild(run,cell,()=>{release();if(this.forges.get(cell)!==forge||forge.bricks<1)return false;forge.bricks--;taken=true;for(const job of this.forgeBlasts)if(job.pickup&&job.cell===cell&&job.run<=run){job.pickup=false;job.remaining=0;}this.onFeatureTip('bricks-collected');return true;},()=>{
       if(closed)return;closed=true;release();this.boat.release(id);
       if(taken&&!delivered&&this.forges.get(cell)===forge)forge.bricks=Math.min(10,forge.bricks+1);
       done();

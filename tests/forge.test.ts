@@ -119,7 +119,16 @@ test('forge slams before clearing only its outer edge neighbors without consumin
  assert.ok(place(g,forge,27));assert.equal(pending,1);g.updateForgeBlasts(.2);assert.equal(blasts,0);assert.equal(g.board[19],'bush');
  g.updateForgeBlasts(.12);assert.equal(blasts,1);assert.equal(pending,0);ring.forEach(c=>assert.equal(g.board[c],null));
  assert.equal(g.board[17],'bush');assert.equal(g.board[26],'lava');assert.equal(g.board[28],'water');assert.equal(g.board[27],'forge');
- g.board[19]='obsidian';place(g,single('water'),63);assert.equal(g.forges.get(27)!.bricks,2);g.updateForgeBlasts(0);assert.equal(blasts,2);assert.equal(g.board[19],null);
+ g.board[19]='obsidian';place(g,single('water'),63);assert.equal(g.forges.get(27)!.bricks,2);g.updateForgeBlasts(1.28);assert.equal(blasts,2);assert.equal(g.board[19],null);
  g.forges.get(27)!.bricks=10;place(g,single('water'),62);g.updateForgeBlasts(1);assert.equal(blasts,2);
 });
 test('restarting cancels a pending forge impact',()=>{const g=new Game();place(g,forge,27);assert.ok(g.forgesBusy);g.restart();assert.equal(g.forgesBusy,false);assert.equal(g.updateForgeBlasts(1),false);});
+test('production creates bricks immediately but waits for the collecting pet to land before blasting',async()=>{
+ const {PetMotion}=await import('../src/pet-motion');const g=new Game(()=>.3,()=>true);
+ g.board[27]='forge';g.board[26]='lava';g.board[28]='water';g.forges.set(27,{bricks:0,cycles:0});g.board[19]='obsidian';
+ const pet=new PetMotion(0,'lava',g.board,()=>true,()=>.3,()=>g.boardChange,()=>g.pets);g.pets.push(pet);
+ let blasts=0;g.onForgeBlast=()=>blasts++;
+ place(g,single('water'),63);assert.equal(g.forges.get(27)!.bricks,2);g.queuePetActions();g.updateForgeBlasts(5);assert.equal(blasts,0);
+ for(let t=0;t<2&&!pet.carryingBrick;t+=.01){pet.update(.01);g.updateForgeBlasts(.01);}
+ assert.ok(pet.carryingBrick);assert.equal(blasts,1);assert.equal(g.board[19],null);assert.ok(pet.feeding>.65);
+});
