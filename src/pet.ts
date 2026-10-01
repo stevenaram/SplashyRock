@@ -126,7 +126,7 @@ export class PetWalker {
   this.wakeMaterial.uniforms.alpha.value=this.swim*(walking?.48:.23);
   const cx=gridWorld(Math.round(this.motion.x)),cz=gridWorld(Math.round(this.motion.y));this.wakeMaterial.uniforms.bounds.value.set(cx-1,cz-1,cx+1,cz+1);
   this.wake.scale.setScalar(reduced?1:1+Math.sin(this.age*5)*.045);
-  this.group.position.x=gridWorld(this.motion.x)+this.motion.visualOffsetX*2;this.group.position.z=gridWorld(this.motion.y)+this.motion.visualOffsetY*2;
+  this.group.position.x=gridWorld(this.motion.x)+(this.motion.building?0:this.motion.visualOffsetX*2);this.group.position.z=gridWorld(this.motion.y)+(this.motion.building?0:this.motion.visualOffsetY*2);
   const delta=Math.atan2(Math.sin(this.motion.heading-this.model.body.rotation.y),Math.cos(this.motion.heading-this.model.body.rotation.y));
   this.model.body.rotation.y+=delta*(1-Math.exp(-dt*16));
   this.walkBlend+=((walking?1:0)-this.walkBlend)*(1-Math.exp(-dt*18));

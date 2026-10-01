@@ -1,4 +1,4 @@
-import {BoatProgress,BOAT_BLUEPRINT} from './boat';
+import {BoatProgress,boatDeliveryTarget} from './boat';
 import {forgeBasin,neighborSource} from './neighbor-rules';
 import type {FeatureMetric} from './feature-achievements';
 import {bushTurn,watered,type BushState} from './bush';
@@ -277,7 +277,7 @@ export class Game {
     if(!options.length)return false;
     const id=this.boat.reserve();if(id===null)return false;
     options.sort(([a],[b])=>Math.hypot(a%8-pet.x,Math.floor(a/8)-pet.y)-Math.hypot(b%8-pet.x,Math.floor(b/8)-pet.y));
-    const [cell,forge]=options[0],brick=BOAT_BLUEPRINT[id],run=this.comboRun,done=pending?.()??(()=>{});
+    const [cell,forge]=options[0],target=boatDeliveryTarget(id),run=this.comboRun,done=pending?.()??(()=>{});
     this.brickReservations.set(cell,(this.brickReservations.get(cell)??0)+1);
     let reserved=true,taken=false,delivered=false,closed=false;
     const release=()=>{if(reserved){this.brickReservations.set(cell,Math.max(0,(this.brickReservations.get(cell)??1)-1));reserved=false;}};
@@ -285,7 +285,7 @@ export class Game {
       if(closed)return;closed=true;release();this.boat.release(id);
       if(taken&&!delivered&&this.forges.get(cell)===forge)forge.bricks=Math.min(10,forge.bricks+1);
       done();
-    },{x:brick.x/2+3.5,y:brick.z/2+3.5,height:brick.deck?0:brick.y+.15,place:()=>{delivered=this.boat.deliver(id);if(delivered)this.boatDeliveries.push(id);}},c=>this.formLeafStone(c,pet.element,run,true));
+    },{...target,place:()=>{delivered=this.boat.deliver(id);if(delivered)this.boatDeliveries.push(id);}},c=>this.formLeafStone(c,pet.element,run,true));
     return true;
   }
   setBoatProgress(count:number){if(this.won)this.over=false;this.pets.forEach(p=>p.cancelAbilities());this.boat.setProgress(count);this.boatDeliveries.length=0;this.won=false;}

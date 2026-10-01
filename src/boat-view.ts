@@ -1,6 +1,6 @@
 import {createShipWake} from './ship-wake';
 import * as T from 'three';
-import {BOAT_BLUEPRINT,BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS,BOAT_HULL_BRICKS} from './boat';
+import {BOAT_BLUEPRINT,BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS,BOAT_HULL_BRICKS,hullDeliverySections} from './boat';
 import type {Game} from './game';
 import {gridWorld} from './map';
 import {obsidianMaterial} from './obsidian-material';
@@ -24,6 +24,7 @@ export class BoatView {
  private readonly apron=(()=>{const shape=new T.Shape();shape.moveTo(-8.9,8.5);shape.lineTo(-8.9,-8);shape.lineTo(-5.7,-11.7);shape.lineTo(0,-14.2);shape.lineTo(5.7,-11.7);shape.lineTo(8.9,-8);shape.lineTo(8.9,8.5);shape.lineTo(5.6,10.7);shape.lineTo(0,11.4);shape.lineTo(-5.6,10.7);shape.closePath();const hole=new T.Path();hole.moveTo(-8,-8);hole.lineTo(-8,8);hole.lineTo(8,8);hole.lineTo(8,-8);hole.closePath();shape.holes.push(hole);const mesh=new T.Mesh(new T.ShapeGeometry(shape),deckMaterial());mesh.rotation.x=Math.PI/2;mesh.position.y=-.025;mesh.material.side=T.DoubleSide;return mesh;})();
  private readonly hull=createShipHull();
  private readonly hullTrim=createHullTrim();
+ private readonly trimIndices=this.hullTrim.map(m=>Array.from(m.geometry.index!.array));
  private readonly deckGrid=(()=>{const vertices:number[]=[];for(const [x,z,w,d] of [[0,-1,2,.058],[0,1,2,.058],[-1,0,.058,2],[1,0,.058,2]]){const a=[x-w/2,.003,z-d/2],b=[x+w/2,.003,z-d/2],c=[x+w/2,.003,z+d/2],e=[x-w/2,.003,z+d/2];vertices.push(...a,...b,...c,...a,...c,...e);}const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(vertices,3));return new T.InstancedMesh(g,new T.MeshBasicMaterial({color:'#b9b8cb',side:T.DoubleSide,transparent:true,opacity:.94}),64);})();
  private readonly wake=createShipWake();
  private sailingAge=0;
@@ -55,9 +56,11 @@ export class BoatView {
   const arrivals=game.boatDeliveries.splice(0);
   if(this.revision!==game.boat.revision){
    this.revision=game.boat.revision;
-   const hullCount=[...game.boat.built].filter(id=>id<BOAT_HULL_BRICKS).length;
-   this.hull.geometry.setDrawRange(0,Math.floor(hullCount/BOAT_HULL_BRICKS*256)*24);
-   for(const rim of this.hullTrim)rim.geometry.setDrawRange(0,Math.floor(hullCount/BOAT_HULL_BRICKS*256)*30);
+   // Reveal delivered jobs, not a contiguous count: pets can arrive out of order.
+   const hullIndices:number[]=[],trimIndices:number[]=[];
+   for(const id of game.boat.built)if(id<BOAT_HULL_BRICKS){const {start,end}=hullDeliverySections(id);for(let v=start*24;v<end*24;v++)hullIndices.push(v);for(let v=start*30;v<end*30;v++)trimIndices.push(v);}
+   this.hull.geometry.setIndex(hullIndices);this.hull.geometry.setDrawRange(0,hullIndices.length);
+   this.hullTrim.forEach((rim,i)=>{rim.geometry.setIndex(trimIndices.map(v=>this.trimIndices[i][v]));rim.geometry.setDrawRange(0,trimIndices.length);});
 
    const funded=new Set<number>();for(const id of game.boat.built){const b=BOAT_BLUEPRINT[id];if(b.detail!==undefined)funded.add(b.detail);}
    this.detailBatches.forEach(m=>m.count=0);this.movingParts=[];

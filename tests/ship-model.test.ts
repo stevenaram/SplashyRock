@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {BOAT_BLUEPRINT,BOAT_WALL_BRICKS,BOAT_TOTAL_BRICKS} from '../src/boat';
+import {BOAT_BLUEPRINT,BOAT_WALL_BRICKS,BOAT_TOTAL_BRICKS,BOAT_HULL_BRICKS,BOAT_CURVE,boatDeliveryTarget,hullDeliverySections} from '../src/boat';
 import {createShipHull} from '../src/ship-hull';
 import {SHIP_PARTS} from '../src/ship-details';
 import {Game} from '../src/game';
@@ -30,4 +30,27 @@ test('sailing keeps pet abilities, shape placement, and subsequent loss/revive f
  assert.ok(g.board.includes('lava'));assert.equal(g.won,true);
  g.over=true;assert.equal(g.beginRevive().length,4);g.finishRevive();assert.equal(g.over,false);assert.equal(g.won,true);
  g.restart();assert.equal(g.won,false);assert.equal(g.boat.count,0);
+});
+test('every hull delivery targets the center of its own revealed perimeter section',()=>{
+ const covered:number[]=[];
+ for(let id=0;id<BOAT_HULL_BRICKS;id++){
+  const {start,end}=hullDeliverySections(id);for(let i=start;i<end;i++)covered.push(i);
+  const t=(start+end)/512,p=BOAT_CURVE.getPointAt(t),n=BOAT_CURVE.getTangentAt(t),target=boatDeliveryTarget(id);
+  assert.ok(Math.abs((target.x-3.5)*2-(p.x+n.z*.28))<1e-8);
+  assert.ok(Math.abs((target.y-3.5)*2-(p.z-n.x*.28))<1e-8);
+  assert.ok(Math.abs(target.height-1.32)<1e-8);
+ }
+ assert.deepEqual(covered,Array.from({length:256},(_,i)=>i));
+});
+test('brick deliveries actually reach their world-space target before constructing hull, fittings, or deck',()=>{
+ const fitting=BOAT_BLUEPRINT.findIndex(b=>b.detail!==undefined&&SHIP_PARTS[b.detail].rx===Math.PI/2);
+ for(const id of [0,Math.floor(BOAT_HULL_BRICKS/2),fitting,BOAT_WALL_BRICKS]){
+  const g=new Game(()=>.3,()=>true);g.board[27]='forge';g.forges.set(27,{bricks:1,cycles:1});g.boat.setProgress(id);
+  const p=new PetMotion(63,'lava',g.board,()=>true,()=>.3,()=>g.boardChange,()=>g.pets);g.pets.push(p);
+  let landed=false;const deliver=g.boat.deliver.bind(g.boat),target=boatDeliveryTarget(id);
+  g.boat.deliver=(job)=>{assert.equal(job,id);assert.equal(p.x,target.x);assert.equal(p.y,target.y);assert.equal(p.altitude,target.height);assert.equal(p.building,true);landed=true;return deliver(job);};
+  g.queuePetActions();for(let t=0;t<15&&!landed;t+=.025)p.update(.025);assert.ok(landed);
+ }
+ const b=BOAT_BLUEPRINT[fitting],part=SHIP_PARTS[b.detail!];
+ assert.ok(Math.abs(boatDeliveryTarget(fitting).height-(part.y+part.depth/2))<1e-8);
 });

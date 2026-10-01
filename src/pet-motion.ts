@@ -9,6 +9,7 @@ export interface BuildDelivery {x:number;y:number;height:number;place:()=>void}
 export class PetMotion {
   carryingBrick=false;
   altitude=0;
+  get building(){return Boolean(this.snacks[0]?.build);}
   get flightDestination(){return this.flight?{x:this.flight.tx??this.flight.target%8,y:this.flight.ty??Math.floor(this.flight.target/8)}:null;}
   visualOffsetX=0;visualOffsetY=0;
   attacking=false;

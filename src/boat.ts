@@ -1,4 +1,4 @@
-import {CatmullRomCurve3,Vector3} from 'three';
+import {CatmullRomCurve3,Vector3,Matrix4,Euler} from 'three';
 import {SHIP_PARTS} from './ship-details';
 /** Coordinates use world units; the playable grid remains independent of the hull. */
 export interface BoatBrick {x:number;y:number;z:number;angle:number;width:number;depth:number;height:number;deck:boolean;cell?:number;detail?:number}
@@ -14,6 +14,9 @@ function blueprint(){
  const result:BoatBrick[]=[];
  // One brick across; deliveries beyond the masonry assemble ship fittings.
  for(let course=0;course<4;course++)result.push(...hullRing(course*.09,.16+course/3,course%2===1));
+ // Match each delivery to the exact ribbon section that it reveals.
+ const hullCount=result.length;
+ for(let id=0;id<hullCount;id++){const start=Math.floor(id/hullCount*256),end=Math.floor((id+1)/hullCount*256),t=(start+end)/512,p=BOAT_CURVE.getPointAt(t),n=BOAT_CURVE.getTangentAt(t);Object.assign(result[id],{x:p.x+n.z*.28,z:p.z-n.x*.28,y:1.17,angle:-Math.atan2(n.z,n.x)});}
  const work=1985-64-result.length;
  for(let i=0;i<work;i++){const detail=Math.floor(i*SHIP_PARTS.length/work),p=SHIP_PARTS[detail];result.push({x:p.x,y:p.y,z:p.z,angle:0,width:p.width,height:p.height,depth:p.depth,deck:false,detail});}
  const deck:BoatBrick[]=[];
@@ -24,6 +27,14 @@ export const BOAT_BLUEPRINT:readonly BoatBrick[]=blueprint();
 export const BOAT_HULL_BRICKS=BOAT_BLUEPRINT.findIndex(b=>b.detail!==undefined);
 export const BOAT_WALL_BRICKS=BOAT_BLUEPRINT.findIndex(b=>b.deck);
 export const BOAT_TOTAL_BRICKS=BOAT_BLUEPRINT.length;
+export function hullDeliverySections(id:number){return {start:Math.floor(id/BOAT_HULL_BRICKS*256),end:Math.floor((id+1)/BOAT_HULL_BRICKS*256)};}
+export function boatDeliveryTarget(id:number){
+ const b=BOAT_BLUEPRINT[id];let height=b.deck?0:b.y+b.height/2;
+ if(b.detail!==undefined){const p=SHIP_PARTS[b.detail],m=new Matrix4().makeRotationFromEuler(new Euler(p.rx??0,p.ry??0,p.rz??0)).elements;// Intersect a vertical line through the part center with its oriented box.
+  // Unlike its overall bounding-box top, this point stays on slanted beams.
+  const rise=Math.min(...[p.width,p.height,p.depth].map((size,i)=>Math.abs(m[1+i*4])<1e-8?Infinity:size/(2*Math.abs(m[1+i*4]))));height=p.y+rise;}
+ return {x:b.x/2+3.5,y:b.z/2+3.5,height:Math.max(0,height)};
+}
 export class BoatProgress {
  readonly built=new Set<number>();
  private reserved=new Set<number>();
