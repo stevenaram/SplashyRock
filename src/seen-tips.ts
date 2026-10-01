@@ -8,6 +8,11 @@ export class SeenTips {
   private seen=new Set<TipId>();
   constructor(private storage?:Pick<Storage,'getItem'|'setItem'>,private persist:(id:TipId)=>boolean=()=>true){}
   has(id:TipId){
+    if(id==='forge-both'&&(this.hasStored('forge-lava')||this.hasStored('forge-water')))return true;
+    if((id==='forge-lava'||id==='forge-water')&&this.hasStored('forge-both'))return true;
+    return this.hasStored(id);
+  }
+  private hasStored(id:TipId){
     if(this.seen.has(id))return true;
     try{if(this.persist(id)&&this.storage?.getItem(PREFIX+id)==='seen'){this.seen.add(id);return true;}}catch{}
     return false;

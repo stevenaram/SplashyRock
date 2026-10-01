@@ -32,3 +32,15 @@ test('obsidian is shared across sandbox and normal sessions without saving other
  assert.equal(sandbox().has('obsidian'),true);
  const normal=new SeenTips(storage);assert.equal(normal.has('obsidian'),true);assert.equal(normal.has('intro'),false);
 });
+test('combined forge explanation suppresses both individual tips across reloads',()=>{
+ const data=new Map<string,string>();const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>{data.set(key,value);}};
+ const tips=new SeenTips(storage);tips.mark('forge-both');
+ for(const session of [tips,new SeenTips(storage)])for(const id of ['forge-both','forge-lava','forge-water'] as const)assert.equal(session.has(id),true);
+});
+test('individual forge tips suppress the combined version but allow the other input once',()=>{
+ for(const first of ['forge-lava','forge-water'] as const){
+  const tips=new SeenTips(),other=first==='forge-lava'?'forge-water':'forge-lava';
+  tips.mark(first);assert.equal(tips.has('forge-both'),true);assert.equal(tips.has(first),true);assert.equal(tips.has(other),false);
+  tips.mark(other);assert.equal(tips.has(other),true);
+ }
+});

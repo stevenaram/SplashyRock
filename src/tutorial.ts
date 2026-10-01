@@ -76,7 +76,7 @@ export class Tutorial {
     else if(this.phase===1)this.phase=2;
     this.paused=false;this.refresh();
   }
-  settled(ready:boolean,fuelReady=ready){this.fuelTips=this.fuelGuidance.update(this.game,fuelReady);for(const id of this.fuelTips)this.queueFeature(id);this.showFeature();if(this.phase===2&&ready){seenTips.mark('intro-complete');this.phase=3;this.showClearingTip();}if(this.guideBoard!==this.game.boardChange){this.guideBoard=this.game.boardChange;this.refresh();}}
+  settled(ready:boolean,fuelReady=ready){this.fuelTips=this.fuelGuidance.update(this.game,fuelReady).flatMap(id=>id==='forge-both'&&seenTips.has(id)?['forge-lava','forge-water'] as FeatureTip[]:[id]);for(const id of this.fuelTips)this.queueFeature(id);this.showFeature();if(this.phase===2&&ready){seenTips.mark('intro-complete');this.phase=3;this.showClearingTip();}if(this.guideBoard!==this.game.boardChange){this.guideBoard=this.game.boardChange;this.refresh();}}
   private showClearingTip(){
     if(seenTips.has('clearing')){this.showGoal();return;}
     seenTips.mark('clearing');this.tip.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.showGoal(),TOOLTIP_DURATION);
