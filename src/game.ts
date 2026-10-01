@@ -26,7 +26,27 @@ export class Game {
   readonly forges=new Map<number,{bricks:number;cycles:number}>();
   basinElement(cell:number):Element|null {for(const c of this.forges.keys()){if(cell===c-1)return 'lava';if(cell===c+1)return 'water';}return null;}
   canPlantElementAt(cell:number,element:Element){return this.board[cell]===null&&(!this.basinElement(cell)||this.basinElement(cell)===element);}
-  private produceBricks(){for(const [c,f] of this.forges)if(this.board[c-1]==='lava'&&this.board[c+1]==='water'&&f.bricks<10){f.bricks=Math.min(10,f.bricks+2);f.cycles++;this.onFeatureTip('bricks-produced');}}
+  private produceBricks(){for(const [c,f] of this.forges)if(this.board[c-1]==='lava'&&this.board[c+1]==='water'&&f.bricks<10){f.bricks=Math.min(10,f.bricks+2);f.cycles++;this.queueForgeBlast(c,0);this.onFeatureTip('bricks-produced');}}
+  private forgeBlasts:{cell:number;remaining:number;run:number;done:()=>void}[]=[];
+  onForgeBlastPending:(run:number)=>()=>void=()=>()=>{};
+  onForgeBlast:(cell:number,cleared:number[],run:number)=>void=()=>{};
+  get forgesBusy(){return this.forgeBlasts.length>0;}
+  private queueForgeBlast(cell:number,delay:number){this.forgeBlasts.push({cell,remaining:delay,run:this.comboRun,done:this.onForgeBlastPending(this.comboRun)});}
+  updateForgeBlasts(dt:number){
+    let changed=false;
+    for(const job of [...this.forgeBlasts]){
+      job.remaining-=dt;if(job.remaining>0)continue;
+      this.forgeBlasts.splice(this.forgeBlasts.indexOf(job),1);
+      if(this.forges.has(job.cell)){
+        const footprint=[job.cell-1,job.cell,job.cell+1];
+        const cells=[...new Set(footprint.flatMap(c=>this.neighbors(c)))].filter(c=>!footprint.includes(c));
+        const cleared=this.clearCells(cells,job.run,true);this.reconcileBushes();
+        this.onForgeBlast(job.cell,cleared,job.run);changed=true;
+      }
+      job.done();
+    }
+    return changed;
+  }
   berriesGrown=0;
   get bushShapeLimit(){return BUSH_SIZE_TIERS[Math.min(BUSH_SIZE_TIERS.length-1,Math.floor(this.berriesGrown/300))];}
 
@@ -334,11 +354,11 @@ export class Game {
     return this.inventory.some(piece=>piece!==null&&this.pieceFits(piece));
   }
   finishIfBlocked(pending: boolean): boolean {
-    if(!pending&&!this.bossesDying&&!this.bossesExpanding&&!this.petsBusy&&!this.bushesBusy&&!this.hasLegalMove()){this.finishChain();if(!this.hasLegalMove())this.over=true;}
+    if(!pending&&!this.bossesDying&&!this.bossesExpanding&&!this.petsBusy&&!this.bushesBusy&&!this.forgesBusy&&!this.hasLegalMove()){this.finishChain();if(!this.hasLegalMove())this.over=true;}
     return this.over;
   }
   restart() {
-    this.pets.forEach(p=>p.cancelAbilities());this.boat.reset();this.boatDeliveries.length=0;this.shardStones.clear();this.brickReservations.clear();this.forges.clear();this.berriesGrown=0;
+    this.forgeBlasts.forEach(job=>job.done());this.forgeBlasts=[];this.pets.forEach(p=>p.cancelAbilities());this.boat.reset();this.boatDeliveries.length=0;this.shardStones.clear();this.brickReservations.clear();this.forges.clear();this.berriesGrown=0;
     this.featureAchievementEvents={};
     this.bushes.clear();this.leafStones.clear();this.bushBurnouts.forEach(job=>job.done());this.bushBurnouts.clear();this.fireStones.clear();this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
@@ -473,7 +493,7 @@ export class Game {
       const pet=new PetMotion(anchor,element,this.board,(cell,run)=>this.plantPetTile(cell,element,run),this.random,()=>this.boardChange,()=>this.pets,undefined,()=>this.helpfulPetTargets(element),()=>this.bossReservedCells,c=>this.canPlantElementAt(c,element));
       pet.startHatch();this.pets.push(pet);
     }
-    else if(piece.tile==='forge'){this.write(anchor,'forge');this.forges.set(anchor,{bricks:0,cycles:0});}
+    else if(piece.tile==='forge'){this.write(anchor,'forge');this.forges.set(anchor,{bricks:0,cycles:0});this.queueForgeBlast(anchor,.32);}
     else {
       this.finishChain();this.comboRun++;this.lastComboWave=-Infinity;
       this.shapeMoves++;

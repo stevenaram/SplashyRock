@@ -68,6 +68,14 @@ export class Effects {
     }
     this.waves.push({meshes,age:0});
   }
+  forgeDust(cell:number){
+    const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
+    for(let i=0;i<12;i++){
+      const a=Math.PI+i/11*Math.PI,m=new T.Mesh(this.vaporGeometry,this.sandMaterial);
+      const size=.12+(i%3)*.045;m.scale.setScalar(size);m.position.set(x+Math.cos(a)*.6,.12,z-.6);this.group.add(m);
+      this.particles.push({mesh:m,vx:Math.cos(a)*1.6,vy:.6+(i%3)*.18,vz:-.8-Math.abs(Math.sin(a)),age:0,life:.6+(i%3)*.12,steam:true,size});
+    }
+  }
   ashPuff(cell:number){
     const x=gridWorld(cell%8),z=gridWorld(Math.floor(cell/8));
     for(let i=0;i<16;i++){const a=i*2.399,m=new T.Mesh(this.geometry,this.materials.ash);m.position.set(x+Math.cos(a)*.35,.35+(i%3)*.1,z+Math.sin(a)*.35);this.group.add(m);this.particles.push({mesh:m,vx:Math.cos(a)*3,vy:.7+i%4*.2,vz:Math.sin(a)*3,age:0,life:.5+i%3*.06,steam:true,size:.16+i%3*.035});}

@@ -11,7 +11,7 @@ import {deckMaterial,paintedGeometry,metalMaterial} from './ship-materials';
 
 export function carriedBrick(){
  const root=new T.Group(),mesh=new T.Mesh(new T.BoxGeometry(1,1,1),obsidianMaterial());mesh.scale.set(.95,.22,.43);root.add(mesh);
- const seam=new T.Mesh(new T.BoxGeometry(.55,.009,.05),new T.MeshBasicMaterial({color:'#b49ac5'}));seam.position.set(-.12,.115,-.1);root.add(seam);return root;
+ return root;
 }
 export class BoatView {
  readonly group=new T.Group();

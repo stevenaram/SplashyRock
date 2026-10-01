@@ -159,7 +159,10 @@ export class ForgeField{
     }
     mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
    }
-   if(!reduced&&v.age<.45){const t=Math.min(1,v.age/.45);m.group.scale.setScalar(.85+.15*t);m.group.position.y=.06+Math.sin(t*Math.PI)*.22;}
+   m.group.scale.setScalar(1);
+   const drop=reduced?1:Math.min(1,v.age/.32);
+   m.group.position.y=.06+2.4*(1-drop*drop*drop);
+
   }
  }
  dispose(){for(const v of this.views.values())v.model.dispose();this.views.clear();this.group.clear();}

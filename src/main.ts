@@ -225,6 +225,9 @@ const reactions = new StoneReactions(game, (cell,owner) => {
   refreshPreview();
 },settled);
 
+game.onForgeBlastPending=run=>{const owner=new Aftermath(()=>{aftermaths.delete(owner);settled();},run);aftermaths.add(owner);return()=>owner.release();};
+game.onForgeBlast=(cell,cells,run)=>{world.forgeBlast(cell,cells);const owner=new Aftermath(settled,run);reactions.schedule(1,owner);owner.release();refreshPreview();};
+
 game.onBushBurnout=run=>{const owner=new Aftermath(()=>{aftermaths.delete(owner);settled();},run);aftermaths.add(owner);return()=>owner.release();};
 game.onLeafStone=(cell,run)=>{
   const owner=new Aftermath(settled,run);world.addStone(cell);

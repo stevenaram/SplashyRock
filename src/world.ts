@@ -107,6 +107,7 @@ export class World {
       for(const object of (this.island.userData.shipShore??[]) as THREE.Object3D[])object.visible=this.launchAge<32;
       let reframed=false;for(const key of ['x','minZ','maxZ','height'] as const){const close=key==='x'?Math.min(8.6,this.boat.bounds.x):key==='minZ'?-8:key==='maxZ'?8:0;const desired=(close+this.boat.bounds[key])*.5;const delta=desired-this.boatFrame[key];if(Math.abs(delta)>.001){this.boatFrame[key]=this.reducedMotion.matches||Math.abs(delta)<.005?desired:this.boatFrame[key]+delta*(1-Math.exp(-dt*6));reframed=true;}}if(reframed)this.resize();
       if(!this.forges.group.parent)this.ship.add(this.forges.group);this.forges.update(this.game,dt,this.reducedMotion.matches);
+      if(this.game.updateForgeBlasts(dt))petsChanged=true;
       if(this.game.updateBushBurnouts(dt))petsChanged=true;
       if(this.game.updateBoss(dt))petsChanged=true;
       for(const [id,view] of this.bossViews)if(!this.game.bosses.some(b=>b.id===id)){view.dispose();this.bossViews.delete(id);}
@@ -233,6 +234,11 @@ export class World {
     if(phase==='stone'&&!this.reducedMotion.matches){if(leafy){this.effects.leaves(origin,true,shards);if(fiery)this.effects.fireCross(origin);}else this.effects.sandWave(origin);}
     this.renderer.shadowMap.needsUpdate=true;
     this.render();
+  }
+
+  forgeBlast(cell:number,cells:number[]){
+    this.sandSweep(this.game!.board,cells,cell,'neighbors');this.onSound('stone',cell);
+    if(!this.reducedMotion.matches)for(const c of [cell-1,cell,cell+1]){this.effects.sandWave(c);this.effects.burst(c,'forge');this.effects.forgeDust(c);}
   }
 
   addPiece(cell: number, piece: Piece) {

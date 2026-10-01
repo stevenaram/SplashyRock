@@ -112,3 +112,14 @@ test('matching normal shapes can refill full basins without allowing wrong eleme
  assert.ok(g.canPlace(single('water'),28));assert.equal(g.canPlace(single('lava'),28),false);assert.equal(g.canPlace(single('water'),26),false);assert.equal(g.canPlace(single('lava'),27),false);
  const tall={...single('water'),shape:{id:'tall',name:'Tall',width:1,height:3,cells:[[0,0],[0,1],[0,2]] as [number,number][]}};assert.ok(g.canPlace(tall,28));g.board[20]='bush';assert.equal(g.canPlace(tall,28),false);
 });
+test('forge slams before clearing only its outer edge neighbors without consuming fuel',()=>{
+ const g=new Game();g.board[26]='lava';g.board[28]='water';
+ const ring=[18,19,20,25,29,34,35,36];ring.forEach(c=>g.board[c]='bush');g.board[17]='bush';
+ let pending=0,blasts=0;g.onForgeBlastPending=()=>{pending++;return()=>{pending--;};};g.onForgeBlast=()=>blasts++;
+ assert.ok(place(g,forge,27));assert.equal(pending,1);g.updateForgeBlasts(.2);assert.equal(blasts,0);assert.equal(g.board[19],'bush');
+ g.updateForgeBlasts(.12);assert.equal(blasts,1);assert.equal(pending,0);ring.forEach(c=>assert.equal(g.board[c],null));
+ assert.equal(g.board[17],'bush');assert.equal(g.board[26],'lava');assert.equal(g.board[28],'water');assert.equal(g.board[27],'forge');
+ g.board[19]='obsidian';place(g,single('water'),63);assert.equal(g.forges.get(27)!.bricks,2);g.updateForgeBlasts(0);assert.equal(blasts,2);assert.equal(g.board[19],null);
+ g.forges.get(27)!.bricks=10;place(g,single('water'),62);g.updateForgeBlasts(1);assert.equal(blasts,2);
+});
+test('restarting cancels a pending forge impact',()=>{const g=new Game();place(g,forge,27);assert.ok(g.forgesBusy);g.restart();assert.equal(g.forgesBusy,false);assert.equal(g.updateForgeBlasts(1),false);});
