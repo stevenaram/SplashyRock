@@ -106,3 +106,9 @@ test('a buildable neighbor center accepts the forge and stops the would-be stone
  assert.ok(place(g,forge,27));assert.equal(g.formStone(27),false);assert.deepEqual(g.board.slice(26,29),['lava','forge','water']);
  const edge=new Game();edge.board[0]='water';assert.equal(edge.canPlace(forge,0),false);assert.equal(edge.canPlace(forge,7),false);
 });
+test('matching normal shapes can refill full basins without allowing wrong elements or center overlap',()=>{
+ const g=new Game();place(g,forge,27);place(g,single('lava'),26);place(g,single('water'),28);
+ const before=g.shapeMoves;assert.ok(place(g,single('lava'),26));assert.equal(g.shapeMoves,before+1);assert.equal(g.board[26],'lava');assert.ok(g.forges.get(27)!.bricks>=4);
+ assert.ok(g.canPlace(single('water'),28));assert.equal(g.canPlace(single('lava'),28),false);assert.equal(g.canPlace(single('water'),26),false);assert.equal(g.canPlace(single('lava'),27),false);
+ const tall={...single('water'),shape:{id:'tall',name:'Tall',width:1,height:3,cells:[[0,0],[0,1],[0,2]] as [number,number][]}};assert.ok(g.canPlace(tall,28));g.board[20]='bush';assert.equal(g.canPlace(tall,28),false);
+});

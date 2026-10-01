@@ -31,7 +31,8 @@ export class Game {
   get bushShapeLimit(){return BUSH_SIZE_TIERS[Math.min(BUSH_SIZE_TIERS.length-1,Math.floor(this.berriesGrown/300))];}
 
   featureAchievementEvents:Partial<Record<FeatureMetric,number>>={};
-  private recordFeature(kind:FeatureMetric,count=1){if(!this.reviving&&count>0)this.featureAchievementEvents[kind]=(this.featureAchievementEvents[kind]??0)+count;}
+  onFeatureTip:(kind:string)=>void=()=>{};
+  private recordFeature(kind:FeatureMetric,count=1){if(count>0&&!this.reviving)this.onFeatureTip(kind);if(!this.reviving&&count>0)this.featureAchievementEvents[kind]=(this.featureAchievementEvents[kind]??0)+count;}
 
   readonly bushes=new Map<number,BushState>();
   readonly bushBurnouts=new Map<number,{age:number;run:number;done:()=>void}>();
@@ -48,7 +49,7 @@ export class Game {
     }return changed;
   }
   igniteBlastBushes(cells:readonly number[]){
-    for(const c of cells){const b=this.bushes.get(c);if(b){if(watered(this.board,c)){b.waterTurn=this.shapeMoves;continue;}if(b.waterTurn===this.shapeMoves)continue;b.phase='ablaze';b.berries=0;b.blastTurn=this.shapeMoves;}}
+    for(const c of cells){const b=this.bushes.get(c);if(b){if(watered(this.board,c)){b.waterTurn=this.shapeMoves;continue;}if(b.waterTurn===this.shapeMoves)continue;b.phase='ablaze';this.onFeatureTip('bush-fire');b.berries=0;b.blastTurn=this.shapeMoves;}}
   }
   readonly berryEaten:number[]=[];
   readonly leafStones=new Set<number>();
@@ -232,7 +233,7 @@ export class Game {
       const wet=watered(this.board,c),lava=this.neighbors(c).some(n=>this.board[n]==='lava');
       if(wet)b.waterTurn=this.shapeMoves;
       // Recently watered foliage cannot flash back into fire within this turn.
-      if(!wet&&lava&&b.waterTurn!==this.shapeMoves)b.phase='ablaze';
+      if(!wet&&lava&&b.waterTurn!==this.shapeMoves){b.phase='ablaze';this.onFeatureTip('bush-fire');}
       if(b.phase==='ablaze')b.berries=0;
       // All water sources share the current shape's refill allowance. This
       // only grows fruit; feeding is assigned separately on shape placement.
@@ -256,7 +257,7 @@ export class Game {
     const wetBlocked=new Set([...this.bushes].filter(([c,b])=>watered(this.board,c)&&b.phase==='ablaze').map(([c])=>c));
     const turn=bushTurn(this.board,new Map([...this.bushes].filter(([c])=>!this.bushBurnouts.has(c))));
     for(const c of turn.burnout)this.bushBurnouts.set(c,{age:0,run:this.comboRun,done:this.onBushBurnout(this.comboRun)});
-    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){if(wetBlocked.has(c)&&phase==='healthy')this.recordFeature('bush-extinguished');b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;if(wetBlocked.has(c))b.berryTurn=this.shapeMoves;}}
+    for(const [c,phase] of turn.next){const b=this.bushes.get(c);if(b){if(wetBlocked.has(c)&&phase==='healthy')this.recordFeature('bush-extinguished');if(phase==='ablaze'&&b.phase!=='ablaze')this.onFeatureTip('bush-fire');b.phase=phase;if(phase==='ablaze'||wetBlocked.has(c))b.berries=0;if(wetBlocked.has(c))b.berryTurn=this.shapeMoves;}}
     this.reconcileBushes();
   }
   queuePetActions(pending?:()=>()=>void){
@@ -416,7 +417,7 @@ export class Game {
         const fuel=cell===anchor-1?'lava':cell===anchor+1?'water':null;
         return !basin&&(tile===null||(fuel!==null&&tile===fuel));
       }
-      return tile===null&&(!basin||basin===piece.tile);
+      return basin===piece.tile?(tile===null||tile===piece.tile):tile===null&&!basin;
     });
   }
   canFormStone(cell: number): boolean {

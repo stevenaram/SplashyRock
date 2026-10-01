@@ -4,7 +4,7 @@ import {Mesh} from 'three';
 import {createForge} from '../src/forge';
 test('forge model batches painted detail while retaining ten animated bricks and moving machinery',()=>{
  const model=createForge();let meshes=0;model.group.traverse(o=>{if(o instanceof Mesh){meshes++;assert.ok(o.geometry.attributes.position.count>0);}});
- assert.equal(model.bricks.length,10);assert.equal(model.gears.length,2);assert.equal(model.pistons.length,2);assert.ok(meshes<30,`Expected batched forge, got ${meshes} meshes`);assert.ok(model.bricks.every(b=>!b.visible));model.dispose();
+ assert.equal(model.bricks.length,10);assert.equal(model.gears.length,2);assert.equal(model.pistons.length,2);assert.ok(meshes<36,`Expected batched forge, got ${meshes} meshes`);assert.ok(model.bricks.every(b=>!b.visible));model.dispose();
 });
 test('filled water basin steams even at capacity, and production boosts lava heat temporarily',async()=>{
  const {Game}=await import('../src/game'),{ForgeField}=await import('../src/forge');

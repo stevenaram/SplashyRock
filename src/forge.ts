@@ -60,10 +60,20 @@ export function createForge(){
  const chimney=box(group,-.5,1.1,-.67,.25,.35,.25,iron);box(group,-.5,1.29,-.67,.32,.055,.32,metal);
  const steam=Array.from({length:4},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.12,0),new T.MeshBasicMaterial({color:'#dbe9dc',transparent:true,opacity:0,depthWrite:false}));group.add(puff);return puff;});
  const waterSteam=Array.from({length:5},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.20,1),new T.MeshBasicMaterial({color:'#e4f5ef',transparent:true,opacity:0,depthWrite:false}));puff.name='forge-water-steam';puff.visible=false;group.add(puff);return puff;});
+ const fuelHints=[-2,2].map(x=>{
+  const hint=new T.Group();hint.position.set(x,.48,0);hint.visible=false;
+  const color=x<0?'#ffad65':'#9aebf2',material=new T.MeshBasicMaterial({color,transparent:true,opacity:.9,side:T.DoubleSide,depthWrite:false});
+  const ring=new T.Mesh(new T.RingGeometry(.40,.445,32),material);ring.rotation.x=-Math.PI/2;hint.add(ring);
+  const shape=new T.Shape();shape.moveTo(0,.32);
+  if(x>0){shape.bezierCurveTo(-.10,.12,-.23,-.02,-.21,-.16);shape.bezierCurveTo(-.19,-.37,.22,-.37,.22,-.13);shape.bezierCurveTo(.20,.04,.06,.16,0,.32);}
+  else{shape.bezierCurveTo(.02,.07,-.21,.12,-.20,-.12);shape.bezierCurveTo(-.22,-.36,.23,-.36,.23,-.12);shape.lineTo(.15,.13);shape.lineTo(.08,-.01);shape.lineTo(0,.32);}
+  const glyph=new T.Mesh(new T.ShapeGeometry(shape),material);glyph.rotation.x=-Math.PI/2;hint.add(glyph);
+  const badge=new T.Mesh(new T.CircleGeometry(.50,32),new T.MeshBasicMaterial({color:'#183442',transparent:true,opacity:.82,side:T.DoubleSide,depthWrite:false}));badge.rotation.x=-Math.PI/2;badge.position.y=-.015;hint.add(badge);group.add(hint);return hint;
+ });
  const paintedMaterials=new Set<T.Material>();group.traverse(o=>{if(o instanceof T.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])paintedMaterials.add(m);});
  gears.forEach(g=>batchPainted(g));
  const glowParts=group.children.filter((o):o is T.Mesh=>o instanceof T.Mesh&&o.material===glow);batchPainted(group,[...pistons,...steam,...glowParts]);
- return{group,pistons,gears,bricks,glow,steam,waterSteam,chimney,dispose:()=>{disposeGroup(group);paintedMaterials.forEach(m=>m.dispose());}};
+ return{group,pistons,gears,bricks,glow,steam,waterSteam,chimney,fuelHints,dispose:()=>{disposeGroup(group);paintedMaterials.forEach(m=>m.dispose());}};
 }
 export class ForgeField{
  readonly group=new T.Group();
@@ -78,7 +88,7 @@ export class ForgeField{
    if(working&&!reduced)v.mechanism+=dt;
    const burst=reduced?0:Math.pow(Math.max(0,1-v.production/.85),.6);
    this.heat(c-1,game.board[c-1]==='lava'?.3+burst*.7:0);
-   const m=v.model;m.glow.color.set(working?'#ffba64':'#50434b');
+   const m=v.model;m.fuelHints.forEach((hint,i)=>{hint.visible=game.board[c+(i?1:-1)]!==(i?'water':'lava');hint.scale.setScalar(reduced?1:1+Math.sin(v.age*2.6)*.07);hint.position.y=.48+(reduced?0:Math.sin(v.age*2.6)*.025);});m.glow.color.set(working?'#ffba64':game.board[c-1]==='lava'&&game.board[c+1]==='water'?'#b76238':'#50434b');
    m.pistons.forEach((p,i)=>p.position.y=.7+(working&&!reduced?Math.sin(v.mechanism*9+i*Math.PI)*.1:0));
    m.gears.forEach((g,i)=>g.rotation.x=v.mechanism*(i?-1:1)*1.8);
    m.bricks.forEach((b,i)=>{b.visible=i<f.bricks;const t=Math.min(1,Math.max(0,(v.production-(i>=f.bricks-1?.12:0))/.4));const pop=i>=f.bricks-2&&!reduced?1+Math.sin(t*Math.PI)*.22:1;b.scale.setScalar(pop);b.position.y=.4+i*.10+(i>=f.bricks-2&&!reduced?Math.sin(t*Math.PI)*.35:0);});
