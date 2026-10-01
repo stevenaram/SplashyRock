@@ -9,6 +9,7 @@ export interface BuildDelivery {x:number;y:number;height:number;place:()=>void}
 export class PetMotion {
   carryingBrick=false;
   altitude=0;
+  get collectingBrick(){const job=this.snacks[0];return Boolean(job?.build&&!job.delivered&&(!job.stage||this.feeding>0));}
   get building(){return Boolean(this.snacks[0]?.build);}
   get flightDestination(){return this.flight?{x:this.flight.tx??this.flight.target%8,y:this.flight.ty??Math.floor(this.flight.target/8)}:null;}
   visualOffsetX=0;visualOffsetY=0;
@@ -69,7 +70,7 @@ export class PetMotion {
     }
     if(snack?.build&&!snack.stage){
       const peers=this.peers?.()??[this],index=Math.max(0,peers.indexOf(this)),angle=.2+(index%8)/7*(Math.PI-.4);
-      this.launch(snack.cell,snack.cell%8+Math.cos(angle)*.6,Math.floor(snack.cell/8)+Math.sin(angle)*.65,.12);return true;
+      this.launch(snack.cell,snack.cell%8+Math.cos(angle)*.32,Math.floor(snack.cell/8)+.12+Math.sin(angle)*.24,.43);return true;
     }
     const attack=snack?null:this.attack?.();
     const targets=attack?.cells.filter(c=>this.available(c))??[];

@@ -64,6 +64,7 @@ export class PetWalker {
  private readonly model:ReturnType<typeof createPetModel>;
  private readonly egg=createEgg();
  private age=0;private spawn=0;private swim=0;
+ private pickupBlend=0;
  private gait=0;private walkBlend=0;private swimPhase=0;
  private readonly wake=new T.Group();
  private readonly wakeMaterial:T.ShaderMaterial;
@@ -177,7 +178,12 @@ export class PetWalker {
     this.model.body.position.y=-squash*.07;this.model.head.rotation.x=squash*.12;
   }
   if(this.motion.feeding>0&&!this.motion.building&&!reduced){const nibble=Math.sin((1-this.motion.feeding)*32);this.model.body.position.y=-.06;this.model.head.rotation.x=.24+nibble*.1;this.model.head.position.y=.27+nibble*.025;this.model.tail.rotation.y=Math.sin(this.age*12)*.2;}
-  if(this.motion.building)this.model.body.scale.setScalar(1);
+  this.pickupBlend+=((this.motion.collectingBrick?1:0)-this.pickupBlend)*(1-Math.exp(-dt*7));
+  const pickupSize=1-this.pickupBlend*.16;
+  if(this.motion.building)this.model.body.scale.setScalar(pickupSize);
+  this.cargo.scale.set(1.5/pickupSize,1.875/pickupSize,1.5/pickupSize);
+  if(this.motion.collectingBrick&&!leaping){this.model.head.rotation.x=-.10;this.model.head.position.y=.36;}
+
   const blink=this.age%5.3;this.model.eyes.forEach(eye=>eye.scale.y=blink>4.95&&blink<5.08?.12:1);
  }
  dispose(){const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();this.group.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m));}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());this.model.textures.forEach(t=>t.dispose());this.egg.texture.dispose();this.group.removeFromParent();}
