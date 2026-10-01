@@ -317,7 +317,7 @@ function updateTarget(x: number, y: number) {
     ghost.innerHTML = pieceIcon(piece);
     ghost.dataset.shape = piece.shape.id;
   }
-  ghost.hidden = (target !== null && piece.tile!=='pet') || !drag?.moved;
+  ghost.hidden = (target !== null && piece.tile!=='pet' && piece.tile!=='forge') || !drag?.moved;
   ghost.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
 }
 function place() {
