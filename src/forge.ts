@@ -42,6 +42,35 @@ export function createForge(){
  for(const x of [-.72,.72])for(const z of [-.77,-.17])box(group,x,.84,z,.16,.13,.16,bronze);
  for(const x of [-1,1]){box(group,x*.96,.24,-.15,.38,.13,.28,bronze);box(group,x*.96,.32,-.15,.38,.04,.16,metal);}
 
+ // Layered cast-metal armor: chunky silhouette with small inset seams and bolts.
+ const edge=palette('#c1c6c6','#7b8790','#424b59'),soot=palette('#45414c','#2c2934','#1d1b26');
+ for(const side of [-1,1]){
+  box(group,side*.80,.52,-.35,.16,.64,1.05,iron);
+  box(group,side*.88,.53,-.35,.045,.40,.76,purple);
+  box(group,side*.885,.75,-.35,.05,.045,.84,edge);
+  for(const z of [-.68,-.05]){
+   box(group,side*.89,.52,z,.055,.43,.07,bronze);
+   for(const y of [.34,.70])box(group,side*.925,y,z,.045,.065,.065,edge);
+  }
+  // Ribbed feed couplings join the basin rails to the central casting.
+  box(group,side*1.02,.38,-.36,.40,.20,.28,iron);
+  for(const x of [.90,1.05,1.20])box(group,side*x,.40,-.36,.045,.25,.34,edge);
+  box(group,side*.70,.19,.80,.28,.23,.28,iron);
+  box(group,side*.70,.32,.80,.30,.045,.30,edge);
+ }
+ // Back pressure manifold and chimney collar; all within the original footprint.
+ box(group,0,.65,-.86,1.54,.26,.15,soot);
+ for(let i=0;i<7;i++)box(group,-.60+i*.20,.81,-.86,.075,.09,.19,edge);
+ box(group,.47,1.01,-.65,.33,.10,.32,iron);
+ const gauge=new T.Mesh(new T.CylinderGeometry(.13,.13,.055,12),edge);gauge.position.set(.47,1.09,-.65);group.add(gauge);
+ box(group,.47,1.125,-.65,.17,.016,.025,soot);
+ box(group,.47,1.14,-.65,.025,.018,.11,bronze);
+ for(const x of [-.60,.60])for(const z of [-.73,-.20])box(group,x,1.00,z,.075,.055,.075,edge);
+ // Front brick chute has visible rails, inset grooves, and a reinforced lip.
+ for(const x of [-.53,.53]){box(group,x,.34,.59,.065,.12,.68,iron);box(group,x,.41,.59,.065,.025,.68,edge);}
+ box(group,0,.22,.94,1.33,.14,.10,iron);box(group,0,.30,.97,1.35,.035,.06,edge);
+ for(const x of [-.46,0,.46])box(group,x,.25,1.001,.065,.065,.018,bronze);
+
  const glow=new T.MeshBasicMaterial({color:'#50434b'});
  box(group,0,.56,.025,1.1,.38,.045,glow);
  box(group,0,1.02,-.46,.68,.018,.25,glow);
@@ -62,7 +91,7 @@ export function createForge(){
   box(brick,0,0,0,1.20,.178125,.57,obsidianMaterial());
   brick.visible=false;group.add(brick);bricks.push(brick);
  }
- const chimney=box(group,-.5,1.1,-.67,.25,.35,.25,iron);box(group,-.5,1.29,-.67,.32,.055,.32,metal);
+ const chimney=box(group,-.5,1.1,-.67,.25,.35,.25,iron);box(group,-.5,1.29,-.67,.32,.055,.32,metal);box(group,-.5,1.13,-.67,.29,.055,.29,bronze);box(group,-.5,1.325,-.67,.20,.018,.20,soot);
  const steam=Array.from({length:4},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.12,0),new T.MeshBasicMaterial({color:'#262329',transparent:true,opacity:0,depthWrite:false}));group.add(puff);return puff;});
  const waterSteam=Array.from({length:5},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.20,1),new T.MeshBasicMaterial({color:'#e4f5ef',transparent:true,opacity:0,depthWrite:false}));puff.name='forge-water-steam';puff.visible=false;group.add(puff);return puff;});
  const makeParticles=(name:string,count:number,geometry:T.BufferGeometry,color:string)=>{
