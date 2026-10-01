@@ -200,6 +200,7 @@ export class Game {
   maxCombo=0;
   tilesCleared=0;
   reviving=false;
+  private reviveExpanded=false;
   readonly petTileEvents:number[]=[];
   comboRun=0;
   private lastComboWave=-Infinity;
@@ -335,7 +336,7 @@ export class Game {
     this.featureAchievementEvents={};
     this.bushes.clear();this.leafStones.clear();this.bushBurnouts.forEach(job=>job.done());this.bushBurnouts.clear();this.fireStones.clear();this.berryEaten.length=0;this.obsidianEvents.length=0;
     this.bosses.length=0;this.bossRewards.length=0;this.bossesDefeated=0;this.shapeMoves=0;this.bossStoneEvents.length=0;this.bossGrowthEvents.length=0;this.bossLiquidEvents.length=0;this.bossNotice="";
-    this.maxCombo=0;this.tilesCleared=0;this.reviving=false;
+    this.maxCombo=0;this.tilesCleared=0;this.reviving=false;this.reviveExpanded=false;
     this.pets.length=0;this.rewardsDealt=0;this.won=false;this.boardChange++;this.petTileEvents.length=0;this.comboRun++;this.lastComboWave=-Infinity;this.stoneComboRuns.fill(this.comboRun);this.moves=0;
     this.board.fill(null);this.versions.fill(0);this.boardRevision++;
     this.bushHandsDealt=0;this.handsDealt=this.tutorialCompleted()?2:0;this.score=0;this.over=false;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;this.stoneDepth.fill(0);this.inventory=this.deal();
@@ -349,7 +350,15 @@ export class Game {
     for(const pet of this.pets)pet.cancelAbilities();
     for(const b of this.bosses)b.surges.length=0;
     this.comboRun++;this.lastComboWave=-Infinity;
-    this.reviving=true;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;
+    this.reviving=true;this.reviveExpanded=false;this.combo=0;this.chainPoints=0;this.chainBonusPaid=0;
+    for(const cell of cells){this.write(cell,'stone');this.stoneDepth[cell]=1;}
+    return cells;
+  }
+  expandReviveIfNeeded():number[]{
+    // Check the actual settled board, once, without charging or triggering pets.
+    if(!this.reviving||this.reviveExpanded||!this.inventory.some(p=>p&&p.tile!=='pet'&&!this.pieceFits(p)))return [];
+    this.reviveExpanded=true;
+    const cells=Array.from({length:16},(_,i)=>(2+Math.floor(i/4))*SIZE+2+i%4).filter(c=>this.board[c]!=='forge'&&!this.heldByDyingBoss(c));
     for(const cell of cells){this.write(cell,'stone');this.stoneDepth[cell]=1;}
     return cells;
   }

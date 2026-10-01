@@ -21,3 +21,22 @@ test('revive clears only its central blast area with existing animation timing a
 test('revive remains available after losing while sailing, and can overwrite empty sand',()=>{
  const g=new Game();g.board[27]='water';assert.deepEqual(g.beginRevive(),[]);g.won=true;assert.deepEqual(g.beginRevive(),[]);g.over=true;g.board.fill(null);assert.deepEqual(g.beginRevive(),[27,28,35,36]);g.finishRevive();assert.equal(g.over,false);assert.equal(g.won,true);
 });
+test('revive expands once when any shape still fails, even if another shape fits',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const g=new Game();g.board.fill('lava');g.over=true;
+ const single={tile:'water' as const,shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0] as const]}};
+ const long={tile:'lava' as const,shape:{id:'long',name:'Long',width:5,height:1,cells:Array.from({length:5},(_,x)=>[x,0] as const)}};
+ g.inventory=[single,long];const inventory=[...g.inventory];g.beginRevive();const sweeps=new SandSweeps(g,()=>{},()=>{});sweeps.schedule();t.mock.timers.tick(500);t.mock.timers.tick(280);
+ assert.equal(sweeps.busy,false);assert.ok(g.pieceFits(single));assert.equal(g.pieceFits(long),false);
+ const extra=g.expandReviveIfNeeded();assert.equal(extra.length,16);assert.ok(extra.every(c=>g.board[c]==='stone'));assert.equal(g.reviving,true);
+ assert.deepEqual(g.expandReviveIfNeeded(),[]);sweeps.schedule();t.mock.timers.tick(500);t.mock.timers.tick(280);
+ assert.ok(g.pieceFits(long));g.finishRevive();assert.equal(g.over,false);assert.deepEqual(g.inventory,inventory);assert.equal(g.score,0);
+});
+test('no expanded revive when all shapes fit, or when only eggs remain',()=>{
+ const g=new Game();g.over=true;g.beginRevive();g.inventory=[{tile:'water',shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0]]}}];assert.deepEqual(g.expandReviveIfNeeded(),[]);
+ g.board.fill('lava');g.inventory=[{tile:'pet',shape:{id:'egg',name:'Egg',width:1,height:1,cells:[[0,0]]}}];assert.deepEqual(g.expandReviveIfNeeded(),[]);
+});
+test('expanded revive preserves permanent forge centers',()=>{
+ const g=new Game();g.board.fill('lava');g.over=true;g.beginRevive();g.board[18]='forge';g.forges.set(18,{bricks:4,cycles:2});
+ g.inventory=[{tile:'water',shape:{id:'long',name:'Long',width:5,height:1,cells:Array.from({length:5},(_,x)=>[x,0] as const)}}];
+ const extra=g.expandReviveIfNeeded();assert.equal(extra.length,15);assert.equal(g.board[18],'forge');assert.equal(g.forges.get(18)!.bricks,4);
+});
