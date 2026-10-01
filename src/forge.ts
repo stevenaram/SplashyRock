@@ -14,6 +14,11 @@ function batchPainted(parent:T.Group,exclude:readonly T.Mesh[]=[]){
   g.setAttribute('color',new T.BufferAttribute(colors,3));g.clearGroups();g.applyMatrix4(mesh.matrix);mesh.removeFromParent();mesh.geometry.dispose();return g;});
  const merged=mergeGeometries(geometries,false)!;geometries.forEach(g=>g.dispose());parent.add(new T.Mesh(merged,new T.MeshBasicMaterial({vertexColors:true})));
 }
+// Production peaks quickly, then releases pressure over a long, smooth tail.
+export function forgeProductionHeat(seconds:number){
+ if(seconds>=3.2)return 0;
+ return Math.pow(Math.max(0,1-seconds/3.2),1.4);
+}
 // Painted faces, rather than scene lighting, keep the machine in the island palette.
 export function createForge(){
  const group=new T.Group(),pistons:T.Mesh[]=[],gears:T.Group[]=[],bricks:T.Group[]=[];
@@ -53,13 +58,19 @@ export function createForge(){
  }
  box(group,0,.27,.55,1.12,.13,.71,bronze);
  for(let i=0;i<10;i++){
-  const brick=new T.Group();brick.position.set(0,.4+i*.10,.54+(i%2?-.025:.025));
-  box(brick,0,0,0,.80,.095,.38,obsidianMaterial());
+  const brick=new T.Group();brick.position.set(0,.45+i*.185,.54+(i%2?-.025:.025));
+  box(brick,0,0,0,1.20,.178125,.57,obsidianMaterial());
   brick.visible=false;group.add(brick);bricks.push(brick);
  }
  const chimney=box(group,-.5,1.1,-.67,.25,.35,.25,iron);box(group,-.5,1.29,-.67,.32,.055,.32,metal);
  const steam=Array.from({length:4},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.12,0),new T.MeshBasicMaterial({color:'#dbe9dc',transparent:true,opacity:0,depthWrite:false}));group.add(puff);return puff;});
  const waterSteam=Array.from({length:5},()=>{const puff=new T.Mesh(new T.IcosahedronGeometry(.20,1),new T.MeshBasicMaterial({color:'#e4f5ef',transparent:true,opacity:0,depthWrite:false}));puff.name='forge-water-steam';puff.visible=false;group.add(puff);return puff;});
+ const makeParticles=(name:string,count:number,geometry:T.BufferGeometry,color:string)=>{
+  const mesh=new T.InstancedMesh(geometry,new T.MeshBasicMaterial({color,transparent:true,opacity:.8,depthWrite:false}),count);mesh.name=name;mesh.frustumCulled=false;mesh.visible=false;group.add(mesh);return mesh;
+ };
+ const smoke=makeParticles('forge-production-smoke',40,new T.IcosahedronGeometry(.18,1),'#b9c5c6');
+ const bubbles=makeParticles('forge-boiling-bubbles',28,new T.IcosahedronGeometry(.065,1),'#d7ffff');
+ const sparks=makeParticles('forge-lava-sparks',24,new T.OctahedronGeometry(.055),'#ffbe64');
  const fuelHints=[-2,2].map(x=>{
   const hint=new T.Group();hint.position.set(x,.48,0);hint.visible=false;
   const color=x<0?'#ffad65':'#9aebf2',material=new T.MeshBasicMaterial({color,transparent:true,opacity:.9,side:T.DoubleSide,depthWrite:false});
@@ -73,27 +84,49 @@ export function createForge(){
  const paintedMaterials=new Set<T.Material>();group.traverse(o=>{if(o instanceof T.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])paintedMaterials.add(m);});
  gears.forEach(g=>batchPainted(g));
  const glowParts=group.children.filter((o):o is T.Mesh=>o instanceof T.Mesh&&o.material===glow);batchPainted(group,[...pistons,...steam,...glowParts]);
- return{group,pistons,gears,bricks,glow,steam,waterSteam,chimney,fuelHints,dispose:()=>{disposeGroup(group);paintedMaterials.forEach(m=>m.dispose());}};
+ return{group,pistons,gears,bricks,glow,steam,waterSteam,chimney,fuelHints,smoke,bubbles,sparks,dispose:()=>{disposeGroup(group);paintedMaterials.forEach(m=>m.dispose());}};
 }
 export class ForgeField{
  readonly group=new T.Group();
  constructor(private readonly produced:(cell:number)=>void=()=>{},private readonly heat:(cell:number,value:number)=>void=()=>{}){}
+ private particle=new T.Object3D();
  private views=new Map<number,{model:ReturnType<typeof createForge>;age:number;count:number;cycles:number;production:number;mechanism:number}>();
  update(game:Game,dt:number,reduced:boolean){
   for(const [c,v] of this.views)if(!game.forges.has(c)){this.heat(c-1,0);v.model.dispose();this.views.delete(c);}
   for(const [c,f] of game.forges){
    let v=this.views.get(c);if(!v){const model=createForge();model.group.position.set(gridWorld(c%8),.06,gridWorld(Math.floor(c/8)));this.group.add(model.group);v={model,age:0,count:0,cycles:0,production:10,mechanism:0};this.views.set(c,v);}
    if(v.cycles!==f.cycles){this.produced(c);v.production=0;v.cycles=f.cycles;}v.count=f.bricks;v.age+=dt;v.production+=dt;
-   const active=game.board[c-1]==='lava'&&game.board[c+1]==='water'&&f.bricks<10,working=active||v.production<.8;
-   if(working&&!reduced)v.mechanism+=dt;
-   const burst=reduced?0:Math.pow(Math.max(0,1-v.production/.85),.6);
+   const active=game.board[c-1]==='lava'&&game.board[c+1]==='water'&&f.bricks<10,working=active||v.production<3.2;
+   if(working&&!reduced)v.mechanism+=dt*(.25+forgeProductionHeat(v.production)*1.75);
+   const burst=reduced?0:forgeProductionHeat(v.production);
    this.heat(c-1,game.board[c-1]==='lava'?.3+burst*.7:0);
-   const m=v.model;m.fuelHints.forEach((hint,i)=>{hint.visible=game.board[c+(i?1:-1)]!==(i?'water':'lava');hint.scale.setScalar(reduced?1:1+Math.sin(v.age*2.6)*.07);hint.position.y=.48+(reduced?0:Math.sin(v.age*2.6)*.025);});m.glow.color.set(working?'#ffba64':game.board[c-1]==='lava'&&game.board[c+1]==='water'?'#b76238':'#50434b');
-   m.pistons.forEach((p,i)=>p.position.y=.7+(working&&!reduced?Math.sin(v.mechanism*9+i*Math.PI)*.1:0));
+   const m=v.model;m.fuelHints.forEach((hint,i)=>{hint.visible=game.board[c+(i?1:-1)]!==(i?'water':'lava');hint.scale.setScalar(reduced?1:1+Math.sin(v.age*2.6)*.07);hint.position.y=.48+(reduced?0:Math.sin(v.age*2.6)*.025);});m.glow.color.set(game.board[c-1]==='lava'&&game.board[c+1]==='water'?'#b76238':'#50434b').lerp(new T.Color('#ffe2a0'),burst*(.88+Math.sin(v.age*39)*.12));
+   m.pistons.forEach((p,i)=>p.position.y=.7+(working&&!reduced?Math.sin(v.mechanism*9+i*Math.PI)*(.025+burst*.14):0));
    m.gears.forEach((g,i)=>g.rotation.x=v.mechanism*(i?-1:1)*1.8);
-   m.bricks.forEach((b,i)=>{b.visible=i<f.bricks;const t=Math.min(1,Math.max(0,(v.production-(i>=f.bricks-1?.12:0))/.4));const pop=i>=f.bricks-2&&!reduced?1+Math.sin(t*Math.PI)*.22:1;b.scale.setScalar(pop);b.position.y=.4+i*.10+(i>=f.bricks-2&&!reduced?Math.sin(t*Math.PI)*.35:0);});
-   m.steam.forEach((p,i)=>{const t=(v.age*.55+i*.25)%1;p.visible=working&&!reduced;p.position.set(-.5+Math.sin(i+t*4)*.06,1.4+t*.7,-.67);p.scale.setScalar(.6+t);p.material.opacity=Math.sin(t*Math.PI)*.24;});
-   m.waterSteam.forEach((p,i)=>{const t=(v.age*.65+i*.2)%1;p.visible=game.board[c+1]==='water'&&!reduced&&(i<4||burst>.05);p.position.set(2+Math.sin(i*2.4)*.53+Math.sin(t*3+i)*.08,.14+t*(.75+burst*.45),Math.cos(i*2.4)*.5);p.scale.setScalar(.35+t*(.9+burst*.4));p.material.opacity=Math.sin(t*Math.PI)*(.22+burst*.16);});
+   m.bricks.forEach((b,i)=>{b.visible=i<f.bricks;const t=Math.min(1,Math.max(0,(v.production-(i>=f.bricks-1?.12:0))/.4));const pop=i>=f.bricks-2&&!reduced?1+Math.sin(t*Math.PI)*.22:1;b.scale.setScalar(pop);b.position.y=.45+i*.185+(i>=f.bricks-2&&!reduced?Math.sin(t*Math.PI)*.35:0);});
+   m.steam.forEach((p,i)=>{const t=(v.age*.55+i*.25)%1;p.visible=working&&!reduced;p.position.set(-.5+Math.sin(i+t*4)*.06,1.4+t*.7,-.67);p.scale.setScalar(.6+t);p.material.opacity=Math.sin(t*Math.PI)*(.16+burst*.35);});
+   m.waterSteam.forEach((p,i)=>{const t=(v.age*.65+i*.2)%1;p.visible=game.board[c+1]==='water'&&!reduced&&(i<4||burst>.05);p.position.set(2+Math.sin(i*2.4)*.53+Math.sin(t*3+i)*.08,.14+t*(.75+burst*1.1),Math.cos(i*2.4)*.5);p.scale.setScalar(.35+t*(.9+burst*.4));p.material.opacity=Math.sin(t*Math.PI)*(.22+burst*.35);});
+   // Batched particles keep eight simultaneous forges affordable on phones.
+   for(const [mesh,count] of [[m.smoke,40],[m.bubbles,28],[m.sparks,24]] as const){
+    mesh.visible=!reduced&&burst>.002;
+    if(!mesh.visible)continue;
+    mesh.material.opacity=(mesh===m.smoke?.48:.9)*Math.min(1,burst*2);
+    for(let i=0;i<count;i++){
+     const t=(v.age*(mesh===m.smoke?.55:1.65)+i*.618034)%1,a=i*2.39996;
+     const radius=.15+(i%7)*.095,fade=Math.sin(t*Math.PI),p=this.particle;
+     if(mesh===m.smoke){
+      const chimney=i%3===0;
+      p.position.set((chimney?-.5:2)+Math.cos(a)*radius+t*.22, (chimney?1.38:.2)+t*(1.5+burst*.8), (chimney?-.67:0)+Math.sin(a)*radius+t*.12);
+      p.scale.setScalar(fade*(.45+t*1.9)*(.5+burst));
+     }else{
+      const water=mesh===m.bubbles;
+      p.position.set((water?2:-2)+Math.cos(a)*radius*(1+t*.25),.13+Math.sin(t*Math.PI)*(.15+burst*(water?.32:.7)),Math.sin(a)*radius*(1+t*.25));
+      p.scale.set(water?fade:fade*.7,water?fade*.65:fade*(1+burst*2),water?fade:fade*.7);
+     }
+     p.rotation.set(a+t,a,t*2);p.updateMatrix();mesh.setMatrixAt(i,p.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate=true;
+   }
    if(!reduced&&v.age<.45){const t=Math.min(1,v.age/.45);m.group.scale.setScalar(.85+.15*t);m.group.position.y=.06+Math.sin(t*Math.PI)*.22;}
   }
  }
