@@ -1,4 +1,5 @@
-import {BOAT_HULL_BRICKS,BOAT_BLUEPRINT} from './boat';
+import {launchPose} from './ship-launch';
+import {BOAT_HULL_BRICKS} from './boat';
 import {BoatView} from './boat-view';
 import {ForgeField} from './forge';
 import {BushField} from './bush-view';
@@ -19,7 +20,8 @@ export class World {
   private readonly boat:BoatView;
   private boatFrame={x:8,minZ:-8,maxZ:8,height:0};
   private launchAge=0;
-  private deckRevision=-1;
+  private readonly ship=new THREE.Group();
+  private readonly shipInverse=new THREE.Matrix4();
 
   private readonly map=createMap();
   private shardSweeps=new Set<number>();
@@ -56,7 +58,7 @@ export class World {
   private readonly observer: ResizeObserver;
 
   constructor(private readonly host: HTMLElement) {
-    this.boat=new BoatView(host);this.scene.add(this.boat.group);
+    this.boat=new BoatView(host);this.scene.add(this.ship);this.ship.add(this.boat.group);
     this.scene.background = new THREE.Color('#168eac');
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.autoUpdate = false;
@@ -69,8 +71,8 @@ export class World {
     Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 60 });
     sun.shadow.normalBias = .035; sun.shadow.bias = -.0001;
     this.island = createIsland();
-    this.scene.add(sun, this.island, this.surface.mesh, this.effects.group, this.stones);
-    this.scene.add(this.map,this.petBatch.group);
+    this.scene.add(sun,this.island);this.ship.add(this.surface.mesh,this.effects.group,this.stones);
+    this.ship.add(this.map);this.scene.add(this.petBatch.group);
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     this.renderer.domElement.classList.add('world-canvas');
     host.parentElement!.append(this.renderer.domElement);
@@ -100,23 +102,29 @@ export class World {
 
     if(this.game){
       if(this.game.boatDeliveries.length)this.onSound('forge');this.boat.update(this.game,dt,this.reducedMotion.matches);
-      if(this.deckRevision!==this.game.boat.revision){this.deckRevision=this.game.boat.revision;this.surface.setDeckCells([...this.game.boat.built].flatMap(id=>BOAT_BLUEPRINT[id].cell===undefined?[]:[BOAT_BLUEPRINT[id].cell!]));}
+      this.surface.setDeckCells([...this.boat.deckCells]);
       for(const object of (this.island.userData.shipScenery??[]) as THREE.Object3D[])object.visible=this.game.boat.count<BOAT_HULL_BRICKS;
       for(const object of (this.island.userData.shipShore??[]) as THREE.Object3D[])object.visible=this.launchAge<32;
       let reframed=false;for(const key of ['x','minZ','maxZ','height'] as const){const close=key==='x'?Math.min(8.6,this.boat.bounds.x):key==='minZ'?-8:key==='maxZ'?8:0;const desired=(close+this.boat.bounds[key])*.5;const delta=desired-this.boatFrame[key];if(Math.abs(delta)>.001){this.boatFrame[key]=this.reducedMotion.matches||Math.abs(delta)<.005?desired:this.boatFrame[key]+delta*(1-Math.exp(-dt*6));reframed=true;}}if(reframed)this.resize();
-      if(!this.forges.group.parent)this.scene.add(this.forges.group);this.forges.update(this.game,dt,this.reducedMotion.matches);
+      if(!this.forges.group.parent)this.ship.add(this.forges.group);this.forges.update(this.game,dt,this.reducedMotion.matches);
       if(this.game.updateBushBurnouts(dt))petsChanged=true;
       if(this.game.updateBoss(dt))petsChanged=true;
       for(const [id,view] of this.bossViews)if(!this.game.bosses.some(b=>b.id===id)){view.dispose();this.bossViews.delete(id);}
-      for(const boss of this.game.bosses){let view=this.bossViews.get(boss.id);if(!view){view=new BossView(this.scene,this.host,(x,y,height)=>this.gridScreen(x,y,height),(cue,cell,level)=>this.onSound(cue,cell,level));this.bossViews.set(boss.id,view);}view.update(this.game,dt,this.reducedMotion.matches,boss);}
+      for(const boss of this.game.bosses){let view=this.bossViews.get(boss.id);if(!view){view=new BossView(this.ship,this.host,(x,y,height)=>this.gridScreen(x,y,height),(cue,cell,level)=>this.onSound(cue,cell,level));this.bossViews.set(boss.id,view);}view.update(this.game,dt,this.reducedMotion.matches,boss);}
     }
-    if(this.game){if(!this.bushes.group.parent)this.scene.add(this.bushes.group);this.bushes.update(this.game,time,this.reducedMotion.matches);for(const cell of this.game.berryEaten.splice(0)){this.onSound('berry',cell);if(!this.reducedMotion.matches)this.effects.burst(cell,'bush');}}
+    if(this.game){if(!this.bushes.group.parent)this.ship.add(this.bushes.group);this.bushes.update(this.game,time,this.reducedMotion.matches);for(const cell of this.game.berryEaten.splice(0)){this.onSound('berry',cell);if(!this.reducedMotion.matches)this.effects.burst(cell,'bush');}}
     if(this.game)for(const cell of this.game.obsidianEvents.splice(0)){if(this.game.board[cell]!=='obsidian')continue;this.surface.set(cell,'obsidian');this.onObsidian();this.onSound('steam',cell);if(!this.reducedMotion.matches)this.effects.evaporate(cell,'lava');}
     // Camera follows the ship: keep the complete gameplay coordinate frame
     // fixed and move the island/ocean past it. New tiles, bosses, effects and
     // pointer hit tests consequently share the exact same travelling deck.
     if(this.game?.won){if(this.launchAge===0)this.onSound('win');this.launchAge+=dt;}else this.launchAge=0;
-    this.island.userData.sail?.(this.reducedMotion.matches?0:this.launchAge);
+    const pose=launchPose(this.launchAge,this.reducedMotion.matches);
+    if(this.island.userData.shipSand)this.island.userData.shipSand.visible=this.launchAge<3;
+    this.island.userData.sail?.(this.reducedMotion.matches?0:pose.voyage);
+    this.ship.rotation.set(pose.pitch,0,pose.roll);this.ship.position.y=pose.heave;
+    if(this.game?.won&&!this.reducedMotion.matches)this.renderer.shadowMap.needsUpdate=true;
+    this.ship.updateMatrixWorld(true);this.shipInverse.copy(this.ship.matrixWorld).invert();
+    this.ship.traverse(o=>{const m=(o as THREE.Mesh).material;if(m instanceof THREE.ShaderMaterial&&m.uniforms.shipInverse)m.uniforms.shipInverse.value.copy(this.shipInverse);});
     this.petBatch.sync(this.pets.map(p=>p.group));
     if(petsChanged)this.onPetChange();
     if (!this.reducedMotion.matches) {
@@ -140,7 +148,7 @@ export class World {
     return this.gridScreen(cell%SIZE,Math.floor(cell/SIZE),height);
   }
   gridScreen(x:number,y:number,height:number){
-    const point=new THREE.Vector3(gridWorld(x),height,gridWorld(y)).project(this.camera);
+    const point=this.ship.localToWorld(new THREE.Vector3(gridWorld(x),height,gridWorld(y))).project(this.camera);
     const view=this.renderer.domElement.getBoundingClientRect(),board=this.host.getBoundingClientRect();
     return {x:(point.x+1)*view.width/2+view.left-board.left,y:(1-point.y)*view.height/2+view.top-board.top};
   }
@@ -153,8 +161,9 @@ export class World {
       (clientX - view.left) / view.width * 2 - 1,
       1 - (clientY - view.top) / view.height * 2,
     ), this.camera);
-    const point = this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    const point = this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0).applyMatrix4(this.ship.matrixWorld), new THREE.Vector3());
     if (!point) return null;
+    this.ship.worldToLocal(point);
     const column = Math.floor((point.x + BOARD_EXTENT / 2) / TILE_SIZE);
     const row = Math.floor((point.z + BOARD_EXTENT / 2) / TILE_SIZE);
     return column >= 0 && column < SIZE && row >= 0 && row < SIZE ? row * SIZE + column : null;
@@ -216,7 +225,7 @@ export class World {
       const previous=this.surface.board[cell];
       this.surface.set(cell,null);
       for(const group of [...this.stones.children]){
-        if(group.userData.cell===cell){this.arrivals=this.arrivals.filter(a=>a.group!==group);if(this.reducedMotion.matches)disposeGroup(group as THREE.Group);else{this.scene.attach(group);this.departures.push({group:group as THREE.Group,age:0});}}
+        if(group.userData.cell===cell){this.arrivals=this.arrivals.filter(a=>a.group!==group);if(this.reducedMotion.matches)disposeGroup(group as THREE.Group);else{this.ship.attach(group);this.departures.push({group:group as THREE.Group,age:0});}}
       }
       if(!this.reducedMotion.matches){if(previous==='water'||previous==='lava')this.effects.evaporate(cell,previous);else if(leafy)this.effects.leaves(cell,false,shards);else this.effects.sand(cell);}
     }
@@ -229,7 +238,7 @@ export class World {
   addPiece(cell: number, piece: Piece) {
     this.onSound(piece.tile==='pet'?'egg':piece.tile==='forge'?'stone':piece.tile,cell);
     if(piece.tile==='forge'){this.surface.set(cell,'forge');if(this.game)this.forges.update(this.game,0,this.reducedMotion.matches);return;}
-    if(piece.tile==='pet'){if(this.game?.pet){const pet=new PetWalker(this.game.pet);this.pets.push(pet);this.scene.add(pet.group);}this.render();return;}
+    if(piece.tile==='pet'){if(this.game?.pet){const pet=new PetWalker(this.game.pet);this.pets.push(pet);this.ship.add(pet.group);}this.render();return;}
     const placed=footprint(piece,cell);
     for(const [x,y] of placed) {
       const index=y*8+x;this.effects.cancelEvaporation(index);this.surface.set(index,piece.tile);
@@ -247,7 +256,7 @@ export class World {
     this.previewKey = key;
     if (cell !== null && piece) {
       this.preview = this.pieceMesh(cell, piece, true, valid);
-      this.scene.add(this.preview);
+      this.ship.add(this.preview);
     }
     this.render();
   }

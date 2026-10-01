@@ -30,8 +30,8 @@ export class ConnectedSurface {
   constructor() {
     this.texture.magFilter=this.texture.minFilter=T.NearestFilter;
     this.material=new T.ShaderMaterial({
-      uniforms:{board:{value:this.texture},time:{value:0},deck:{value:this.deckCells}},
-      vertexShader:`varying vec2 world; void main(){vec4 p=modelMatrix*vec4(position,1.);world=p.xz;gl_Position=projectionMatrix*viewMatrix*p;}`,
+      uniforms:{shipInverse:{value:new T.Matrix4()},board:{value:this.texture},time:{value:0},deck:{value:this.deckCells}},
+      vertexShader:`uniform mat4 shipInverse;varying vec2 world; void main(){vec4 p=modelMatrix*vec4(position,1.);world=(shipInverse*p).xz;gl_Position=projectionMatrix*viewMatrix*p;}`,
       fragmentShader:`
         precision highp float; varying vec2 world; uniform sampler2D board; uniform float time;uniform float deck[64];
         float kind(vec2 cell){if(any(lessThan(cell,vec2(0.)))||any(greaterThanEqual(cell,vec2(8.))))return 0.;return floor(texture2D(board,(cell+.5)/8.).r*255.+.5);}

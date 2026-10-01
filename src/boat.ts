@@ -1,7 +1,7 @@
 import {CatmullRomCurve3,Vector3,Matrix4,Euler,Shape,Path,ShapeGeometry} from 'three';
 import {SHIP_PARTS,type ShipPart} from './ship-details';
 /** Coordinates use world units; the playable grid remains independent of the hull. */
-export interface BoatBrick {x:number;y:number;z:number;angle:number;width:number;depth:number;height:number;deck:boolean;cell?:number;detail?:number;part?:ShipPart;pieces?:{part:ShipPart;detail:number}[];frame?:'lower'|'rib'|'upper';section?:number;apron?:number}
+export interface BoatBrick {x:number;y:number;z:number;angle:number;width:number;depth:number;height:number;deck:boolean;cell?:number;detail?:number;part?:ShipPart;pieces?:{part:ShipPart;detail:number}[];frame?:'lower'|'rib'|'upper';section?:number;apron?:number;aprons?:number[]}
 const outline=[[-8.5,8.5],[-8.5,-7.8],[-5.7,-11.4],[0,-14.2],[5.7,-11.4],[8.5,-7.8],[8.5,8.5],[5.6,10.5],[0,11.3],[-5.6,10.5]];
 export const BOAT_CURVE=new CatmullRomCurve3(outline.map(([x,z])=>new Vector3(x,0,z)),true,'catmullrom',.22);
 // Construction jobs own exactly the geometry they reveal. No repeated funding
@@ -17,7 +17,7 @@ export const BOAT_FRAME_UPPER_HEIGHT=1.08;
 export const BOAT_FRAME_UPPER_Y=3.10;
 export const BOAT_FRAME_POST_Y=1.80;
 export const BOAT_FRAME_POST_HEIGHT=2.76;
-const SHELL_JOBS=256;
+const SHELL_JOBS=86;
 export const BOAT_HULL_BRICKS=BOAT_FRAME_BRICKS+SHELL_JOBS;
 export const APRON_TRIANGLES=(()=>{
  const shape=new Shape();shape.moveTo(-8.9,8.5);for(const [x,z] of [[-8.9,-8],[-5.7,-11.7],[0,-14.2],[5.7,-11.7],[8.9,-8],[8.9,8.5],[5.6,10.7],[0,11.4],[-5.6,10.7]])shape.lineTo(x,z);shape.closePath();
@@ -31,27 +31,24 @@ export const APRON_TRIANGLES=(()=>{
  }
  return triangles.sort((a,b)=>Math.atan2(a[0].z,a[0].x)-Math.atan2(b[0].z,b[0].x));
 })();
-function detailChunks(count:number){
+function detailChunks(){
  type Piece={part:ShipPart;detail:number};
- const weight=(p:ShipPart)=>{const dims=[p.width,p.height,p.depth].sort((a,b)=>b-a);return p.round?p.height*Math.max(p.width,p.depth):dims[0]*dims[1];};
- const distance=(a:ShipPart,b:ShipPart)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
- const jobs:Piece[][]=[];
- // Nearby rivets, caps and brackets arrive together instead of consuming a
- // whole delivery each. Keep bundles local to the pet's construction target.
- SHIP_PARTS.forEach((p,detail)=>{
-  const piece={part:{...p},detail};
-  if(weight(p)<.08){const nearby=jobs.find(j=>j.reduce((sum,q)=>sum+weight(q.part),0)<.24&&j.every(q=>distance(q.part,p)<.85));if(nearby){nearby.push(piece);return;}}
-  jobs.push([piece]);
- });
- while(jobs.length<count){
-  let best=0;for(let i=1;i<jobs.length;i++)if(Math.max(...jobs[i].map(q=>weight(q.part)))>Math.max(...jobs[best].map(q=>weight(q.part))))best=i;
-  const job=jobs[best].sort((a,b)=>weight(b.part)-weight(a.part)),{part:p,detail}=job[0],dims=[p.width,p.height,p.depth],axis=p.round?1:dims.indexOf(Math.max(...dims)),key=(['width','height','depth'] as const)[axis];
-  const rotation=new Euler(p.rx??0,p.ry??0,p.rz??0),offset=new Vector3().setComponent(axis,dims[axis]/4).applyEuler(rotation);
-  const halves=[-1,1].map(sign=>[{detail,part:{...p,[key]:dims[axis]/2,x:p.x+offset.x*sign,y:p.y+offset.y*sign,z:p.z+offset.z*sign}}]);
-  for(const extra of job.slice(1))halves[distance(extra.part,halves[0][0].part)<=distance(extra.part,halves[1][0].part)?0:1].push(extra);
-  jobs.splice(best,1,...halves);
+ const weight=(p:ShipPart)=>{const d=[p.width,p.height,p.depth].sort((a,b)=>b-a);return p.round?p.height*Math.max(p.width,p.depth):d[0]*d[1];};
+ const pieces:Piece[]=SHIP_PARTS.map((p,detail)=>({part:{...p},detail}));
+ for(let i=0;i<pieces.length;i++){
+  const {part:p,detail}=pieces[i];if(weight(p)<=1.4)continue;
+  const dims=[p.width,p.height,p.depth],axis=p.round?1:dims.indexOf(Math.max(...dims)),key=(['width','height','depth'] as const)[axis],offset=new Vector3().setComponent(axis,dims[axis]/4).applyEuler(new Euler(p.rx??0,p.ry??0,p.rz??0));
+  pieces.splice(i,1,...[-1,1].map(sign=>({detail,part:{...p,[key]:dims[axis]/2,x:p.x+offset.x*sign,y:p.y+offset.y*sign,z:p.z+offset.z*sign}})));i--;
  }
- return jobs.sort((a,b)=>Math.min(...a.map(p=>p.detail))-Math.min(...b.map(p=>p.detail))||a[0].part.y-b[0].part.y||a[0].part.z-b[0].part.z||a[0].part.x-b[0].part.x);
+ const jobs:Piece[][]=[];
+ while(pieces.length){const job=[pieces.shift()!];let area=weight(job[0].part);
+  while(area<1.8&&pieces.length){let best=-1,nearest=Infinity;
+   pieces.forEach((q,i)=>{const p=job[0].part,d=Math.hypot(q.part.x-p.x,q.part.y-p.y,q.part.z-p.z);if(d<nearest&&d<3.2&&area+weight(q.part)<=2.8){nearest=d;best=i;}});
+   if(best<0)break;const next=pieces.splice(best,1)[0];job.push(next);area+=weight(next.part);
+  }
+  job.sort((a,b)=>weight(b.part)-weight(a.part));jobs.push(job);
+ }
+ return jobs;
 }
 function blueprint(){
  const result:BoatBrick[]=[];
@@ -60,14 +57,14 @@ function blueprint(){
   result.push({x:p.x+n.z*out,z:p.z-n.x*out,y:frame==='lower'?BOAT_FRAME_LOWER_Y:frame==='upper'?BOAT_FRAME_UPPER_Y:BOAT_FRAME_POST_Y,angle:-Math.atan2(n.z,n.x),width:frame==='rib'?BOAT_FRAME_POST_WIDTH:BOAT_CURVE.getLength()/BOAT_FRAME_COUNTS[frame],height:frame==='rib'?BOAT_FRAME_POST_HEIGHT:frame==='upper'?BOAT_FRAME_UPPER_HEIGHT:BOAT_FRAME_LOWER_HEIGHT,depth:frame==='rib'?BOAT_FRAME_POST_WIDTH:2*(frame==='upper'?BOAT_FRAME_UPPER_RADIUS:BOAT_FRAME_LOWER_RADIUS),deck:false,frame,section:i});
  }
  for(let i=0;i<SHELL_JOBS;i++){const start=Math.floor(i/SHELL_JOBS*256),end=Math.floor((i+1)/SHELL_JOBS*256),t=(start+end)/512,p=BOAT_CURVE.getPointAt(t),n=BOAT_CURVE.getTangentAt(t);result.push({x:p.x+n.z*.28,z:p.z-n.x*.28,y:1.17,angle:-Math.atan2(n.z,n.x),width:(end-start)*.30,depth:.64,height:.30,deck:false});}
- APRON_TRIANGLES.forEach((t,apron)=>{const p=t[0].clone().add(t[1]).add(t[2]).divideScalar(3);result.push({x:p.x,y:p.y,z:p.z,angle:0,width:0,depth:0,height:0,deck:false,apron});});
- for(const pieces of detailChunks(1698-64-result.length)){const {part:p,detail}=pieces[0];result.push({x:p.x,y:p.y,z:p.z,angle:0,width:p.width,height:p.height,depth:p.depth,deck:false,detail,part:p,pieces});}
+ for(let i=0;i<APRON_TRIANGLES.length;i+=3){const aprons=Array.from({length:Math.min(3,APRON_TRIANGLES.length-i)},(_,k)=>i+k),t=APRON_TRIANGLES[i],p=t[0].clone().add(t[1]).add(t[2]).divideScalar(3);result.push({x:p.x,y:p.y,z:p.z,angle:0,width:0,depth:0,height:0,deck:false,apron:i,aprons});}
+ for(const pieces of detailChunks()){const {part:p,detail}=pieces[0];result.push({x:p.x,y:p.y,z:p.z,angle:0,width:p.width,height:p.height,depth:p.depth,deck:false,detail,part:p,pieces});}
  for(let row=0;row<8;row++)for(let col=0;col<8;col++)result.push({x:-7+col*2,z:-7+row*2,y:-.17,angle:0,width:2,depth:2,height:.30,deck:true,cell:row*8+col});
  return result;
 }
 export const BOAT_BLUEPRINT:readonly BoatBrick[]=blueprint();
 export const BOAT_WALL_BRICKS=BOAT_BLUEPRINT.findIndex(b=>b.deck);
-export const BOAT_TOTAL_BRICKS=BOAT_BLUEPRINT.length;
+export const BOAT_TOTAL_BRICKS=BOAT_WALL_BRICKS;
 export function hullDeliverySections(id:number){const b=BOAT_BLUEPRINT[id],i=b.frame?b.section!:id-BOAT_FRAME_BRICKS,count=b.frame?BOAT_FRAME_COUNTS[b.frame]:SHELL_JOBS;return {start:Math.floor(i/count*256),end:Math.floor((i+1)/count*256)};}
 export function boatDeliveryTarget(id:number){
  const b=BOAT_BLUEPRINT[id];let height=b.deck?0:b.y+b.height/2;

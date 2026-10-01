@@ -272,6 +272,11 @@ export class Game {
       pet.queueSnack(run,cell,()=>{release();if(this.bushes.get(cell)===b&&b.phase==='healthy'&&b.berries>0){b.berries--;this.recordFeature('berries-eaten');this.berryEaten.push(cell);return true;}return false;},()=>{release();done();},c=>this.formLeafStone(c,pet.element,run));
     }
   }
+  sandboxBuildBatch(limit:number){
+    for(const forge of this.forges.values())forge.bricks=10;
+    let count=0;for(const pet of this.pets)if(count<limit&&!pet.busy&&this.queueBuilder(pet))count++;
+    return count;
+  }
   private queueBuilder(pet:PetMotion,pending?:()=>()=>void){
     const options=[...this.forges].filter(([c,f])=>f.bricks>(this.brickReservations.get(c)??0));
     if(!options.length)return false;

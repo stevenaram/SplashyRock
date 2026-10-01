@@ -6,8 +6,8 @@ import {Game} from '../src/game';
 import {PetMotion} from '../src/pet-motion';
 const advance=(g:Game,seconds=12)=>{for(let t=0;t<seconds;t+=.05)for(const p of g.pets)p.update(.05);};
 function fixture(pets=1,bricks=2){const g=new Game(()=>.3,()=>true);g.board[27]='forge';g.forges.set(27,{bricks,cycles:1});for(let i=0;i<pets;i++)g.pets.push(new PetMotion(48+i,i%2?'water':'lava',g.board,()=>true,()=>.3,()=>g.boardChange,()=>g.pets));return g;}
-test('1,698 deliveries build a single-thickness hull, every fitting, and a flush full deck',()=>{
- assert.equal(BOAT_TOTAL_BRICKS,1698);assert.equal(new Set(BOAT_BLUEPRINT.flatMap(b=>b.pieces?.map(p=>p.detail)??[])).size,SHIP_PARTS.length);assert.ok(BOAT_BLUEPRINT.slice(0,BOAT_WALL_BRICKS).every(b=>!b.deck));assert.ok(BOAT_BLUEPRINT.slice(BOAT_WALL_BRICKS).every(b=>b.deck));
+test('construction deliveries finish the structure, reserving the deck for automatic launch',()=>{
+ assert.equal(BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS);assert.equal(new Set(BOAT_BLUEPRINT.flatMap(b=>b.pieces?.map(p=>p.detail)??[])).size,SHIP_PARTS.length);assert.ok(BOAT_BLUEPRINT.slice(0,BOAT_WALL_BRICKS).every(b=>!b.deck));assert.ok(BOAT_BLUEPRINT.slice(BOAT_WALL_BRICKS).every(b=>b.deck));
  assert.ok(BOAT_BLUEPRINT.filter(b=>b.detail===undefined&&!b.deck&&!b.frame&&b.apron===undefined).every(b=>b.depth===.64));
  assert.ok(BOAT_BLUEPRINT.filter(b=>b.deck).every(b=>b.y+b.height/2<0&&b.width===2&&b.depth===2));
  for(let c=0;c<64;c++)assert.equal(BOAT_BLUEPRINT.filter(b=>b.cell===c).length,1);
@@ -44,4 +44,9 @@ test('launch is one-shot and gameplay continues on the sailing ship',()=>{
  const g=fixture();g.setBoatProgress(BOAT_TOTAL_BRICKS);assert.ok(g.finishIfWon());
  g.inventory=[{tile:'water',shape:{id:'single',name:'Single',width:1,height:1,cells:[[0,0]]}}];assert.equal(g.over,false);assert.equal(g.finishIfWon(),false);assert.equal(g.place(0,0),true);
  g.setBoatProgress(1);assert.equal(g.over,false);assert.equal(g.won,false);
+});
+test('sandbox building stocks forges and sends available pets without normal tile abilities',()=>{
+ const g=fixture(8,0);assert.equal(g.sandboxBuildBatch(8),8);assert.equal(g.sandboxBuildBatch(8),0);
+ advance(g);assert.equal(g.boat.count,8);assert.equal(g.petTileEvents.length,0);
+ assert.equal(g.sandboxBuildBatch(8),8);advance(g);assert.equal(g.boat.count,16);
 });

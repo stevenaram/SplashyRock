@@ -22,7 +22,7 @@ export class BossView {
  private notice=document.createElement('div');
  private id=0;private age=0;private hitAge=10;private hits=0;private exiting=0;private noticeAge=10;
 
- constructor(private scene:T.Scene,private host:HTMLElement,private project:(x:number,y:number,height:number)=>{x:number;y:number},private sound:(cue:SoundCue,cell:number,level:number)=>void=()=>{}){
+ constructor(private scene:T.Group,private host:HTMLElement,private project:(x:number,y:number,height:number)=>{x:number;y:number},private sound:(cue:SoundCue,cell:number,level:number)=>void=()=>{}){
   this.root.add(this.body,this.halo,this.death,this.aftermath);scene.add(this.root,this.surge.group);
   this.bar.className='boss-health';this.bar.hidden=true;this.bar.innerHTML='<div class="territory-track" role="progressbar" aria-label="Boss territory" aria-valuemin="0" aria-valuemax="64"><em></em><i></i><span class="health-ticks"></span></div>';host.append(this.bar);
   this.notice.className='boss-notice';this.notice.hidden=true;this.notice.setAttribute('role','status');host.append(this.notice);

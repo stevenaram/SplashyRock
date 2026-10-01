@@ -131,7 +131,7 @@ export function createIsland() {
     foam.rotation.set(-Math.PI/2,0,-angle+Math.PI/2);foam.position.set(p.x,-.405,p.y);group.add(foam);
   }
   group.userData.shipShore=group.children.slice(1);
-  const sand=new T.Mesh(new T.PlaneGeometry(17.6,17.6),new T.MeshStandardMaterial({map:sandTexture(17.6),roughness:1}));sand.rotation.x=-Math.PI/2;sand.position.y=-.09;sand.receiveShadow=true;group.add(sand);
+  const sand=new T.Mesh(new T.PlaneGeometry(17.6,17.6),new T.MeshStandardMaterial({map:sandTexture(17.6),roughness:1}));sand.rotation.x=-Math.PI/2;sand.position.y=-.09;sand.receiveShadow=true;group.add(sand);group.userData.shipSand=sand;
   const sceneryStart=group.children.length;
   group.add(palm(-6.7,-9.1,.94,.3),palm(-8.6,-8.7,.65,-.7));
   const rng=random(552);
@@ -145,7 +145,7 @@ export function createIsland() {
     const shell=new T.Mesh(new T.BoxGeometry(.07+rng()*.12,.035,.06+rng()*.12),new T.MeshStandardMaterial({color:i%3?'#fff0c6':'#c4a774'}));shell.position.set(edge.x,-.045,edge.y);shell.rotation.y=rng()*6;group.add(shell);
   }
   group.userData.shipScenery=group.children.slice(sceneryStart);
-  const land=group.children.filter(o=>o!==ocean).map(object=>({object,z:object.position.z}));
-  group.userData.sail=(age:number)=>{const distance=age===0?0:1.5*(age-2*(1-Math.exp(-age/2)));oceanMaterial.uniforms.voyage.value=distance;for(const {object,z} of land)object.position.z=z+distance;};
+  const land=group.children.filter(o=>o!==ocean).map(object=>({object,z:object.position.z,y:object.position.y}));
+  group.userData.sail=(age:number)=>{const distance=age===0?0:1.5*(age-2*(1-Math.exp(-age/2)));oceanMaterial.uniforms.voyage.value=distance;for(const {object,z,y} of land){object.position.z=z+distance;object.position.y=y-Math.min(2,age*.9);}};
   return group;
 }
