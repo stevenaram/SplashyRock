@@ -21,7 +21,7 @@ export function createHullTrim(){
   const radius=index?BOAT_FRAME_LOWER_RADIUS:BOAT_FRAME_UPPER_RADIUS,h=(index?BOAT_FRAME_LOWER_HEIGHT:BOAT_FRAME_UPPER_HEIGHT)/2,bevel=.07;
   const profile=[[-radius+bevel,-h],[radius-bevel,-h],[radius,-h+bevel],[radius,h-bevel],[radius-bevel,h],[-radius+bevel,h],[-radius,h-bevel],[-radius,-h+bevel]];
   const positions:number[]=[],colors:number[]=[],uv:number[]=[],out=index?.34:.59,count=index?BOAT_FRAME_COUNTS.lower:BOAT_FRAME_COUNTS.upper;
-  const palette=['#29243b','#40354e','#51435f','#93839e','#766384','#4d405d','#352d44','#29243b'].map(c=>new T.Color(c));
+  const palette=['#777777','#999999','#bcbcbc','#ffffff','#e5e5e5','#bbbbbb','#999999','#777777'].map(c=>new T.Color(c));
   const at=(section:number)=>{const p=BOAT_CURVE.getPointAt((section%count)/count),n=BOAT_CURVE.getTangentAt((section%count)/count);return profile.map(([x,y])=>[p.x+n.z*(out+x),height+y,p.z-n.x*(out+x)]);};
   const triangle=(a:number[],b:number[],c:number[],shade:T.Color)=>{for(const v of [a,b,c]){positions.push(...v);colors.push(shade.r,shade.g,shade.b);uv.push((v[0]+v[2])*.5,v[1]);}};
   for(let i=0;i<count;i++){const a=at(i),b=at(i+1);
@@ -29,7 +29,7 @@ export function createHullTrim(){
    for(let k=1;k<7;k++){triangle(a[0],a[k+1],a[k],palette[2]);triangle(b[0],b[k],b[k+1],palette[2]);}
   }
   const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
-  const material=new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide});
+  const material=obsidianMaterial();material.vertexColors=true;material.side=T.DoubleSide;
   const mesh=new T.Mesh(geometry,material);mesh.frustumCulled=false;return mesh;
  });
 }

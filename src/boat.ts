@@ -6,17 +6,17 @@ const outline=[[-8.5,8.5],[-8.5,-7.8],[-5.7,-11.4],[0,-14.2],[5.7,-11.4],[8.5,-7
 export const BOAT_CURVE=new CatmullRomCurve3(outline.map(([x,z])=>new Vector3(x,0,z)),true,'catmullrom',.22);
 // Construction jobs own exactly the geometry they reveal. No repeated funding
 // jobs and no whole-ship surfaces hidden behind a milestone visibility switch.
-export const BOAT_FRAME_COUNTS={lower:256,rib:48,upper:128};
-export const BOAT_FRAME_BRICKS=432;
+export const BOAT_FRAME_COUNTS={lower:86,rib:16,upper:43};
+export const BOAT_FRAME_BRICKS=145;
 export const BOAT_FRAME_UPPER_RADIUS=.225;
 export const BOAT_FRAME_LOWER_RADIUS=.30;
 export const BOAT_FRAME_POST_WIDTH=.45;
-export const BOAT_FRAME_LOWER_HEIGHT=1.44;
-export const BOAT_FRAME_LOWER_Y=.60;
-export const BOAT_FRAME_UPPER_HEIGHT=.72;
-export const BOAT_FRAME_UPPER_Y=2.025;
-export const BOAT_FRAME_POST_Y=1.14;
-export const BOAT_FRAME_POST_HEIGHT=1.74;
+export const BOAT_FRAME_LOWER_HEIGHT=2.16;
+export const BOAT_FRAME_LOWER_Y=.96;
+export const BOAT_FRAME_UPPER_HEIGHT=1.08;
+export const BOAT_FRAME_UPPER_Y=3.10;
+export const BOAT_FRAME_POST_Y=1.80;
+export const BOAT_FRAME_POST_HEIGHT=2.76;
 const SHELL_JOBS=256;
 export const BOAT_HULL_BRICKS=BOAT_FRAME_BRICKS+SHELL_JOBS;
 export const APRON_TRIANGLES=(()=>{
@@ -61,7 +61,7 @@ function blueprint(){
  }
  for(let i=0;i<SHELL_JOBS;i++){const start=Math.floor(i/SHELL_JOBS*256),end=Math.floor((i+1)/SHELL_JOBS*256),t=(start+end)/512,p=BOAT_CURVE.getPointAt(t),n=BOAT_CURVE.getTangentAt(t);result.push({x:p.x+n.z*.28,z:p.z-n.x*.28,y:1.17,angle:-Math.atan2(n.z,n.x),width:(end-start)*.30,depth:.64,height:.30,deck:false});}
  APRON_TRIANGLES.forEach((t,apron)=>{const p=t[0].clone().add(t[1]).add(t[2]).divideScalar(3);result.push({x:p.x,y:p.y,z:p.z,angle:0,width:0,depth:0,height:0,deck:false,apron});});
- for(const pieces of detailChunks(1985-64-result.length)){const {part:p,detail}=pieces[0];result.push({x:p.x,y:p.y,z:p.z,angle:0,width:p.width,height:p.height,depth:p.depth,deck:false,detail,part:p,pieces});}
+ for(const pieces of detailChunks(1698-64-result.length)){const {part:p,detail}=pieces[0];result.push({x:p.x,y:p.y,z:p.z,angle:0,width:p.width,height:p.height,depth:p.depth,deck:false,detail,part:p,pieces});}
  for(let row=0;row<8;row++)for(let col=0;col<8;col++)result.push({x:-7+col*2,z:-7+row*2,y:-.17,angle:0,width:2,depth:2,height:.30,deck:true,cell:row*8+col});
  return result;
 }

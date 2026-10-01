@@ -1,6 +1,6 @@
 import {createShipWake} from './ship-wake';
 import * as T from 'three';
-import {BOAT_BLUEPRINT,BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS,BOAT_HULL_BRICKS,BOAT_FRAME_BRICKS,APRON_TRIANGLES,hullDeliverySections} from './boat';
+import {BOAT_BLUEPRINT,BOAT_TOTAL_BRICKS,BOAT_WALL_BRICKS,BOAT_HULL_BRICKS,BOAT_FRAME_BRICKS,BOAT_CURVE,BOAT_FRAME_COUNTS,APRON_TRIANGLES,hullDeliverySections} from './boat';
 import type {ShipPart} from './ship-details';
 import type {Game} from './game';
 import {gridWorld} from './map';
@@ -22,7 +22,7 @@ export class BoatView {
  private readonly soil=new T.InstancedMesh(new T.CylinderGeometry(.68,.73,.08,10),new T.MeshBasicMaterial({color:'#795b44'}),64);
  private readonly detailBatches=Array.from({length:4},(_,i)=>{const mesh=new T.InstancedMesh(paintedGeometry(Boolean(i%2)),i<2?Object.assign(obsidianMaterial(),{vertexColors:true}):metalMaterial(),BOAT_TOTAL_BRICKS);mesh.count=0;mesh.frustumCulled=false;return mesh;});
  private readonly apron=(()=>{const g=new T.BufferGeometry(),v=APRON_TRIANGLES.flatMap(t=>t.flatMap(p=>[p.x,p.y,p.z]));g.setAttribute('position',new T.Float32BufferAttribute(v,3));g.setAttribute('uv',new T.Float32BufferAttribute(APRON_TRIANGLES.flatMap(t=>t.flatMap(p=>[p.x/2,p.z/2])),2));const material=deckMaterial();material.side=T.DoubleSide;return new T.Mesh(g,material);})();
- private readonly ribs=new T.InstancedMesh(paintedGeometry(false),Object.assign(metalMaterial(),{color:new T.Color('#746781')}),48);
+ private readonly ribs=new T.InstancedMesh(paintedGeometry(false),Object.assign(obsidianMaterial(),{vertexColors:true}),48);
  private readonly hull=createShipHull();
  private readonly hullTrim=createHullTrim();
  private readonly deckGrid=(()=>{const vertices:number[]=[];for(const [x,z,w,d] of [[0,-1,2,.058],[0,1,2,.058],[-1,0,.058,2],[1,0,.058,2]]){const a=[x-w/2,.003,z-d/2],b=[x+w/2,.003,z-d/2],c=[x+w/2,.003,z+d/2],e=[x-w/2,.003,z+d/2];vertices.push(...a,...b,...c,...a,...c,...e);}const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(vertices,3));return new T.InstancedMesh(g,new T.MeshBasicMaterial({color:'#b9b8cb',side:T.DoubleSide,transparent:true,opacity:.94}),64);})();
@@ -60,7 +60,7 @@ export class BoatView {
    const hullIndices:number[]=[],trimIndices:number[][]=[[],[]],apronIndices:number[]=[];
    this.ribs.count=0;
    for(const id of game.boat.built){const b=BOAT_BLUEPRINT[id];
-    if(b.frame==='rib'){const t=this.transform;t.position.set(b.x,b.y,b.z);t.rotation.set(0,b.angle,0);t.scale.set(b.width,b.height,b.depth);t.updateMatrix();this.ribs.setMatrixAt(this.ribs.count++,t.matrix);}
+    if(b.frame==='rib'){for(let k=0;k<3;k++){const u=(b.section!*3+k+.5)/(BOAT_FRAME_COUNTS.rib*3),p=BOAT_CURVE.getPointAt(u),n=BOAT_CURVE.getTangentAt(u),t=this.transform;t.position.set(p.x+n.z*.34,b.y,p.z-n.x*.34);t.rotation.set(0,-Math.atan2(n.z,n.x),0);t.scale.set(b.width,b.height,b.depth);t.updateMatrix();this.ribs.setMatrixAt(this.ribs.count++,t.matrix);}}
     else if(id<BOAT_HULL_BRICKS){const {start,end}=hullDeliverySections(id);if(b.frame){const target=trimIndices[b.frame==='upper'?0:1];for(let v=b.section!*FRAME_SECTION_VERTICES;v<(b.section!+1)*FRAME_SECTION_VERTICES;v++)target.push(v);}else for(let v=start*24;v<end*24;v++)hullIndices.push(v);}
     if(b.apron!==undefined)for(let v=b.apron*3;v<b.apron*3+3;v++)apronIndices.push(v);
    }
