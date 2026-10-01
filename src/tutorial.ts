@@ -1,4 +1,4 @@
-import {FEATURE_TIPS,forgeNeeds,forgeSuggestion,type FeatureTip} from './feature-guidance';
+import {FEATURE_TIPS,ForgeFuelGuidance,forgeSuggestion,type FeatureTip} from './feature-guidance';
 import {FIRST_EGG_SCORE} from './egg-goals';
 import {seenTips} from './seen-tips';
 import {eggIcon} from './egg';
@@ -8,6 +8,8 @@ import type {Game,Piece,Element} from './game';
 const TOOLTIP_DURATION=5000;
 
 export class Tutorial {
+  private fuelGuidance=new ForgeFuelGuidance();
+  private fuelTips:FeatureTip[]=[];
   private featureTip=document.createElement('div');
   private featureQueue:FeatureTip[]=[];
   private featureTimer:ReturnType<typeof setTimeout>|undefined;
@@ -48,7 +50,7 @@ export class Tutorial {
     this.tip.querySelector('button')!.addEventListener('click',()=>this.showGoal());this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal());
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
-  start(){clearTimeout(this.featureTimer);this.featureQueue=[];this.featureTip.hidden=true;clearTimeout(this.obsidianTimer);this.obsidianTip.hidden=true;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+  start(){this.fuelGuidance.reset();this.fuelTips=[];clearTimeout(this.featureTimer);this.featureQueue=[];this.featureTip.hidden=true;clearTimeout(this.obsidianTimer);this.obsidianTip.hidden=true;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
     if(seenTips.has('intro')){this.phase=3;this.showClearingTip();}
     else seenTips.mark('intro');
     this.refresh();
@@ -74,7 +76,7 @@ export class Tutorial {
     else if(this.phase===1)this.phase=2;
     this.paused=false;this.refresh();
   }
-  settled(ready:boolean){for(const id of forgeNeeds(this.game))this.queueFeature(id);this.showFeature();if(this.phase===2&&ready){seenTips.mark('intro-complete');this.phase=3;this.showClearingTip();}if(this.guideBoard!==this.game.boardChange){this.guideBoard=this.game.boardChange;this.refresh();}}
+  settled(ready:boolean,fuelReady=ready){this.fuelTips=this.fuelGuidance.update(this.game,fuelReady);for(const id of this.fuelTips)this.queueFeature(id);this.showFeature();if(this.phase===2&&ready){seenTips.mark('intro-complete');this.phase=3;this.showClearingTip();}if(this.guideBoard!==this.game.boardChange){this.guideBoard=this.game.boardChange;this.refresh();}}
   private showClearingTip(){
     if(seenTips.has('clearing')){this.showGoal();return;}
     seenTips.mark('clearing');this.tip.hidden=false;clearTimeout(this.timer);this.timer=setTimeout(()=>this.showGoal(),TOOLTIP_DURATION);
@@ -110,7 +112,7 @@ export class Tutorial {
   private showFeature(){
     if(!this.featureTip.hidden||this.game.over||!this.tip.hidden||!this.petTip.hidden||!this.warningTip.hidden||!this.obsidianTip.hidden||!this.goalHint.hidden)return;
     let id:FeatureTip|undefined;
-    while((id=this.featureQueue.shift())){if(!seenTips.has(id)&&(!id.startsWith('forge-')||forgeNeeds(this.game).includes(id)))break;id=undefined;}
+    while((id=this.featureQueue.shift())){if(!seenTips.has(id)&&(!id.startsWith('forge-')||this.fuelTips.includes(id)))break;id=undefined;}
     if(!id)return;seenTips.mark(id);this.featureTip.querySelector('p')!.textContent=FEATURE_TIPS[id];this.featureTip.hidden=false;this.featureTimer=setTimeout(()=>this.closeFeature(),6000);
   }
   private closeFeature(){clearTimeout(this.featureTimer);this.featureTip.hidden=true;this.showFeature();}

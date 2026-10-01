@@ -23,3 +23,26 @@ export function forgeSuggestion(game:Game,piece:Piece){
 export function forgeNeeds(game:Game):FeatureTip[]{
  return [...game.forges.keys()].flatMap(c=>{const lava=game.board[c-1]==='lava',water=game.board[c+1]==='water';return lava&&water?[]:[!lava&&!water?'forge-both':lava?'forge-water':'forge-lava'];});
 }
+
+// Count normal shape turns, not elapsed seconds, eggs, forge placement, or pet actions.
+export class ForgeFuelGuidance {
+ private missing=new Map<number,{lava:number|null;water:number|null}>();
+ reset(){this.missing.clear();}
+ update(game:Game,settled:boolean):FeatureTip[]{
+  for(const c of this.missing.keys())if(!game.forges.has(c))this.missing.delete(c);
+  const tips:FeatureTip[]=[];
+  for(const c of game.forges.keys()){
+   const state=this.missing.get(c)??{lava:null,water:null};
+   for(const element of ['lava','water'] as const){
+    const filled=game.board[c+(element==='lava'?-1:1)]===element;
+    state[element]=filled?null:state[element]??game.shapeMoves;
+   }
+   this.missing.set(c,state);
+   if(!settled)continue;
+   const lava=state.lava!==null&&game.shapeMoves-state.lava>=2;
+   const water=state.water!==null&&game.shapeMoves-state.water>=2;
+   if(lava&&water)tips.push('forge-both');else if(lava)tips.push('forge-lava');else if(water)tips.push('forge-water');
+  }
+  return [...new Set(tips)];
+ }
+}
