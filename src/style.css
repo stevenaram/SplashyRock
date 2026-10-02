@@ -512,3 +512,6 @@ body:has(#game.ending) #notice-rail{visibility:hidden}
  #tray:has(.slot.forge) .slot {flex-basis:82px;height:76px;padding:6px;}
  #tray:has(.slot.forge) .slot.forge {flex-basis:200px;}
 }
+
+#guide-target.rescue{width:0!important;height:0!important;border:0;background:none;box-shadow:none;transform:none}
+#guide-target.rescue>span{position:absolute;transform:translate(-50%,-50%);border:2px dashed #fff1bc;border-radius:5px;background:#fff2bc24;box-shadow:0 0 0 3px #fff1bc16}

@@ -1,4 +1,4 @@
-import type {Game,Piece} from './game';
+import {footprint,type Game,type Piece} from './game';
 export const FEATURE_TIPS={
  'berries-grown':'Water beside a bush grows berries.',
  'berries-eaten':'Pets eat berries instead of placing their usual tile.',
@@ -45,4 +45,18 @@ export class ForgeFuelGuidance {
   }
   return [...new Set(tips)];
  }
+}
+
+// Rescue guidance is situational: eggs do not count as playable shapes.
+export function forgeRescueSuggestion(game:Game){
+ if(game.over||!game.forges.size)return;
+ const playable=game.inventory.flatMap((piece,slot)=>{
+  if(!piece||piece.tile==='pet'||piece.tile==='forge')return [];
+  const anchors=game.board.flatMap((_,c)=>game.canPlace(piece,c)?[c]:[]);
+  return anchors.length?[{piece,slot,anchors}]:[];
+ });
+ if(!playable.length)return;
+ if(!playable.every(({piece,anchors})=>(piece.tile==='lava'||piece.tile==='water')&&anchors.every(anchor=>footprint(piece,anchor).some(([x,y])=>game.basinElement(y*8+x)===piece.tile))))return;
+ const {slot,anchors}=playable[0];
+ return {slot,cell:anchors[0]};
 }

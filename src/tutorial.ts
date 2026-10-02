@@ -1,9 +1,9 @@
-import {FEATURE_TIPS,ForgeFuelGuidance,forgeSuggestion,type FeatureTip} from './feature-guidance';
+import {FEATURE_TIPS,ForgeFuelGuidance,forgeSuggestion,forgeRescueSuggestion,type FeatureTip} from './feature-guidance';
 import {FIRST_EGG_SCORE} from './egg-goals';
 import {seenTips} from './seen-tips';
 import {eggIcon} from './egg';
 import {pieceIcon} from './piece-icon';
-import type {Game,Piece,Element} from './game';
+import {footprint,type Game,type Piece,type Element} from './game';
 
 const TOOLTIP_DURATION=5000;
 
@@ -33,6 +33,8 @@ export class Tutorial {
   private frame=0;
   private guideKey="";
   private guideBoard=-1;
+  private rescueShown=false;
+  private rescuePiece:Piece|undefined;
   constructor(private board:HTMLElement,goal:HTMLElement,private tray:HTMLElement,private game:Game,private screen:(cell:number)=>{x:number;y:number}){
     this.featureTip.id='feature-tip';this.featureTip.hidden=true;this.featureTip.setAttribute('role','status');this.featureTip.innerHTML='<p></p><button type="button">Got it</button>';board.append(this.featureTip);
     this.featureTip.querySelector('button')!.addEventListener('click',()=>this.closeFeature());
@@ -50,7 +52,7 @@ export class Tutorial {
     this.tip.querySelector('button')!.addEventListener('click',()=>this.showGoal());this.goalHint.querySelector('button')!.addEventListener('click',()=>this.dismissGoal());
     this.observer=new ResizeObserver(()=>this.refresh());this.observer.observe(board);this.observer.observe(tray);
   }
-  start(){this.fuelGuidance.reset();this.fuelTips=[];clearTimeout(this.featureTimer);this.featureQueue=[];this.featureTip.hidden=true;clearTimeout(this.obsidianTimer);this.obsidianTip.hidden=true;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
+  start(){this.rescueShown=false;this.rescuePiece=undefined;this.fuelGuidance.reset();this.fuelTips=[];clearTimeout(this.featureTimer);this.featureQueue=[];this.featureTip.hidden=true;clearTimeout(this.obsidianTimer);this.obsidianTip.hidden=true;clearTimeout(this.warningTimer);this.warningTip.hidden=true;clearTimeout(this.petTimer);this.petTip.hidden=true;clearTimeout(this.timer);this.phase=0;this.paused=false;this.tip.hidden=true;this.goalHint.hidden=true;
     if(seenTips.has('intro')){this.phase=3;this.showClearingTip();}
     else seenTips.mark('intro');
     this.refresh();
@@ -90,18 +92,29 @@ export class Tutorial {
   endDrag(){this.paused=false;this.refresh();}
   refresh(){cancelAnimationFrame(this.frame);this.frame=requestAnimationFrame(()=>this.layout());}
   private layout(){
-    const forgeGuide=this.phase>2&&!seenTips.has('forge-drag')&&this.game.inventory.some(p=>p?.tile==='forge');
-    const eggGuide=!forgeGuide&&this.phase>2&&!seenTips.has('egg-drag')&&this.game.pets.length===0;
-    const slot=this.game.inventory.findIndex(p=>p&&(forgeGuide?p.tile==='forge':eggGuide?p.tile==='pet':p.tile!=='pet'&&p.shape.cells.length===1&&(this.phase===0||p.tile!==this.firstElement)));
+    let rescue=this.phase>2?forgeRescueSuggestion(this.game):undefined;
+    if(this.rescueShown&&(!rescue||this.game.inventory[rescue.slot]!==this.rescuePiece)){this.rescuePiece=undefined;rescue=undefined;}
+    if(rescue&&!this.paused){this.rescueShown=true;this.rescuePiece=this.game.inventory[rescue.slot]??undefined;}
+    const forgeGuide=!rescue&&this.phase>2&&!seenTips.has('forge-drag')&&this.game.inventory.some(p=>p?.tile==='forge');
+    const eggGuide=!rescue&&!forgeGuide&&this.phase>2&&!seenTips.has('egg-drag')&&this.game.pets.length===0;
+    const slot=rescue?.slot??this.game.inventory.findIndex(p=>p&&(forgeGuide?p.tile==='forge':eggGuide?p.tile==='pet':p.tile!=='pet'&&p.shape.cells.length===1&&(this.phase===0||p.tile!==this.firstElement)));
     const piece=this.game.inventory[slot],button=this.tray.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
     const empty=eggGuide?this.game.board.map((_,c)=>c).filter(c=>piece&&this.game.canPlace(piece,c)).sort((a,b)=>Math.hypot(a%8-3.5,Math.floor(a/8)-3.5)-Math.hypot(b%8-3.5,Math.floor(b/8)-3.5))[0]:undefined;
-    const destination=forgeGuide&&piece?forgeSuggestion(this.game,piece):eggGuide?empty:this.destination();
-    if(this.game.over||(!eggGuide&&!forgeGuide&&this.phase>1)||!button||!piece||destination===undefined){this.animation?.cancel();this.guideKey="";this.hand.hidden=this.target.hidden=true;return;}
+    const destination=rescue?rescue.cell:forgeGuide&&piece?forgeSuggestion(this.game,piece):eggGuide?empty:this.destination();
+    if(this.game.over||(!rescue&&!eggGuide&&!forgeGuide&&this.phase>1)||!button||!piece||destination===undefined){this.animation?.cancel();this.guideKey="";this.hand.hidden=this.target.hidden=true;return;}
     const r=button.getBoundingClientRect(),b=this.board.getBoundingClientRect(),point=this.screen(destination),neighbor=this.screen(destination%8<7?destination+1:destination-1);
-    const key=[slot,destination,this.paused,r.x,r.y,r.width,r.height,b.x,b.y,b.width,b.height].join(':');
+    const key=[slot,piece.tile,piece.shape.id,!!rescue,destination,this.paused,r.x,r.y,r.width,r.height,b.x,b.y,b.width,b.height].join(':');
     if(key===this.guideKey)return;this.guideKey=key;this.animation?.cancel();this.hand.hidden=this.target.hidden=false;
     const x=point.x+b.left,y=point.y+b.top,size=Math.abs(neighbor.x-point.x)*.86;
     Object.assign(this.target.style,{left:`${x}px`,top:`${y}px`,width:`${size*(forgeGuide?3:1)}px`,height:`${size*.86}px`});
+    this.target.classList.toggle('rescue',!!rescue);
+    this.target.replaceChildren();
+    if(rescue){
+      for(const [cx,cy] of footprint(piece,destination)){
+        const tile=document.createElement('span'),p=this.screen(cy*8+cx);
+        Object.assign(tile.style,{left:`${p.x-point.x}px`,top:`${p.y-point.y}px`,width:`${size}px`,height:`${size*.86}px`});this.target.append(tile);
+      }
+    }
     this.hand.hidden=this.paused;if(this.paused)return;
     this.hand.innerHTML=`<span class="guide-piece ${piece.tile}">${pieceIcon(piece)}</span><svg viewBox="0 0 48 56"><path d="M16 28V8a5 5 0 0 1 10 0v15l5-2 12 7v14L32 53H20L5 35a5 5 0 0 1 7-7l4 5Z"/></svg>`;
     const from=`translate(${r.x+r.width/2}px,${r.y+r.height/2}px)`,to=`translate(${x}px,${y}px)`;
