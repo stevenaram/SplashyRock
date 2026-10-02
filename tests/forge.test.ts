@@ -132,3 +132,17 @@ test('production creates bricks immediately but waits for the collecting pet to 
  for(let t=0;t<2&&!pet.carryingBrick;t+=.01){pet.update(.01);g.updateForgeBlasts(.01);}
  assert.ok(pet.carryingBrick);assert.equal(blasts,1);assert.equal(g.board[19],null);assert.ok(pet.feeding>.65);
 });
+test('forge placement and production blasts protect neighboring forge basins',()=>{
+ const g=new Game();g.board[35]='forge';g.board[34]='lava';g.board[36]='water';g.forges.set(35,{bricks:10,cycles:0});
+ place(g,forge,27);g.board[19]='bush';g.updateForgeBlasts(.32);
+ assert.equal(g.board[34],'lava');assert.equal(g.board[36],'water');assert.equal(g.board[19],null);
+ g.board[26]='lava';g.board[28]='water';g.board[19]='bush';place(g,single('water'),63);g.updateForgeBlasts(1.28);
+ for(const c of [26,34])assert.equal(g.board[c],'lava');for(const c of [28,36])assert.equal(g.board[c],'water');assert.equal(g.board[19],null);
+});
+test('pet obsidian blasts preserve both forge basins while clearing ordinary liquids',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const {SandSweeps,STONE_BURY_MS,NEIGHBOR_SWEEP_MS}=await import('../src/reactions');
+ const g=new Game();g.board[27]='forge';g.forges.set(27,{bricks:0,cycles:0});g.board[26]='lava';g.board[28]='water';
+ for(const c of [18,20]){g.board[c]='stone';g.leafStones.add(c);g.shardStones.add(c);g.board[c-8]='water';}
+ const sweeps=new SandSweeps(g,()=>{},()=>{});sweeps.schedule();t.mock.timers.tick(STONE_BURY_MS);t.mock.timers.tick(NEIGHBOR_SWEEP_MS);
+ assert.equal(g.board[26],'lava');assert.equal(g.board[28],'water');assert.equal(g.board[10],null);assert.equal(g.board[12],null);sweeps.dispose();
+});

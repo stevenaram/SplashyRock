@@ -40,7 +40,7 @@ export class Game {
       this.forgeBlasts.splice(this.forgeBlasts.indexOf(job),1);
       if(this.forges.has(job.cell)){
         const footprint=[job.cell-1,job.cell,job.cell+1];
-        const cells=[...new Set(footprint.flatMap(c=>this.neighbors(c)))].filter(c=>!footprint.includes(c));
+        const cells=[...new Set(footprint.flatMap(c=>this.neighbors(c)))].filter(c=>!footprint.includes(c)&&!this.basinElement(c));
         const cleared=this.clearCells(cells,job.run,true);this.reconcileBushes();
         this.onForgeBlast(job.cell,cleared,job.run);changed=true;
       }
