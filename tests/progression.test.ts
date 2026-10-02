@@ -10,14 +10,14 @@ test('pet quests credit actual hatches, pay once, and persist wallet and next go
  const storage=memory(),p=new Progression(storage,()=>0),g=new Game();
  const pet=new PetMotion(27,'water',g.board,()=>{});pet.startHatch();g.pets.push(pet);
  assert.equal(p.observe(g,normal).length,0);pet.update(1.8);
- assert.deepEqual(p.observe(g,normal).map(a=>a.id),['pet-1']);assert.equal(p.gems,5);
+ assert.deepEqual(p.observe(g,normal).map(a=>a.id),['pet-1']);assert.equal(p.gems,51);
  assert.equal(p.observe(g,normal).length,0);
- const reload=new Progression(storage,()=>.9);assert.equal(reload.gems,5);assert.equal(reload.active().find(a=>a.family==='pets')!.target,2);
+ const reload=new Progression(storage,()=>.9);assert.equal(reload.gems,51);assert.equal(reload.active().find(a=>a.family==='pets')!.target,2);
  g.restart();g.pets.push(new PetMotion(27,'lava',g.board,()=>{}));assert.equal(reload.observe(g,normal).length,0);
 });
 test('combo milestones catch up once while only the next target is listed',()=>{
  const p=new Progression(memory()),g=new Game();g.maxCombo=5;
- const awards=p.observe(g,normal);assert.deepEqual(awards.map(a=>a.id),['combo-2','combo-3','combo-4','combo-5']);assert.equal(p.gems,12);
+ const awards=p.observe(g,normal);assert.deepEqual(awards.map(a=>a.id),['combo-2','combo-3','combo-4','combo-5']);assert.equal(p.gems,54);
  assert.equal(p.active().filter(a=>a.family==='combo').length,1);assert.equal(p.active().find(a=>a.family==='combo')!.target,6);
  assert.equal(p.observe(g,normal).length,0);
 });
@@ -43,21 +43,21 @@ test('clean-board achievement excludes tutorial, idle empty boards, and revive e
  assert.equal(p.observe(g,{calm:false,allowCleanBoard:true}).length,0);
  assert.equal(p.observe(g,{calm:true,allowCleanBoard:true,suppressed:true}).length,0);
  assert.deepEqual(p.observe(g,{calm:true,allowCleanBoard:true}).map(a=>a.id),['clean-slate']);
- assert.equal(p.gems,10);assert.equal(p.observe(g,{calm:true,allowCleanBoard:true}).length,0);
+ assert.equal(p.gems,52);assert.equal(p.observe(g,{calm:true,allowCleanBoard:true}).length,0);
 });
 test('wallet spends exactly twenty gems once and cannot overspend or accept invalid amounts',()=>{
- const storage=memory(),p=new Progression(storage),g=new Game();g.maxCombo=8;p.observe(g,normal);
+ const storage=memory();storage.setItem(PROGRESS_KEY,JSON.stringify({gems:21}));const p=new Progression(storage);
  assert.equal(p.spend(REVIVE_COST),true);assert.equal(p.gems,1);assert.equal(p.spend(REVIVE_COST),false);assert.equal(p.spend(-10),false);assert.equal(p.spend(.5),false);
  assert.equal(new Progression(storage).gems,1);
 });
 test('corrupt or blocked storage does not break progression',()=>{
- const storage=memory();storage.setItem(PROGRESS_KEY,'not json');const p=new Progression(storage);assert.equal(p.gems,0);
- const blocked=new Progression({getItem(){throw Error();},setItem(){throw Error();}});const g=new Game();g.maxCombo=2;blocked.observe(g,normal);assert.equal(blocked.gems,3);assert.equal(blocked.observe(g,normal).length,0);
+ const storage=memory();storage.setItem(PROGRESS_KEY,'not json');const p=new Progression(storage);assert.equal(p.gems,50);
+ const blocked=new Progression({getItem(){throw Error();},setItem(){throw Error();}});const g=new Game();g.maxCombo=2;blocked.observe(g,normal);assert.equal(blocked.gems,51);assert.equal(blocked.observe(g,normal).length,0);
 });
 test('test gems fund revives without modifying persistent wallets',()=>{
- const p=new Progression();assert.equal(p.addTestGems(20),true);assert.equal(p.gems,20);assert.equal(p.spend(REVIVE_COST),true);assert.equal(p.gems,0);
+ const p=new Progression();assert.equal(p.addTestGems(20),true);assert.equal(p.gems,70);assert.equal(p.spend(REVIVE_COST),true);assert.equal(p.gems,50);
  for(const amount of [0,-1,1.5,NaN,Infinity,1000001])assert.equal(p.addTestGems(amount),false);
- const saved=new Progression(memory());assert.equal(saved.addTestGems(100),false);assert.equal(saved.gems,0);
+ const saved=new Progression(memory());assert.equal(saved.addTestGems(100),false);assert.equal(saved.gems,50);
 });
 
 test('boss summons and simultaneous fights pay once; deaths count after animation across runs',()=>{
@@ -103,12 +103,12 @@ test('feature milestones persist across runs, pay once, and show only the next g
  const storage=memory(),p=new Progression(storage),g=new Game();
  g.featureAchievementEvents={'berries-grown':40,'obsidian-cleared':10};
  const awards=p.observe(g,normal);assert.deepEqual(awards.map(a=>a.id),['berries-grown-4','berries-grown-40','obsidian-cleared-1','obsidian-cleared-10']);
- assert.equal(p.gems,16);assert.deepEqual(g.featureAchievementEvents,{});assert.deepEqual(p.observe(g,normal),[]);
+ assert.equal(p.gems,54);assert.deepEqual(g.featureAchievementEvents,{});assert.deepEqual(p.observe(g,normal),[]);
  g.restart();const restored=new Progression(storage);
- assert.equal(restored.gems,16);assert.equal(restored.active().filter(a=>a.family==='berries-grown').length,1);
+ assert.equal(restored.gems,54);assert.equal(restored.active().filter(a=>a.family==='berries-grown').length,1);
  assert.equal(restored.active().find(a=>a.family==='berries-grown')!.progress,40);
  g.featureAchievementEvents={'berries-grown':160};assert.deepEqual(restored.observe(g,normal).map(a=>a.id),['berries-grown-200']);
- assert.equal(restored.gems,26);
+ assert.equal(restored.gems,56);
 });
 test('old saves retain gems and completions while initializing feature counters safely',()=>{
  const storage=memory();storage.setItem(PROGRESS_KEY,JSON.stringify({gems:200,completed:['pet-1'],petBest:1,features:{'berries-grown':-99,'obsidian-cleared':'bad'}}));
@@ -118,10 +118,20 @@ test('old saves retain gems and completions while initializing feature counters 
 });
 test('suppressed feature events are consumed without leaking into future rewards',()=>{
  const p=new Progression(memory()),g=new Game();g.featureAchievementEvents={'obsidian-cleared':100};
- assert.deepEqual(p.observe(g,{...normal,suppressed:true}),[]);assert.deepEqual(p.observe(g,normal),[]);assert.equal(p.gems,0);
+ assert.deepEqual(p.observe(g,{...normal,suppressed:true}),[]);assert.deepEqual(p.observe(g,normal),[]);assert.equal(p.gems,50);
 });
 test('legacy pet achievements above 16 retire without taking away earned gems',()=>{
  const storage=memory();storage.setItem(PROGRESS_KEY,JSON.stringify({gems:320,petBest:64,completed:Array.from({length:64},(_,i)=>`pet-${i+1}`)}));
  const p=new Progression(storage);assert.equal(p.gems,320);assert.ok(!p.active().some(a=>a.family==='pets'));
  const saved=JSON.parse(storage.getItem(PROGRESS_KEY)!);assert.equal(saved.petBest,16);assert.equal(saved.completed.filter((id:string)=>id.startsWith('pet-')).length,16);
+});
+
+test('new players receive 50 gems once and empty saved wallets stay empty',()=>{
+ const storage=memory(),first=new Progression(storage);assert.equal(first.gems,50);assert.ok(first.spend(20));assert.equal(new Progression(storage).gems,30);
+ storage.setItem(PROGRESS_KEY,JSON.stringify({gems:0}));assert.equal(new Progression(storage).gems,0);
+});
+test('achievement rewards use reduced whole gems consistently',()=>{
+ const p=new Progression(memory()),g=new Game();g.score=1000000;const awards=p.observe(g,normal);
+ assert.deepEqual(awards.filter(a=>a.family==='score').map(a=>a.reward),[2,3,4,5,8]);
+ assert.equal(p.gems,50+awards.reduce((n,a)=>n+a.reward,0));
 });

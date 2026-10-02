@@ -28,7 +28,7 @@ export class Progression {
  private lastChange=-1;
  private lastTiles:readonly(Tile|null)[]=Array(64).fill(null);
  constructor(private readonly storage?:Pick<Storage,'getItem'|'setItem'>,random:()=>number=Math.random){
-  this.state={features:{},waterDefeats:0,lavaDefeats:0,waterSummoned:false,lavaSummoned:false,dualBosses:false,scoreBest:0,gems:0,completed:[],first:random()<.5?'water':'lava',networkStep:0,petBest:0,comboBest:0,clearBest:0,networkBest:0};
+  this.state={features:{},waterDefeats:0,lavaDefeats:0,waterSummoned:false,lavaSummoned:false,dualBosses:false,scoreBest:0,gems:50,completed:[],first:random()<.5?'water':'lava',networkStep:0,petBest:0,comboBest:0,clearBest:0,networkBest:0};
   this.reload();this.save();
  }
  addTestGems(amount:number){
@@ -38,7 +38,7 @@ export class Progression {
  get gems(){return this.state.gems;}
  get completedCount(){return this.state.completed.length;}
  private catalog():Achievement[]{
-  const row=(id:string,description:string,reward:number,progress:number,target:number,family:string)=>({id,title:description,description,reward,progress,target,family});
+  const row=(id:string,description:string,reward:number,progress:number,target:number,family:string)=>({id,title:description,description,reward:Math.max(1,Math.round(reward/5)),progress,target,family});
   return [
    ...PET_GOALS.map(n=>row(`pet-${n}`,n===1?'Hatch your first pet.':`Hatch ${n} pets in a single run.`,5,this.state.petBest,n,'pets')),
    ...COMBO_GOALS.map(n=>row(`combo-${n}`,`Reach a ×${n} stone combo.`,3,this.state.comboBest,n,'combo')),
